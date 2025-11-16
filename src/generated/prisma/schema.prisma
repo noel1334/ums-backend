@@ -1,0 +1,1415 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// --- CORE USER & ACADEMIC STRUCTURE ENUMS ---
+enum LecturerRole {
+  LECTURER
+  HOD
+  DEAN
+  EXAMINER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum SemesterType {
+  FIRST
+  SECOND
+  SUMMER
+}
+
+enum EntryMode {
+  UTME
+  DIRECT_ENTRY
+  TRANSFER
+}
+
+enum CourseType {
+  CORE
+  ELECTIVE
+}
+
+enum DegreeType {
+  UNDERGRADUATE
+  POSTGRADUATE_DIPLOMA
+  MASTERS
+  PHD
+  CERTIFICATE
+  DIPLOMA
+}
+
+// --- RESULT & GRADING ENUMS ---
+enum GradeLetter {
+  A
+  B
+  C
+  D
+  E
+  F
+  P // Pass (if applicable for non-graded courses)
+  I // Incomplete (if applicable)
+}
+
+enum ResultRemark {
+  PROMOTED
+  PROBATION
+  WITHDRAWN
+  DISTINCTION
+  CREDIT
+  PASS
+  FAIL
+}
+
+// --- FINANCIAL ENUMS ---
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  WAIVED
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentChannel {
+  FLUTTERWAVE
+  PAYSTACK
+  STRIPE
+  BANK_TRANSFER
+}
+
+enum BookingPaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  CANCELLED
+  CONFIRMED
+}
+
+enum LetterTemplateType {
+  ADMISSION_LETTER // Standard final admission letter
+  PROVISIONAL_ADMISSION // Initial offer letter, before full acceptance/enrollment
+  DEFERRED_ADMISSION // For students whose admission is postponed
+  SCHOLARSHIP_OFFER // For scholarship recipients
+  GENERAL_ANNOUNCEMENT // For general purpose announcements or notices
+  STUDENT_ID_PICKUP // Notification for ID card collection
+  ACADEMIC_WARNING // For students facing academic challenges
+  ACADEMIC_PROBATION // For students placed on academic probation
+  GRADUATION_CLEARANCE_NOTICE // For informing students about graduation clearance
+  ALUMNI_WELCOME // Welcome letter to new alumni
+  COURSE_REGISTRATION_GUIDE // Instructions for course registration
+  HOSTEL_ALLOCATION // For informing students of hostel room allocation
+  HOSTEL_REGISTRATION_GUIDE // Instructions for hostel registration
+  EXAMINATION_GUIDE // Instructions for upcoming exams
+  EXAMINATION_RESULTS_NOTICE // Notification for exam results release
+  TRANSCRIPT_REQUEST_GUIDE // Instructions for requesting academic transcripts
+  TRANSCRIPT_ISSUANCE_NOTICE // Notification for transcript issuance
+  TRANSFER_ADMISSION_NOTICE // For students transferring from another institution
+  TRANSFER_ADMISSION_GUIDE // Instructions for transfer admission process
+  TRANSFER_ADMISSION_APPROVAL // Notification for transfer admission approval
+  TRANSFER_ADMISSION_REJECTION // Notification for transfer admission rejection
+}
+
+// --- EXAMINATION SYSTEM ENUMS ---
+enum ExamStatus {
+  PENDING // Created, not yet active for students
+  ACTIVE // Currently available for students to take
+  COMPLETED // Exam period over, awaiting grading or results
+  GRADING_IN_PROGRESS // If manual grading is involved
+  GRADED // All submissions graded
+  RESULTS_PUBLISHED // Results are out
+  ARCHIVED // Old exam, kept for records
+  CANCELLED // Exam was cancelled
+}
+
+enum StudyMode {
+  FULL_TIME
+  PART_TIME
+  DISTANCE_LEARNING
+  EVENING
+  // Add more as needed
+}
+
+enum NationalityType {
+  Nigerian
+  International
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE // Options provided, one or more correct
+  TRUE_FALSE // Two options: True or Falsfge
+  SHORT_ANSWER // Student types a brief text answer
+  ESSAY // Student types a longer text answer
+  FILL_IN_THE_BLANKS
+  // MATCHING
+}
+
+enum ExamType {
+  MID_SEMESTER
+  FINAL
+  QUIZ
+  ASSIGNMENT // If assignments are treated as structured exams
+  MAKEUP
+  CBT // Computer-Based Test
+  PRACTICAL
+}
+
+// --- SCREENING & APPLICATION ENUMS ---
+enum ApplicationStatus {
+  PENDING_SUBMISSION // Applicant started but not yet submitted
+  SUBMITTED // Application submitted by applicant
+  UNDER_REVIEW // Admin/ICT reviewing
+  SCREENING_PASSED // Initial screening criteria met
+  SCREENING_FAILED // Did not meet initial criteria
+  ADMITTED // Admission offered
+  ADMISSION_ACCEPTED // Applicant accepted offer
+  ADMISSION_REJECTED // Applicant rejected offer
+  PENDING_PAYMENT // Admitted, awaiting acceptance fee payment
+  ENROLLED // Payment confirmed, student record created (links to Student model)
+  CLOSED // Application process concluded without enrollment (e.g., timed out)
+}
+
+enum OLevelExamType {
+  WAEC
+  NECO
+  NABTEB
+  GCE_WAEC
+  GCE_NECO
+  // Add others as needed
+}
+
+enum OLevelGrade {
+  A1
+  B2
+  B3
+  C4
+  C5
+  C6
+  D7
+  E8
+  F9
+  AR // Awaiting Result
+  AB // Absent
+}
+
+enum TertiaryQualificationType {
+  ND // National Diploma
+  HND // Higher National Diploma
+  NCE // Nigeria Certificate in Education
+  BSC // Bachelor's Degree
+  MSC // Master's Degree
+  PGD // Postgraduate Diploma
+  // Add others
+}
+
+enum DocumentType {
+  PROFILE_PHOTO
+  BIRTH_CERTIFICATE
+  OLEVEL_CERTIFICATE_FIRST_SITTING
+  OLEVEL_CERTIFICATE_SECOND_SITTING // If you allow two sittings
+  CERTIFICATE_OF_ORIGIN // Indigeneship
+  JAMB_RESULT_SLIP
+  TERTIARY_TRANSCRIPT // For DE or transfer
+  TERTIARY_CERTIFICATE // For DE or transfer
+  // Add others as needed
+}
+
+enum DocumentUploadStatus {
+  NOT_UPLOADED
+  UPLOADED
+  VERIFIED
+  REJECTED // If an uploaded document is invalid
+}
+
+// Enum for Admission Letter Sections
+enum LetterSectionType {
+  HEADER
+  SALUTATION
+  BODY_PARAGRAPH
+  TERMS_CONDITIONS_INTRO
+  TERMS_CONDITIONS_ITEM
+  CONCLUDING_PARAGRAPH
+  CLOSING
+  SIGNATURE_BLOCK
+  FOOTER
+  WATERMARK_TEXT
+}
+
+enum ApplicantPaymentPurpose {
+  SCREENING_APPLICATION_FEE
+  ADMISSION_ACCEPTANCE_FEE
+  // Other pre-admission fees if any
+}
+
+// --- USER & ADMINISTRATIVE MODELS ---
+model Admin {
+  id                        Int      @id @default(autoincrement())
+  email                     String   @unique
+  password                  String
+  name                      String?
+  profileImg                String?
+  phone                     String?  @unique
+  role                      String?  @default("ADMIN")
+  createdAt                 DateTime @default(now())
+  isPermittedToAddAdmin     Boolean  @default(false) // Can this admin add other admins?
+  location                  String? // Optional: Admin's location
+  updatedAt                 DateTime @updatedAt
+  resultsApprovedForRelease Result[] @relation("ResultsApprovedForReleaseByAdmin")
+  // createdExams              Exam[]   @relation("AdminCreatedExams") // Optional
+}
+
+model Student {
+  id                    Int                            @id @default(autoincrement())
+  regNo                 String?                        @unique @db.VarChar(191) // ADDED: For unique indexes with utf8mb4
+  jambRegNo             String?                        @unique @db.VarChar(191) // ADDED: For unique indexes with utf8mb4
+  name                  String                         @db.VarChar(255) // ADDED: Sensible default length
+  email                 String                         @unique @db.VarChar(191)
+  entryMode             EntryMode
+  yearOfAdmission       Int
+  admissionSeasonId     Int
+  admissionSemesterId   Int
+  departmentId          Int
+  programId             Int
+  entryLevelId          Int
+  currentLevelId        Int
+  isGraduated           Boolean                        @default(false)
+  graduationSeasonId    Int?
+  graduationSemesterId  Int?
+  currentSeasonId       Int?
+  currentSemesterId     Int?
+  isActive              Boolean                        @default(true)
+  password              String                         @db.VarChar(255) // ADDED: For password hashes
+  profileImg            String?                        @db.VarChar(255)
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+  entryLevel            Level                          @relation("EntryLevel", fields: [entryLevelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  currentLevel          Level                          @relation("CurrentLevel", fields: [currentLevelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  department            Department                     @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  program               Program                        @relation(fields: [programId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  admissionSeason       Season                         @relation("AdmissionSeason", fields: [admissionSeasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  admissionSemester     Semester                       @relation("AdmissionSemester", fields: [admissionSemesterId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  graduationSeason      Season?                        @relation("GraduationSeason", fields: [graduationSeasonId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  graduationSemester    Semester?                      @relation("GraduationSemester", fields: [graduationSemesterId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  currentSeason         Season?                        @relation("CurrentSeason", fields: [currentSeasonId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  currentSemester       Semester?                      @relation("CurrentSemester", fields: [currentSemesterId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  admissionOfferDetails AdmissionOffer?                @relation("StudentAdmissionOffer")
+  studentDetails        StudentDetails?
+  registrations         StudentCourseRegistration[]
+  results               Result[]
+  schoolFees            SchoolFee[]
+  payments              PaymentReceipt[]
+  hostelBookings        HostelBooking[]
+  notifications         Notification[]
+  examAttempts          ExamAttempt[] // Student's attempts at various exams
+  assignedExamSessions  StudentExamSessionAssignment[] // Sessions student is assigned to
+  studentExamPayment    StudentExamPayment[]
+
+  @@index([name])
+  @@index([email])
+  @@index([regNo])
+}
+
+model StudentDetails {
+  id            Int       @id @default(autoincrement())
+  studentId     Int       @unique
+  dob           DateTime?
+  gender        Gender // This should not be optional if it's a primary detail
+  address       String?
+  phone         String?   @unique
+  guardianName  String?
+  guardianPhone String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  student       Student   @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model Lecturer {
+  id                     Int            @id @default(autoincrement())
+  staffId                String?        @unique
+  title                  String?
+  name                   String
+  departmentId           Int
+  email                  String?        @unique
+  phone                  String?        @unique
+  role                   LecturerRole   @default(LECTURER)
+  isActive               Boolean        @default(true)
+  password               String
+  profileImg             String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  department             Department     @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  staffCourses           StaffCourse[]
+  notifications          Notification[]
+  submittedScores        Score[]        @relation("ScoresSubmittedBy")
+  examinerApprovedScores Score[]        @relation("ScoresApprovedByExaminer")
+  hodAcceptedScores      Score[]        @relation("ScoresAcceptedByHOD")
+  createdExams           Exam[]         @relation("LecturerCreatedExams") // Exams created by this lecturer
+  authoredQuestions      Question[]     @relation("LecturerAuthoredQuestions")
+}
+
+model ICTStaff {
+  id                          Int      @id @default(autoincrement())
+  staffId                     String?  @unique
+  name                        String
+  email                       String   @unique
+  phone                       String?  @unique
+  isActive                    Boolean  @default(true)
+  password                    String
+  profileImg                  String?
+  canManageCourses            Boolean  @default(false)
+  canManageCourseRegistration Boolean  @default(false)
+  canManageScores             Boolean  @default(false)
+  canManageResults            Boolean  @default(false)
+  canViewAnalytics            Boolean  @default(false)
+  canManageExams              Boolean  @default(false) // Permission to manage exams
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  authoredQuestions Question[] @relation("ICTStaffAuthoredQuestions")
+  createdExams      Exam[]     @relation("ICTStaffCreatedExams") // Exams created by this ICT staff
+}
+
+// --- ACADEMIC STRUCTURE MODELS ---
+model Faculty {
+  id                 Int                 @id @default(autoincrement())
+  name               String              @unique
+  facultyCode        String              @unique
+  description        String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  departments        Department[]
+  acceptanceFeeLists AcceptanceFeeList[]
+  schoolFeeLists     SchoolFeeList[]
+}
+
+model Department {
+  id             Int             @id @default(autoincrement())
+  name           String          @unique
+  facultyId      Int
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  faculty        Faculty         @relation(fields: [facultyId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  students       Student[]
+  programs       Program[]
+  lecturers      Lecturer[]
+  courses        Course[]
+  results        Result[]
+  schoolFees     SchoolFee[]
+  schoolFeeLists SchoolFeeList[]
+}
+
+model StaffCourse {
+  id         Int      @id @default(autoincrement())
+  lecturerId Int
+  courseId   Int
+  semesterId Int
+  seasonId   Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  lecturer   Lecturer @relation(fields: [lecturerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: Cascade) // Or Restrict if you want to unassign first
+  semester   Semester @relation(fields: [semesterId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  season     Season   @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([lecturerId, courseId, semesterId, seasonId])
+}
+
+model Program {
+  id                            Int                            @id @default(autoincrement())
+  programCode                   String                         @unique
+  name                          String
+  degree                        String
+  degreeType                    DegreeType
+  duration                      Int // In years
+  modeOfStudy                   StudyMode?
+  departmentId                  Int
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
+  department                    Department                     @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  targetedByApplications        ApplicationProfile[]           @relation("ApplicationsForProgram")
+  offersInProgram               AdmissionOffer[]               @relation("ProgramAdmissionOffers")
+  programCourses                ProgramCourse[]
+  students                      Student[]
+  results                       Result[]
+  schoolFees                    SchoolFee[]
+  schoolFeeLists                SchoolFeeList[]
+  acceptanceFeeLists            AcceptanceFeeList[]
+  programCourseUnitRequirements ProgramCourseUnitRequirement[]
+
+  @@unique([name, degree, degreeType, departmentId], name: "unique_program_offering_in_department")
+  @@index([name]) // Changed from unique_program_name_globally to just index for flexibility
+}
+
+model Level {
+  id                            Int                            @id @default(autoincrement())
+  name                          String                         @unique // e.g., "100 Level"
+  value                         Int                            @unique // e.g., 100, 200, 300, 400, 500
+  description                   String?
+  order                         Int?                           @unique // Optional: 1, 2, 3, 4 for sorting and progression logic
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
+  studentsAtEntryLevel          Student[]                      @relation("EntryLevel")
+  studentsAtCurrentLevel        Student[]                      @relation("CurrentLevel")
+  offersAtLevel                 AdmissionOffer[]               @relation("LevelAdmissionOffers")
+  programCourses                ProgramCourse[]
+  registrations                 StudentCourseRegistration[]
+  schoolFeeLists                SchoolFeeList[]
+  Result                        Result[]
+  programCourseUnitRequirements ProgramCourseUnitRequirement[]
+}
+
+model ProgramCourseUnitRequirement {
+  id                 Int          @id @default(autoincrement())
+  programId          Int
+  levelId            Int
+  semesterType       SemesterType // Changed from Int and foreign key to SemesterType enum
+  minimumCreditUnits Int
+  maximumCreditUnits Int
+  description        String?
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  level   Level   @relation(fields: [levelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  // No direct relation to the 'Semester' model anymore, as it's directly using the enum 'SemesterType'.
+
+  // The unique constraint must also be updated to use semesterType instead of semesterId.
+  @@unique([programId, levelId, semesterType])
+  @@index([programId])
+  @@index([levelId])
+  @@index([semesterType]) // Index on the enum type for efficient queries
+}
+
+model Course {
+  id                    Int                         @id @default(autoincrement())
+  code                  String                      @unique
+  title                 String
+  creditUnit            Int
+  preferredSemesterType SemesterType?
+  // preferredSemesterNumber Int?    // Optional: If you also want to store 1, 2, 3. Redundant if SemesterType is sufficient.
+  departmentId          Int
+  courseType            CourseType                  @default(CORE)
+  isActive              Boolean                     @default(true)
+  createdAt             DateTime                    @default(now())
+  updatedAt             DateTime                    @updatedAt
+  department            Department                  @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  programCourses        ProgramCourse[]
+  staffCourses          StaffCourse[]
+  registrations         StudentCourseRegistration[] // Student registrations are for specific offerings
+  exams                 Exam[] // Exams are for specific offerings
+
+  // Prerequisite relationships
+  prerequisites     CoursePrerequisite[] @relation("CoursePrerequisites")
+  isPrerequisiteFor CoursePrerequisite[] @relation("IsPrerequisiteForCourse")
+
+  @@index([title])
+}
+
+model CoursePrerequisite {
+  id             Int    @id @default(autoincrement())
+  courseId       Int
+  prerequisiteId Int
+  course         Course @relation("CoursePrerequisites", fields: [courseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  prerequisite   Course @relation("IsPrerequisiteForCourse", fields: [prerequisiteId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([courseId, prerequisiteId])
+}
+
+model ProgramCourse {
+  id         Int      @id @default(autoincrement())
+  programId  Int
+  courseId   Int
+  levelId    Int
+  isElective Boolean  @default(false)
+  isActive   Boolean  @default(true) // Is this course mapping active for this program/level?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  program    Program  @relation(fields: [programId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  level      Level    @relation(fields: [levelId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([programId, courseId, levelId], name: "programCourseLevelUnique")
+}
+
+model Season {
+  id                      Int                         @id @default(autoincrement())
+  name                    String                      @unique // e.g., "2023/2024 Academic Session"
+  isActive                Boolean                     @default(false)
+  isComplete              Boolean                     @default(false)
+  startDate               DateTime? // For chronological ordering
+  endDate                 DateTime?
+  createdAt               DateTime                    @default(now())
+  updatedAt               DateTime                    @updatedAt
+  studentsAdmitted        Student[]                   @relation("AdmissionSeason")
+  studentsCurrent         Student[]                   @relation("CurrentSeason")
+  studentsGraduated       Student[]                   @relation("GraduationSeason")
+  jambApplicants          JambApplicant[]             @relation("JambApplicationsInSeason")
+  admissionOffersInSeason AdmissionOffer[]            @relation("SeasonAdmissionOffers")
+  semesters               Semester[]
+  registrations           StudentCourseRegistration[]
+  results                 Result[]
+  schoolFees              SchoolFee[]
+  schoolFeeLists          SchoolFeeList[]
+  payments                PaymentReceipt[]
+  staffCourses            StaffCourse[]
+  hostelBookings          HostelBooking[]
+  exams                   Exam[] // Exams scheduled in this season
+  screeningFeeLists       ScreeningFeeList[]
+  acceptanceFeeLists      AcceptanceFeeList[]
+  HostelFeeList           HostelFeeList[]
+}
+
+model Semester {
+  id                          Int                         @id @default(autoincrement())
+  name                        String // e.g., "First Semester"
+  seasonId                    Int
+  type                        SemesterType
+  semesterNumber              Int // 1 for FIRST, 2 for SECOND
+  isActive                    Boolean                     @default(false)
+  startDate                   DateTime?
+  endDate                     DateTime?
+  areStudentEditsLocked       Boolean                     @default(false)
+  areLecturerScoreEditsLocked Boolean                     @default(false)
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
+  season                      Season                      @relation(fields: [seasonId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  registrations               StudentCourseRegistration[]
+  results                     Result[]
+  staffCourses                StaffCourse[]
+  studentsAdmitted            Student[]                   @relation("AdmissionSemester")
+  studentsCurrent             Student[]                   @relation("CurrentSemester")
+  studentsGraduated           Student[]                   @relation("GraduationSemester")
+  admissionOffersInSemester   AdmissionOffer[]            @relation("SemesterAdmissionOffers")
+  schoolFees                  SchoolFee[]
+  exams                       Exam[] // Exams scheduled in this semester
+
+  @@unique([name, seasonId])
+  @@unique([type, seasonId])
+  @@unique([semesterNumber, seasonId])
+}
+
+// --- COURSE REGISTRATION, SCORES, RESULTS ---
+model StudentCourseRegistration {
+  id              Int      @id @default(autoincrement())
+  studentId       Int
+  courseId        Int
+  semesterId      Int
+  levelId         Int // Level at the time of registration
+  seasonId        Int
+  isScoreRecorded Boolean  @default(false)
+  registeredAt    DateTime @default(now())
+  student         Student  @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  course          Course   @relation(fields: [courseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  semester        Semester @relation(fields: [semesterId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  level           Level    @relation(fields: [levelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  season          Season   @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  score           Score? // One-to-one with Score
+
+  @@unique([studentId, courseId, semesterId, seasonId], name: "unique_student_course_semester_season_registration")
+}
+
+model Score {
+  id                          Int                       @id @default(autoincrement())
+  studentCourseRegistrationId Int                       @unique // One score record per registration
+  firstCA                     Float?
+  secondCA                    Float?
+  examScore                   Float? // This might be from traditional exam or CBT
+  totalScore                  Float?
+  grade                       GradeLetter?
+  point                       Float?
+  cuGp                        Float? // <--- ADD THIS FIELD (or CU_GP)
+  resultId                    Int? // Link to the semester result summary
+  submittedByLecturerId       Int?
+  submittedAt                 DateTime?
+  isApprovedByExaminer        Boolean                   @default(false)
+  examinerApprovedAt          DateTime?
+  examinerWhoApprovedId       Int?
+  isAcceptedByHOD             Boolean                   @default(false)
+  hodAcceptedAt               DateTime?
+  hodWhoAcceptedId            Int?
+  createdAt                   DateTime                  @default(now())
+  updatedAt                   DateTime                  @updatedAt
+  studentCourseRegistration   StudentCourseRegistration @relation(fields: [studentCourseRegistrationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  result                      Result?                   @relation(fields: [resultId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  submittedByLecturer         Lecturer?                 @relation("ScoresSubmittedBy", fields: [submittedByLecturerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  examinerWhoApproved         Lecturer?                 @relation("ScoresApprovedByExaminer", fields: [examinerWhoApprovedId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  hodWhoAccepted              Lecturer?                 @relation("ScoresAcceptedByHOD", fields: [hodWhoAcceptedId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+}
+
+model Result {
+  id                              Int           @id @default(autoincrement())
+  studentId                       Int
+  semesterId                      Int
+  seasonId                        Int
+  departmentId                    Int // Denormalized for easier querying/reporting
+  programId                       Int // Denormalized
+  levelId                         Int // Level at the time this result was generated
+  gpa                             Float? // Grade Point Average for the semester
+  cgpa                            Float? // Cumulative Grade Point Average up to this semester
+  cuAttempted                     Int? // Credit units attempted in the semester
+  cuPassed                        Int? // Credit units passed in the semester
+  cuTotal                         Int? // Total credit units passed cumulatively
+  remarks                         ResultRemark?
+  isApprovedForStudentRelease     Boolean       @default(false)
+  studentReleaseApprovedAt        DateTime?
+  studentReleaseApprovedByAdminId Int?
+  createdAt                       DateTime      @default(now())
+  updatedAt                       DateTime      @updatedAt
+  student                         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  semester                        Semester      @relation(fields: [semesterId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  season                          Season        @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  department                      Department    @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  program                         Program       @relation(fields: [programId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  level                           Level         @relation(fields: [levelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  scores                          Score[] // Scores that make up this semester result
+  studentReleaseApproverAdmin     Admin?        @relation("ResultsApprovedForReleaseByAdmin", fields: [studentReleaseApprovedByAdminId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([studentId, semesterId, seasonId], name: "unique_student_semester_season_result")
+}
+
+// --- FINANCIAL MODELS ---
+model SchoolFeeList {
+  id           Int              @id @default(autoincrement())
+  levelId      Int
+  departmentId Int?
+  programId    Int?
+  facultyId    Int? // NEW: Add facultyId
+  seasonId     Int
+  amount       Float
+  description  String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  nationality  NationalityType?
+  level        Level            @relation(fields: [levelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  department   Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  program      Program?         @relation(fields: [programId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  faculty      Faculty?         @relation(fields: [facultyId], references: [id], onDelete: SetNull, onUpdate: Cascade) // NEW: Faculty relation
+  season       Season           @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([levelId, departmentId, seasonId, programId, facultyId, nationality], name: "unique_fee_item") // Combined uniqueness with nationality
+}
+
+model SchoolFee {
+  id            Int              @id @default(autoincrement())
+  studentId     Int
+  seasonId      Int
+  semesterId    Int? // Bill might be per semester or per season
+  amount        Float // Total amount due for this bill
+  amountPaid    Float            @default(0)
+  // balance    Float         // This should be a calculated field (amount - amountPaid)
+  paymentStatus PaymentStatus    @default(PENDING)
+  dueDate       DateTime?
+  description   String? // e.g., "2023/2024 Session Fees", "First Semester Fees"
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  student       Student          @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  season        Season           @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  semester      Semester?        @relation(fields: [semesterId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  departmentId  Int?
+  programId     Int?
+  Department    Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  Program       Program?         @relation(fields: [programId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  payments      PaymentReceipt[]
+
+  @@unique([studentId, seasonId, semesterId], name: "unique_student_fee_bill")
+}
+
+model PaymentReceipt {
+  id                     Int             @id @default(autoincrement())
+  studentId              Int
+  schoolFeeId            Int?
+  hostelBookingId        Int?
+  amountExpected         Float?
+  amountPaid             Float
+  paymentDate            DateTime        @default(now())
+  paymentStatus          PaymentStatus   @default(PENDING) // <-- ADD THIS LINE
+  reference              String          @unique
+  transactionId          String?
+  channel                PaymentChannel?
+  seasonId               Int
+  description            String?
+  paymentGatewayResponse Json?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  student                Student         @relation(fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  schoolFee              SchoolFee?      @relation(fields: [schoolFeeId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  hostelBooking          HostelBooking?  @relation(fields: [hostelBookingId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  season                 Season          @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+}
+
+// --- HOSTEL MANAGEMENT ---
+model Hostel {
+  id         Int             @id @default(autoincrement())
+  name       String          @unique
+  capacity   Int // Total capacity (sum of room capacities)
+  gender     Gender? // For gender-specific hostels
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  rooms      HostelRoom[]
+  bookings   HostelBooking[]
+  hostelFees HostelFeeList[] // Add inverse relation for new FeeList
+}
+
+model HostelRoom {
+  id          Int             @id @default(autoincrement())
+  hostelId    Int
+  roomNumber  String
+  capacity    Int // Beds in this room
+  isAvailable Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  hostel      Hostel          @relation(fields: [hostelId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  bookings    HostelBooking[]
+  hostelFees  HostelFeeList[] // Add inverse relation if fees can be per room
+
+  @@unique([hostelId, roomNumber])
+}
+
+// NEW MODEL: HostelFeeList
+model HostelFeeList {
+  id          Int      @id @default(autoincrement())
+  hostelId    Int
+  roomId      Int? // Optional: if fees vary by specific room within a hostel, otherwise applies to whole hostel
+  seasonId    Int // Which academic season this fee applies to
+  amount      Float // The fee amount for this hostel/room for this season
+  description String? // e.g., "Standard hostel fee for 100 level males"
+  isActive    Boolean  @default(true) // Is this fee list entry currently active for selection?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hostel Hostel      @relation(fields: [hostelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room   HostelRoom? @relation(fields: [roomId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  season Season      @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  // Link to bookings that use this specific fee entry
+  hostelBookings HostelBooking[]
+
+  @@unique([hostelId, roomId, seasonId], name: "unique_hostel_fee_item") // Ensures unique fee per hostel/room/season
+  @@index([seasonId]) // For efficient queries by season
+  @@index([hostelId])
+}
+
+// UPDATED MODEL: HostelBooking
+model HostelBooking {
+  id              Int  @id @default(autoincrement())
+  studentId       Int
+  hostelId        Int
+  roomId          Int
+  seasonId        Int // Season for which booking is made
+  // NEW FIELD: Link to the specific fee list item that determined this booking's amount
+  hostelFeeListId Int?
+
+  checkInDate     DateTime?
+  checkOutDate    DateTime?
+  amountDue       Float? // Amount for *this specific booking*. Can be populated from hostelFeeListItem or manually overridden.
+  amountPaid      Float                @default(0)
+  paymentStatus   BookingPaymentStatus @default(PENDING)
+  paymentDeadline DateTime?
+  isActive        Boolean              @default(true) // Is this booking currently active?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  student           Student          @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  hostel            Hostel           @relation(fields: [hostelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room              HostelRoom       @relation(fields: [roomId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  season            Season           @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  payments          PaymentReceipt[] // Payments made specifically for this hostel booking
+  // NEW RELATION: Link to the HostelFeeList entry
+  hostelFeeListItem HostelFeeList?   @relation(fields: [hostelFeeListId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([studentId, seasonId], name: "student_one_hostel_booking_per_season")
+  @@index([hostelFeeListId]) // For efficient queries
+}
+
+// --- NOTIFICATIONS ---
+model Notification {
+  id            Int       @id @default(autoincrement())
+  recipientType String // "STUDENT", "LECTURER", "ADMIN", "ICTSTAFF"
+  recipientId   Int // ID of the user in their respective table
+  message       String    @db.Text
+  isRead        Boolean   @default(false)
+  link          String? // Optional URL to navigate to from notification
+  createdAt     DateTime  @default(now())
+  Student       Student?  @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  studentId     Int? // Set if recipientType is STUDENT and you want a direct FK
+  Lecturer      Lecturer? @relation(fields: [lecturerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  lecturerId    Int? // Set if recipientType is LECTURER
+
+  @@index([recipientType, recipientId, isRead])
+}
+
+// --- EXAMINATION SYSTEM MODELS ---
+model Venue {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  location     String?
+  capacity     Int?
+  isCBT        Boolean       @default(false)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  examSessions ExamSession[]
+
+  @@index([name])
+}
+
+model Exam {
+  id                  Int        @id @default(autoincrement())
+  title               String
+  courseId            Int
+  semesterId          Int
+  seasonId            Int
+  examType            ExamType
+  instructions        String?    @db.Text
+  durationMinutes     Int
+  totalMarks          Float?
+  passMark            Float?
+  questionsInBank     Int?
+  fee                 ExamFee?
+  questionsToAttempt  Int
+  status              ExamStatus @default(PENDING)
+  accessPassword      String?    @db.VarChar(255)
+  createdByLecturerId Int?
+  createdByICTStaffId Int?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  course              Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  semester            Semester   @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  season              Season     @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  createdByLecturer   Lecturer?  @relation(name: "LecturerCreatedExams", fields: [createdByLecturerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdByICTStaff   ICTStaff?  @relation(name: "ICTStaffCreatedExams", fields: [createdByICTStaffId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  // Back-relations from other models
+  payments         StudentExamPayment[]
+  questions        Question[]
+  examSessions     ExamSession[]
+  examAttempts     ExamAttempt[]                  @relation("ExamAttemptsForExamConfig")
+  // NEW: Inverse relation for direct student assignments to this exam
+  assignedStudents StudentExamSessionAssignment[]
+
+  @@index([courseId, semesterId, seasonId, examType])
+  @@index([status])
+}
+
+model ExamSession {
+  id                 Int                            @id @default(autoincrement())
+  examId             Int
+  venueId            Int // MODIFIED: Now required - Every session must have  assignedStudents    StudentExamSessionAssignment[]a venue
+  sessionName        String // MODIFIED: Now required - Every session needs a descriptive name
+  startTime          DateTime
+  endTime            DateTime
+  accessPassword     String?                        @db.VarChar(255) // HASH THIS - password for this specific session
+  maxAttendees       Int? // Still optional, if some sessions don't have a strict attendee limit or it's dynamic
+  isActive           Boolean                        @default(true)
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
+  studentAssignments StudentExamSessionAssignment[]
+  exam               Exam                           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  venue              Venue                          @relation(fields: [venueId], references: [id], onDelete: Restrict, onUpdate: Cascade) // MODIFIED: onDelete changed from SetNull to Restrict
+  examAttempts       ExamAttempt[]                  @relation("ExamAttemptsForSession") // Attempts specifically in this session
+
+  @@index([examId])
+  @@index([venueId])
+  @@index([startTime])
+}
+
+model StudentExamSessionAssignment {
+  id            Int         @id @default(autoincrement())
+  studentId     Int
+  examSessionId Int
+  examId        Int // NEW: Denormalize examId here
+  seatNumber    String?
+  assignedAt    DateTime    @default(now())
+  student       Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  examSession   ExamSession @relation(fields: [examSessionId], references: [id], onDelete: Cascade)
+  // NEW: Relation to Exam for integrity
+  exam          Exam        @relation(fields: [examId], references: [id], onDelete: Restrict)
+
+  @@unique([studentId, examSessionId]) // Keeps a student unique to a specific session
+  @@unique([studentId, examId], name: "unique_assignment_per_exam") // NEW: Prevents a student from being assigned to more than one session for the same exam
+  @@index([examSessionId])
+  @@index([studentId])
+  @@index([examId]) // Index for the new field
+}
+
+model Question {
+  id                Int              @id @default(autoincrement())
+  examId            Int
+  questionText      String           @db.Text
+  questionType      QuestionType
+  marks             Float
+  correctOptionKey  String?
+  explanation       String?          @db.Text
+  difficulty        String?
+  topic             String?
+  isBankQuestion    Boolean          @default(true)
+  displayOrder      Int?
+  addedByLecturerId Int?
+  addedByICTStaffId Int?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  options           QuestionOption[] // <<<< THIS LINE NEEDS TO BE PRESENT
+  studentAnswers    StudentAnswer[]
+  exam              Exam             @relation(fields: [examId], references: [id], onDelete: Cascade)
+  addedByLecturer   Lecturer?        @relation(name: "LecturerAuthoredQuestions", fields: [addedByLecturerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  addedByICTStaff   ICTStaff?        @relation(name: "ICTStaffAuthoredQuestions", fields: [addedByICTStaffId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([examId, questionType])
+  @@index([topic])
+}
+
+model QuestionOption {
+  id         Int      @id @default(autoincrement())
+  questionId Int
+  optionKey  String // e.g., "a", "b", "c" - This is what is stored in Question.correctOptionKey and StudentAnswer.selectedOptionKey
+  optionText String   @db.Text
+  isCorrect  Boolean? // Only needed if supporting multiple correct answers for a single Question Type
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, optionKey])
+}
+
+model ExamAttempt {
+  id              Int             @id @default(autoincrement())
+  studentId       Int
+  examId          Int // The overall exam configuration
+  examSessionId   Int // The specific session this attempt belongs to
+  startTime       DateTime        @default(now())
+  endTime         DateTime?
+  timeUsedSeconds Int?
+  scoreAchieved   Float?
+  isSubmitted     Boolean         @default(false)
+  isGraded        Boolean         @default(false)
+  ipAddress       String?
+  userAgent       String?         @db.Text
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  student         Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exam            Exam            @relation("ExamAttemptsForExamConfig", fields: [examId], references: [id], onDelete: Restrict)
+  examSession     ExamSession     @relation("ExamAttemptsForSession", fields: [examSessionId], references: [id], onDelete: Restrict)
+  studentAnswers  StudentAnswer[]
+
+  @@unique([studentId, examSessionId], name: "unique_student_attempt_per_session")
+  @@index([examId, studentId])
+}
+
+model StudentAnswer {
+  id                Int         @id @default(autoincrement())
+  examAttemptId     Int
+  questionId        Int
+  selectedOptionKey String? // For MCQ/TF, stores the 'optionKey' selected by student
+  answerText        String?     @db.Text // For Essay/ShortAnswer
+  isCorrect         Boolean? // Populated after grading
+  marksAwarded      Float? // Populated after grading
+  reviewComment     String?     @db.Text
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  examAttempt       ExamAttempt @relation(fields: [examAttemptId], references: [id], onDelete: Cascade)
+  question          Question    @relation(fields: [questionId], references: [id], onDelete: Restrict) // Don't delete question if answers exist
+
+  @@unique([examAttemptId, questionId])
+}
+
+// Defines the fee required to download the pass/details for a specific exam.
+model ExamFee {
+  id          Int      @id @default(autoincrement())
+  examId      Int      @unique // A fee is attached to ONE specific exam configuration
+  amount      Float
+  description String? // e.g., "Pass Fee for CSC101 Mid-Semester"
+  isActive    Boolean  @default(true) // Allows enabling/disabling this fee
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exam     Exam                 @relation(fields: [examId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  payments StudentExamPayment[] // Inverse relation
+}
+
+// Tracks an individual student's payment for a specific exam.
+model StudentExamPayment {
+  id                     Int             @id @default(autoincrement())
+  studentId              Int
+  examId                 Int // The specific exam this payment is for
+  examFeeId              Int // Which fee definition this payment is for
+  amountExpected         Float
+  amountPaid             Float
+  paymentStatus          PaymentStatus   @default(PENDING) // From your existing PaymentStatus enum
+  paymentDate            DateTime? // When payment was confirmed
+  paymentReference       String          @unique // Unique reference from your system or gateway
+  transactionId          String?         @unique // Gateway's specific transaction ID
+  paymentChannel         PaymentChannel? // From your existing PaymentChannel enum
+  paymentGatewayResponse Json?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  exam    Exam    @relation(fields: [examId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  examFee ExamFee @relation(fields: [examFeeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  // A student can only have one payment record per exam.
+  @@unique([studentId, examId])
+}
+
+// Defines the screening application fee for a given season and entry mode
+model ScreeningFeeList {
+  id                Int                @id @default(autoincrement())
+  seasonId          Int // The admission season this fee applies to
+  entryMode         EntryMode // Fee might differ for UTME/DE
+  amount            Float
+  description       String? // e.g., "2024/2025 UTME Application Fee"
+  isActive          Boolean            @default(true) // Only active fee lists should be used
+  season            Season             @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  applicantPayments ApplicantPayment[] // Payments made against this fee item
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([seasonId, entryMode])
+}
+
+// Defines the admission acceptance fee (can vary by program, faculty, season)
+model AcceptanceFeeList {
+  id                Int                @id @default(autoincrement())
+  seasonId          Int // The admission season
+  programId         Int? // Optional: Fee specific to a program
+  facultyId         Int? // Optional: Fee specific to a faculty (if not by program)
+  entryMode         EntryMode? // Optional: Fee might differ by entry mode too
+  amount            Float
+  description       String? // e.g., "Science Faculty Acceptance Fee 2024/2025"
+  isActive          Boolean            @default(true)
+  admissionOffers   AdmissionOffer[] // Links to offers that would use this fee
+  applicantPayments ApplicantPayment[] // Payments made against this fee item
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  season            Season             @relation(fields: [seasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  program           Program?           @relation(fields: [programId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  faculty           Faculty?           @relation(fields: [facultyId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  // Ensure uniqueness based on the specificity of the fee
+  @@unique([seasonId, programId, facultyId, entryMode], map: "unique_acceptance_fee_item")
+}
+
+// Tracks payments made by applicants during the screening/admission process
+model ApplicantPayment {
+  id                     Int                     @id @default(autoincrement())
+  applicationProfileId   Int // The applicant who made the payment
+  purpose                ApplicantPaymentPurpose // What this payment is for (Screening, Acceptance)
+  amountExpected         Float // Amount defined in the FeeList
+  amountPaid             Float
+  paymentStatus          PaymentStatus           @default(PENDING)
+  paymentDate            DateTime? // Date payment was confirmed
+  paymentReference       String                  @unique // Unique reference from payment gateway or bank
+  paymentChannel         PaymentChannel?
+  transactionId          String?                 @unique // Gateway's transaction ID, if different from reference
+  paymentGatewayResponse Json?
+  screeningFeeListId     Int?
+  acceptanceFeeListId    Int?
+  acceptanceFeeItem      AcceptanceFeeList?      @relation(fields: [acceptanceFeeListId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  applicationProfile     ApplicationProfile      @relation(fields: [applicationProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  screeningFeeItem       ScreeningFeeList?       @relation(fields: [screeningFeeListId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([applicationProfileId, purpose])
+  @@index([paymentStatus])
+}
+
+model JambApplicant {
+  id                     Int                  @id @default(autoincrement())
+  jambRegNo              String               @unique
+  name                   String
+  email                  String?
+  programName            String
+  entryMode              EntryMode
+  gender                 Gender?
+  phoneNumber            String?
+  jambScore              Int?
+  deGrade                String?
+  dateOfBirth            DateTime?
+  jambYear               String?
+  jambSeasonId           Int?
+  onlineScreeningAccount OnlineScreeningList?
+  uploadedAt             DateTime             @default(now())
+  uploadedBy             String?
+  jambSeason             Season?              @relation("JambApplicationsInSeason", fields: [jambSeasonId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@unique([jambRegNo, email])
+  @@index([name])
+  @@index([programName])
+  @@index([jambSeasonId])
+}
+
+model OnlineScreeningList {
+  id           Int       @id @default(autoincrement())
+  jambRegNo    String    @unique
+  email        String?
+  password     String
+  isActive     Boolean   @default(true) // Can this applicant log in to screening portal?
+  lastLogin    DateTime?
+  scheduleDate DateTime?
+  startDate    DateTime?
+  endDate      DateTime?
+
+  applicationProfile ApplicationProfile?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  jambApplicant      JambApplicant       @relation(fields: [jambRegNo], references: [jambRegNo], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([jambRegNo, email])
+  @@index([email])
+  @@index([scheduleDate]) // Index the new date fields for faster lookups
+  @@index([startDate])
+}
+
+model ApplicationProfile {
+  id                     Int                              @id @default(autoincrement())
+  jambRegNo              String                           @unique
+  onlineScreeningListId  Int                              @unique // Each profile belongs to one screening account
+  email                  String                           @unique // Applicant's primary email for communication during application
+  phone                  String?                          @unique
+  applicationStatus      ApplicationStatus                @default(PENDING_SUBMISSION)
+  remarks                String?                          @db.Text
+  targetProgramId        Int?
+  hasPaidScreeningFee    Boolean                          @default(false)
+  bioData                ApplicantBioData?
+  contactInfo            ApplicantContactInfo?
+  nextOfKin              ApplicantNextOfKin?
+  guardianInfo           ApplicantGuardianInfo?
+  oLevelResults          ApplicantOLevelResult[]
+  tertiaryQualifications ApplicantTertiaryQualification[]
+  uploadedDocuments      ApplicantDocument[]
+  admissionOffer         AdmissionOffer?
+  applicantPayments      ApplicantPayment[]
+  physicalScreening      PhysicalScreeningList?
+  onlineScreeningList    OnlineScreeningList              @relation(fields: [onlineScreeningListId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  targetProgram          Program?                         @relation("ApplicationsForProgram", fields: [targetProgramId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([applicationStatus])
+  @@index([hasPaidScreeningFee])
+  @@index([email]) // Index the email on ApplicationProfile
+}
+
+model ApplicantBioData {
+  id                   Int                @id @default(autoincrement())
+  applicationProfileId Int                @unique
+  firstName            String
+  middleName           String?
+  lastName             String
+  dateOfBirth          DateTime
+  gender               Gender
+  nationality          String             @default("Nigerian")
+  placeOfBirth         String?
+  maritalStatus        String?
+  religion             String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  applicationProfile   ApplicationProfile @relation(fields: [applicationProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade) // Added onUpdate
+}
+
+model ApplicantContactInfo {
+  id                   Int                @id @default(autoincrement())
+  applicationProfileId Int                @unique
+  applicationProfile   ApplicationProfile @relation(fields: [applicationProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade) // Added onUpdate
+  countryOfResidence   String             @default("Nigeria")
+  stateOfResidence     String
+  lgaOfResidence       String
+  residentialAddress   String             @db.Text
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+}
+
+model ApplicantNextOfKin {
+  id                   Int                @id @default(autoincrement())
+  applicationProfileId Int                @unique
+  fullName             String
+  relationship         String
+  phone                String
+  email                String?
+  address              String?            @db.Text
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  applicationProfile   ApplicationProfile @relation(fields: [applicationProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade) // Added onUpdate
+}
+
+model ApplicantGuardianInfo {
+  id                   Int                @id @default(autoincrement())
+  applicationProfileId Int                @unique
+  fullName             String
+  relationship         String
+  phone                String
+  email                String?
+  address              String?            @db.Text
+  occupation           String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  applicationProfile   ApplicationProfile @relation(fields: [applicationProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade) // Added onUpdate
+}
+
+model ApplicantOLevelResult {
+  id                   Int                           @id @default(autoincrement())
+  applicationProfileId Int
+  examType             OLevelExamType
+  examYear             Int
+  examNumber           String
+  cardPin              String?
+  cardSerialNumber     String?
+  candidateIdNumber    String?
+  subjects             ApplicantOLevelSubjectGrade[]
+  sittingNumber        Int                           @default(1)
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+  applicationProfile   ApplicationProfile            @relation(fields: [applicationProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade) // Added onUpdate
+
+  @@unique([applicationProfileId, examType, examNumber], name: "unique_olevel_sitting_per_applicant")
+  @@index([applicationProfileId])
+}
+
+model ApplicantOLevelSubjectGrade {
+  id             Int                   @id @default(autoincrement())
+  oLevelResultId Int
+  subjectName    String
+  grade          OLevelGrade
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  oLevelResult   ApplicantOLevelResult @relation(fields: [oLevelResultId], references: [id], onDelete: Cascade, onUpdate: Cascade) // Added onUpdate
+
+  @@unique([oLevelResultId, subjectName])
+}
+
+model ApplicantTertiaryQualification {
+  id                    Int                       @id @default(autoincrement())
+  applicationProfileId  Int
+  institutionName       String
+  qualificationObtained TertiaryQualificationType
+  courseOfStudy         String
+  graduationYear        Int?
+  gradeOrClass          String?
+  cgpa                  Float?
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  applicationProfile    ApplicationProfile        @relation(fields: [applicationProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade) // Added onUpdate
+
+  @@index([applicationProfileId])
+}
+
+model ApplicantDocument {
+  id                   Int                  @id @default(autoincrement())
+  applicationProfileId Int
+  documentType         DocumentType
+  fileUrl              String
+  fileName             String?
+  fileType             String?
+  fileSize             Int?
+  status               DocumentUploadStatus @default(UPLOADED)
+  rejectionReason      String?
+  verifiedBy           String?
+  verifiedAt           DateTime?
+  uploadedAt           DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  applicationProfile ApplicationProfile @relation(fields: [applicationProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationProfileId, documentType], name: "applicant_document_unique_constraint")
+}
+
+model PhysicalScreeningList {
+  id                   Int                @id @default(autoincrement())
+  applicationProfileId Int                @unique
+  jambRegNo            String
+  screeningDate        DateTime?
+  screeningStartDate   DateTime?
+  screeningEndDate     DateTime?
+  screenedBy           String?
+  status               ApplicationStatus  @default(UNDER_REVIEW)
+  remarks              String?            @db.Text
+  applicationProfile   ApplicationProfile @relation(fields: [applicationProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  admissionOffer       AdmissionOffer?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@index([jambRegNo])
+  @@index([status])
+  @@index([screeningDate])
+  @@index([screeningStartDate]) // It's good practice to index new date fields
+}
+
+model AdmissionOffer {
+  id                    Int                    @id @default(autoincrement())
+  applicationProfileId  Int                    @unique
+  physicalScreeningId   Int?                   @unique
+  offeredProgramId      Int
+  offeredLevelId        Int
+  admissionSeasonId     Int
+  admissionSemesterId   Int
+  offerDate             DateTime               @default(now())
+  acceptanceDeadline    DateTime?
+  isAccepted            Boolean?
+  acceptanceDate        DateTime?
+  rejectionReason       String?                @db.Text
+  generatedStudentRegNo String?                @unique
+  createdStudentId      Int?                   @unique
+  admissionLetterUrl    String?
+  acceptanceFeeListId   Int?
+  hasPaidAcceptanceFee  Boolean                @default(false) // NEW
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  physicalScreening     PhysicalScreeningList? @relation(fields: [physicalScreeningId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  applicationProfile    ApplicationProfile     @relation(fields: [applicationProfileId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  acceptanceFeeListItem AcceptanceFeeList?     @relation(fields: [acceptanceFeeListId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdStudent        Student?               @relation("StudentAdmissionOffer", fields: [createdStudentId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  offeredProgram        Program                @relation("ProgramAdmissionOffers", fields: [offeredProgramId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  offeredLevel          Level                  @relation("LevelAdmissionOffers", fields: [offeredLevelId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  admissionSeason       Season                 @relation("SeasonAdmissionOffers", fields: [admissionSeasonId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  admissionSemester     Semester               @relation("SemesterAdmissionOffers", fields: [admissionSemesterId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([offeredProgramId])
+  @@index([isAccepted])
+  @@index([hasPaidAcceptanceFee])
+}
+
+// --- ADMISSION LETTER TEMPLATE MODELS ---
+model AdmissionLetterTemplate {
+  id                    Int                      @id @default(autoincrement())
+  templateName          String                   @unique
+  description           String?
+  isActive              Boolean                  @default(true)
+  templateType          LetterTemplateType       @default(ADMISSION_LETTER)
+  schoolLogoUrl         String?
+  letterheadAddress     String?                  @db.Text
+  letterheadContacts    String?
+  registrarName         String
+  registrarTitle        String                   @default("Registrar")
+  registrarSignatureUrl String?
+  sections              AdmissionLetterSection[]
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+}
+
+model AdmissionLetterSection {
+  id             Int                     @id @default(autoincrement())
+  templateId     Int
+  template       AdmissionLetterTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade, onUpdate: Cascade) // Added onUpdate
+  sectionType    LetterSectionType
+  title          String?
+  content        String                  @db.Text
+  order          Int
+  isConditional  Boolean                 @default(false)
+  conditionField String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
+  @@unique([templateId, order])
+  @@index([templateId, sectionType])
+}

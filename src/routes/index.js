@@ -1,0 +1,108 @@
+import { Router } from 'express';
+import authRoutes from './auth.routes.js';
+import facultyRoutes from './faculty.routes.js';
+import departmentRoutes from './department.routes.js';
+import levelRoutes from './level.routes.js';
+import seasonRoutes from './season.routes.js';
+import semesterRoutes from './semester.routes.js';
+import programRoutes from './program.routes.js';
+import studentRoutes from './student.routes.js';
+import ictStaffRoutes from './ictStaff.routes.js';
+import lecturerRoutes from './lecturer.routes.js';
+import staffCourseRoutes from './staffCourse.routes.js';
+import schoolFeeListRoutes from './schoolFeeList.routes.js';
+import schoolFeeRoutes from './schoolFee.routes.js';
+import courseRoutes from './course.routes.js';
+import coursePrerequisiteRoutes from './coursePrerequisite.routes.js';
+import programCourseRoutes from './programCourse.routes.js';
+import studentCourseRegistrationRoutes from './studentCourseRegistration.routes.js';
+import hostelRoutes from './hostel.routes.js';
+import hostelBookingRoutes from './hostelBooking.routes.js';
+import paymentRoutes from './payment.routes.js';
+import scoreRoutes from './score.routes.js';
+import resultRoutes from './result.routes.js';
+import dashboardRoutes from './dashboard.routes.js';
+import applicationSettingRoutes from './applicationSetting.routes.js';
+import notificationRoutes from './notification.routes.js';
+import academicProgressionRoutes from './academicProgression.routes.js';
+import examRoutes from './exam.routes.js';      
+import venueRoutes from './venue.routes.js';
+import studentExamAssignmentRoutes from './studentExamAssignment.routes.js';
+import screeningFeeListRoutes from './screeningFeeList.routes.js';
+import acceptanceFeeListRoutes from './acceptanceFeeList.routes.js';
+import admissionLetterTemplateRoutes from './admissionLetterTemplate.routes.js';
+import jambApplicantRoutes from './jambApplicant.routes.js'; 
+import admissionOfferRoutes from './admissionOffer.routes.js';
+import applicantPaymentRoutes from './applicantPayment.routes.js';
+import applicationProfileRoutes from './applicationProfile.routes.js';
+import onlineScreeningRoutes from './onlineScreening.routes.js';
+import physicalScreeningRoutes from './physicalScreening.routes.js';
+import programCourseUnitRequirementRoutes from './programCourseUnitRequirement.routes.js';
+import adminAcademicsRoutes from './adminAcademics.routes.js';
+import hostelFeeListRoutes from './hostelFeeList.routes.js';
+import examSessionsRoutes from './examSession.routes.js';
+import studentAssignmentRoutes from './studentAssignment.routes.js';
+import examFeeRoutes from './examFee.routes.js';
+import studentExamPaymentRoutes from './studentExamPayment.routes.js';
+import adminExamPaymentRoutes from './adminExamPayment.routes.js';
+
+const router = Router();
+const apiVersion = '/api/v1';
+
+router.use(`${apiVersion}/auth`, authRoutes);
+router.use(`${apiVersion}/faculties`, facultyRoutes);
+router.use(`${apiVersion}/departments`, departmentRoutes);
+router.use(`${apiVersion}/levels`, levelRoutes);
+router.use(`${apiVersion}/seasons`, seasonRoutes);
+router.use(`${apiVersion}/semesters`, semesterRoutes);
+router.use(`${apiVersion}/programs`, programRoutes);
+router.use(`${apiVersion}/students`, studentRoutes);
+router.use(`${apiVersion}/ict-staff`, ictStaffRoutes);
+router.use(`${apiVersion}/lecturers`, lecturerRoutes);
+router.use(`${apiVersion}/staff-courses`, staffCourseRoutes);
+router.use(`${apiVersion}/school-fee-lists`, schoolFeeListRoutes);
+router.use(`${apiVersion}/school-fee`, schoolFeeRoutes);
+router.use(`${apiVersion}/courses`, courseRoutes);
+router.use(`${apiVersion}/course-prerequisites`, coursePrerequisiteRoutes);
+router.use(`${apiVersion}/program-courses`, programCourseRoutes);
+router.use(`${apiVersion}/student-registrations`, studentCourseRegistrationRoutes);
+router.use(`${apiVersion}/hostels`, hostelRoutes);
+router.use(`${apiVersion}/hostel-bookings`, hostelBookingRoutes);
+router.use(`${apiVersion}/payments`, paymentRoutes);
+router.use(`${apiVersion}/scores`, scoreRoutes);
+router.use(`${apiVersion}/results`, resultRoutes);
+router.use(`${apiVersion}/dashboard`, dashboardRoutes);
+router.use(`${apiVersion}/application-settings`, applicationSettingRoutes);
+router.use(`${apiVersion}/notifications`, notificationRoutes);
+router.use(`${apiVersion}/academic-progression`, academicProgressionRoutes);
+
+router.use(`${apiVersion}/exams`, examRoutes);         
+router.use(`${apiVersion}/venues`, venueRoutes);
+router.use(`${apiVersion}/exam-assignments`, studentExamAssignmentRoutes);
+router.use(`${apiVersion}/exam-sessions`, examSessionsRoutes); 
+router.use(`${apiVersion}/exam-assignments`, studentExamAssignmentRoutes);
+router.use(`${apiVersion}/student-assignments`, studentAssignmentRoutes);
+
+router.use(`${apiVersion}/screening-fees`, screeningFeeListRoutes);
+router.use(`${apiVersion}/acceptance-fees`, acceptanceFeeListRoutes);
+router.use(`${apiVersion}/admission-letter-templates`, admissionLetterTemplateRoutes);
+router.use(`${apiVersion}/jamb-applicants`, jambApplicantRoutes);
+router.use(`${apiVersion}/admission-offers`, admissionOfferRoutes);
+router.use(`${apiVersion}/applicant-payments`, applicantPaymentRoutes);
+router.use(`${apiVersion}/application-profiles`, applicationProfileRoutes);
+router.use(`${apiVersion}/online-screening-accounts`, onlineScreeningRoutes);
+router.use(`${apiVersion}/physical-screening`, physicalScreeningRoutes);
+router.use(`${apiVersion}/program-course-unit-requirements`, programCourseUnitRequirementRoutes);
+router.use(`${apiVersion}/academics`, adminAcademicsRoutes);
+router.use(`${apiVersion}/hostel-fee-lists`, hostelFeeListRoutes);
+router.use(`${apiVersion}/exam-fees`, examFeeRoutes);
+router.use(`${apiVersion}/student-exam-payments`, studentExamPaymentRoutes);
+router.use(`${apiVersion}/exam-payments`, adminExamPaymentRoutes);
+
+
+
+router.get(`${apiVersion}/health`, (req, res) => {
+    res.status(200).json({ status: 'success', message: 'UMS API is healthy' });
+});
+
+export default router;
