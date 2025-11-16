@@ -87,3 +87,77 @@ Node.js (v16 or later recommended)
 npm or yarn
 A running MySQL server
 Git
+
+🚀 Getting Started
+To get a local copy up and running, follow these simple steps.
+Prerequisites
+Node.js (v16 or later recommended)
+npm or yarn
+A running MySQL server
+Git
+Installation
+Clone the repository:
+code
+Sh
+git clone https://github.com/your-username/your-repo-name.git
+cd your-repo-name
+Install NPM packages:
+code
+Sh
+npm install
+# or
+yarn install
+Set up Environment Variables:
+Create a .env file in the root of the project and add the necessary environment variables.
+code
+Ini
+# .env
+# -------------------------------------
+# DATABASE
+# Your MySQL connection string
+# Format: mysql://USER:PASSWORD@HOST:PORT/DATABASE
+DATABASE_URL="mysql://root:password@localhost:3306/university_db"
+
+# -------------------------------------
+# APPLICATION
+# Add other environment variables like JWT secrets, API keys, etc.
+# JWT_SECRET=your_super_secret_key
+# -------------------------------------
+Push the database schema:
+This command will sync your Prisma schema with the MySQL database, creating the necessary tables and columns.
+code
+Sh
+npx prisma db push
+Generate the Prisma Client:
+This command generates the type-safe Prisma Client based on your schema.
+code
+Sh
+npx prisma generate
+Running the App
+Development Mode:
+code
+Sh
+npm run dev
+Production Build:
+code
+Sh
+npm run build
+Start Production Server:
+code
+Sh
+npm start
+📄 API Endpoints
+The API documentation, outlining all available endpoints, request/response formats, and authentication requirements, can be found here:
+➡️ [Link to Your API Documentation (e.g., Postman, Swagger, etc.)]
+(Note: If you don't have API documentation yet, you can remove this section or leave it as a placeholder for the future.)
+🙏 Contributing
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are greatly appreciated.
+If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
+Fork the Project
+Create your Feature Branch (git checkout -b feature/AmazingFeature)
+Commit your Changes (git commit -m 'Add some AmazingFeature')
+Push to the Branch (git push origin feature/AmazingFeature)
+Open a Pull Request
+Don't forget to give the project a star! Thanks again!
+📜 License
+Distributed under the MIT License. See LICENSE for more information.
