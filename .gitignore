@@ -1,7 +1,9 @@
-node_modules
-# Keep environment variables out of version control
+# Dependency directories
+node_modules/
+
+# Environment variables
 .env
-prisma/
+
 # Production build folder
 dist/
 build/
