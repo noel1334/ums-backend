@@ -151,110 +151,86 @@ export const getAllCourses = async (query, requestingUser) => {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
 
         const {
-            facultyId, // NEW: Filter by facultyId
+            facultyId,
             departmentId,
-            programId, // NEW: Filter by programId
-            levelId, // NEW: Filter by levelId
+            programId,
+            levelId,
             preferredSemesterType,
             courseType,
             search,
             isActive: queryIsActive,
             page = 1,
             limit = 10,
+            all // NEW: Destructure the 'all' parameter from the query
         } = query;
 
         const where = {};
-        const filters = []; // Use an array for filters for more complex AND conditions
+        const filters = [];
 
-        // Authorization for seeing inactive courses
+        // ... (all your existing filter logic for department, search, etc. remains the same)
+        // --- Start of existing filter logic ---
         const canSeeInactive = requestingUser?.type === 'admin' || (requestingUser?.type === 'ictstaff' && requestingUser?.canManageCourses);
         if (canSeeInactive) {
             if (queryIsActive !== undefined && queryIsActive !== "") {
                 filters.push({ isActive: queryIsActive === 'true' });
             }
         } else {
-            filters.push({ isActive: true }); // Default for others to see only active
+            filters.push({ isActive: true });
         }
-
-        // --- Apply Filters ---
-
-        // 1. Faculty filter
         if (facultyId && facultyId !== 'all') {
-            filters.push({
-                department: {
-                    facultyId: parseInt(facultyId, 10)
-                }
-            });
+            filters.push({ department: { facultyId: parseInt(facultyId, 10) } });
         }
-
-        // 2. Department filter
         if (departmentId && departmentId !== 'all') {
             filters.push({ departmentId: parseInt(departmentId, 10) });
         }
-
-        // 3. Program filter
-        // This requires joining through ProgramCourse. Adjust based on your schema.
-        // Assuming Course has a `programCourses` relation to `ProgramCourse`
         if (programId && programId !== 'all') {
-            filters.push({
-                programCourses: { // This is the relation name on your Course model
-                    some: {
-                        programId: parseInt(programId, 10)
-                    }
-                }
-            });
+            filters.push({ programCourses: { some: { programId: parseInt(programId, 10) } } });
         }
-
-        // 4. Level filter
-        // This requires joining through ProgramCourse. Adjust based on your schema.
-        // Assuming ProgramCourse has a `levelId` field and Course has a `programCourses` relation
         if (levelId && levelId !== 'all') {
-            filters.push({
-                programCourses: { // This is the relation name on your Course model
-                    some: {
-                        levelId: parseInt(levelId, 10) // Assuming ProgramCourse has a direct levelId
-                    }
-                }
-            });
+            filters.push({ programCourses: { some: { levelId: parseInt(levelId, 10) } } });
         }
-
-        // 5. Preferred Semester Type filter
         if (preferredSemesterType !== undefined && preferredSemesterType !== 'all') {
-            if (preferredSemesterType === 'null') { // Frontend sends "null" string for null preference
+            if (preferredSemesterType === 'null') {
                 filters.push({ preferredSemesterType: null });
             } else if (Object.values(SemesterType).includes(preferredSemesterType)) {
                 filters.push({ preferredSemesterType: preferredSemesterType });
-            } else {
-                console.warn(`[CourseService] Invalid preferredSemesterType received: ${preferredSemesterType}`);
             }
         }
-
-        // 6. Course Type filter
         if (courseType && courseType !== 'all' && Object.values(CourseType).includes(courseType)) {
             filters.push({ courseType: courseType });
         }
-
-        // 7. Search filter (for code or title)
         if (search && String(search).trim() !== "") {
             const searchTerm = String(search).trim();
-            filters.push({
-                OR: [
-                    { code: { contains: searchTerm } }, // REMOVED: mode: 'insensitive'
-                    { title: { contains: searchTerm } } // REMOVED: mode: 'insensitive'
-                ]
-            });
+            filters.push({ OR: [{ code: { contains: searchTerm } }, { title: { contains: searchTerm } }] });
         }
-        
-        // Combine all filters with AND
         if (filters.length > 0) {
             where.AND = filters;
         }
+        // --- End of existing filter logic ---
 
+        const selection = canSeeInactive ? courseAdminSelection : coursePublicSelection;
+
+        // NEW: Add logic to handle the 'all' flag
+        if (all === 'true' || all === true) {
+            const allCourses = await prisma.course.findMany({
+                where,
+                select: selection,
+                orderBy: { code: 'asc' },
+            });
+
+            // Return a structure that matches what the frontend expects
+            return {
+                courses: allCourses,
+                totalCourses: allCourses.length,
+                currentPage: 1,
+                totalPages: 1,
+            };
+        }
+
+        // --- This is your original pagination logic, which now only runs if 'all' is not true ---
         const pageNum = parseInt(String(page), 10);
         const limitNum = parseInt(String(limit), 10);
         const skip = (pageNum - 1) * limitNum;
-
-        const selection = canSeeInactive ? courseAdminSelection : coursePublicSelection;
 
         const courses = await prisma.course.findMany({
             where,
@@ -271,6 +247,7 @@ export const getAllCourses = async (query, requestingUser) => {
             currentPage: pageNum,
             totalCourses
         };
+
     } catch (error) {
         if (error instanceof AppError) throw error;
         console.error("Error fetching courses:", error.message, error.stack);

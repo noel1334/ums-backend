@@ -367,15 +367,10 @@ export const updateExam = async (examId, updateData, requestingUser) => {
         const id = parseInt(examId, 10);
         if (isNaN(id)) throw new AppError('Invalid exam ID format.', 400);
 
-        // Fetch existing exam with its questions and options for comprehensive update/deletion logic
         const existingExam = await prisma.exam.findUnique({
             where: { id },
             include: {
-                questions: {
-                    include: {
-                        options: true
-                    }
-                },
+                questions: { include: { options: true } },
                 _count: { select: { examAttempts: true, examSessions: true } }
             }
         });
@@ -387,220 +382,134 @@ export const updateExam = async (examId, updateData, requestingUser) => {
         }
 
         const hasAttempts = existingExam._count.examAttempts > 0;
-        const isActiveOrCompleted = existingExam.status === ExamStatus.ACTIVE ||
-                                   existingExam.status === ExamStatus.COMPLETED ||
-                                   existingExam.status === ExamStatus.GRADED;
+        const isActiveOrCompleted = [ExamStatus.ACTIVE, ExamStatus.COMPLETED, ExamStatus.GRADED].includes(existingExam.status);
 
-        // Prevent changes to core exam structure if active or has attempts
+        // Security check: Prevent changing core details of a live or completed exam
         if (isActiveOrCompleted || hasAttempts) {
-            const forbiddenExamFields = ['durationMinutes', 'questionsToAttempt', 'courseId', 'semesterId', 'seasonId', 'examType', 'totalMarks', 'passMark'];
-            for (const field of forbiddenExamFields) {
-                if (updateData.hasOwnProperty(field)) {
-                    throw new AppError(`Cannot change '${field}' for an exam that is active, completed, graded, or has attempts.`, 400);
+            const forbiddenFields = [
+                'courseId', 'semesterId', 'seasonId', 'examType',
+                'durationMinutes', 'questionsToAttempt', 'totalMarks', 'passMark'
+            ];
+            for (const field of forbiddenFields) {
+                // Check if the update payload tries to change a forbidden field
+                if (updateData.hasOwnProperty(field) && updateData[field] !== existingExam[field]) {
+                    throw new AppError(`Cannot change '${field}' for an exam that is active, completed, or has attempts.`, 400);
                 }
             }
-            // If questions array is provided for an active/attempted exam, disallow it
             if (updateData.questions !== undefined) {
-                throw new AppError('Cannot modify exam questions (add/remove/change type/structure) for an exam that is active, completed, graded, or has attempts. Only minor text/marks updates on existing questions might be allowed if carefully implemented, but for simplicity, disallowed here.', 400);
+                throw new AppError('Cannot modify questions for an exam that is active, completed, or has attempts.', 400);
             }
         }
 
-        // Start a transaction for atomicity
-        const updatedExam = await prisma.$transaction(async (tx) => {
+        return await prisma.$transaction(async (tx) => {
             const dataToUpdate = {};
-            const allowedExamFields = ['title', 'instructions', 'status', 'accessPassword']; // questionsInBank will be updated based on processed questions
-            for (const key of allowedExamFields) {
+            
+            // CORRECTED: This list now includes all editable fields from your form
+            const allowedExamFields = [
+                'title', 'instructions', 'status', 'accessPassword', 'courseId',
+                'semesterId', 'seasonId', 'examType', 'durationMinutes',
+                'questionsToAttempt', 'totalMarks', 'passMark'
+            ];
+
+            // Process all allowed fields from the incoming data
+            allowedExamFields.forEach(key => {
                 if (updateData[key] !== undefined) {
-                    if (key === 'status' && !Object.values(ExamStatus).includes(updateData[key])) {
-                        throw new AppError(`Invalid status: '${updateData[key]}'.`, 400);
+                    const numericFields = ['courseId', 'semesterId', 'seasonId', 'durationMinutes', 'questionsToAttempt', 'totalMarks', 'passMark'];
+                    if (numericFields.includes(key)) {
+                        // Ensure null/undefined values are handled correctly for optional numeric fields
+                        dataToUpdate[key] = updateData[key] ? parseInt(updateData[key], 10) : null;
+                    } else {
+                        dataToUpdate[key] = updateData[key];
                     }
-                    dataToUpdate[key] = updateData[key];
                 }
-            }
+            });
+
+            // Handle password hashing separately
             if (updateData.accessPassword !== undefined) {
                 dataToUpdate.accessPassword = updateData.accessPassword ? await hashPassword(updateData.accessPassword) : null;
             }
 
-            let finalQuestionsCount = existingExam.questions.length; // Start with current count
-
-            // --- Handle Questions Update (only if allowed by exam status/attempts) ---
-            if (updateData.questions !== undefined && Array.isArray(updateData.questions) && !(isActiveOrCompleted || hasAttempts)) {
+            // Handle batch update of questions if they are provided
+            if (updateData.questions && Array.isArray(updateData.questions)) {
                 const incomingQuestions = updateData.questions;
-                const existingQuestionsMap = new Map(existingExam.questions.map(q => [q.id, q]));
+                const existingQuestionIds = existingExam.questions.map(q => q.id);
+                const incomingQuestionIds = incomingQuestions.map(q => q.id).filter(id => id);
 
-                const questionsToDeleteIds = [];
-                const optionsToDeleteIds = [];
-
-                // 1. Identify and collect IDs of questions and their options to delete
-                for (const existingQ of existingExam.questions) {
-                    const foundInIncoming = incomingQuestions.some(iq => iq.id === existingQ.id);
-                    if (!foundInIncoming) {
-                        questionsToDeleteIds.push(existingQ.id);
-                        optionsToDeleteIds.push(...existingQ.options.map(o => o.id));
-                    }
-                }
-
-                // 2. Perform deletions (options before questions due to foreign key constraints)
-                if (optionsToDeleteIds.length > 0) {
-                    await tx.questionOption.deleteMany({
-                        where: { id: { in: optionsToDeleteIds } }
-                    });
-                }
+                // Delete questions that are no longer in the incoming list
+                const questionsToDeleteIds = existingQuestionIds.filter(id => !incomingQuestionIds.includes(id));
                 if (questionsToDeleteIds.length > 0) {
-                    await tx.question.deleteMany({
-                        where: { id: { in: questionsToDeleteIds } }
-                    });
+                    await tx.question.deleteMany({ where: { id: { in: questionsToDeleteIds } } });
                 }
 
-                // 3. Process incoming questions for creation/update
+                // Process incoming questions for creation or update
                 for (const [index, q] of incomingQuestions.entries()) {
-                    const questionType = q.questionType ? String(q.questionType).toUpperCase() : null;
-                    const questionMarks = q.marks ? parseFloat(q.marks) : NaN;
+                    if (!q.questionText || !q.questionType) throw new AppError(`Question at index ${index} is missing text or type.`, 400);
+                    const questionType = q.questionType.toUpperCase();
 
-                    // Basic validation for each question
-                    if (!q.questionText || !questionType || isNaN(questionMarks) || questionMarks <= 0) {
-                        throw new AppError(`Question at index ${index + 1} is missing required fields (text, type, positive marks).`, 400);
-                    }
-                    if (!Object.values(QuestionType).includes(questionType)) {
-                        throw new AppError(`Question at index ${index + 1} has an invalid questionType: ${q.questionType}`, 400);
-                    }
-
-                    const questionBaseData = {
+                    const questionPayload = {
                         questionText: q.questionText,
                         questionType: questionType,
-                        marks: questionMarks,
-                        explanation: q.explanation || null,
+                        marks: q.marks || 1,
+                        explanation: q.explanation || q.correctAnswer || null,
                         difficulty: q.difficulty || null,
                         topic: q.topic || null,
-                        isBankQuestion: q.isBankQuestion !== undefined ? Boolean(q.isBankQuestion) : true,
-                        displayOrder: q.displayOrder ? parseInt(q.displayOrder, 10) : index + 1,
+                        isBankQuestion: q.isBankQuestion !== undefined ? q.isBankQuestion : true,
+                        displayOrder: index + 1,
+                        correctOptionKey: null,
                     };
 
-                    // Handle specific question type logic for correct answer/explanation
-                    if (questionType === QuestionType.ESSAY || questionType === QuestionType.SHORT_ANSWER || questionType === QuestionType.FILL_IN_THE_BLANKS) {
-                        const answerText = q.correctAnswer || q.answerText || null;
-                        if (answerText) {
-                            questionBaseData.explanation = answerText;
-                        }
-                        questionBaseData.correctOptionKey = null; // Ensure no correctOptionKey for these types
-                    } else { // MULTIPLE_CHOICE or TRUE_FALSE
-                        if (!q.options || q.options.length < 2 || !q.correctOptionKey) {
-                            throw new AppError(`Question at index ${index + 1} (${questionType}) requires at least 2 options and a correctOptionKey.`, 400);
-                        }
-                        if (!q.options.find(opt => opt.optionKey === q.correctOptionKey)) {
-                            throw new AppError(`Question at index ${index + 1}: correctOptionKey '${q.correctOptionKey}' does not match any provided optionKey.`, 400);
-                        }
-                        questionBaseData.correctOptionKey = q.correctOptionKey;
+                    if (questionType === QuestionType.MULTIPLE_CHOICE || questionType === QuestionType.TRUE_FALSE) {
+                        if (!q.correctOptionKey || !q.options || q.options.length < 2) throw new AppError(`MCQ/TF Question "${q.questionText}" requires a correctOptionKey and at least 2 options.`, 400);
+                        questionPayload.correctOptionKey = q.correctOptionKey;
                     }
 
-                    if (q.id && existingQuestionsMap.has(q.id)) {
-                        // Update existing question
-                        const existingQ = existingQuestionsMap.get(q.id);
-                        await tx.question.update({
-                            where: { id: q.id },
-                            data: questionBaseData
-                        });
+                    if (q.id) { // UPDATE existing question
+                        await tx.question.update({ where: { id: q.id }, data: questionPayload });
 
-                        // Handle options for this question (create/update/delete)
-                        const incomingOptions = q.options || [];
-                        const existingOptionsMapForQuestion = new Map(existingQ.options.map(o => [o.id, o]));
+                        // The "Delete and Recreate" fix for options
+                        await tx.questionOption.deleteMany({ where: { questionId: q.id } });
 
-                        const optionsToCreate = [];
-                        const optionsToUpdateOps = []; // Array of { where, data } for Prisma update
-                        const optionsToDeleteForQuestionIds = [];
-
-                        for (const incomingOpt of incomingOptions) {
-                            if (!incomingOpt.optionKey || !incomingOpt.optionText) {
-                                throw new AppError(`Question at index ${index + 1}, Option is missing required fields (key, text).`, 400);
+                        if ((questionType === QuestionType.MULTIPLE_CHOICE || questionType === QuestionType.TRUE_FALSE) && q.options) {
+                            const optionsToCreate = q.options.map(opt => ({
+                                questionId: q.id, optionKey: opt.optionKey, optionText: opt.optionText, isCorrect: opt.optionKey === q.correctOptionKey
+                            }));
+                            if (optionsToCreate.length > 0) await tx.questionOption.createMany({ data: optionsToCreate });
+                        }
+                    } else { // CREATE new question
+                        const newQuestion = await tx.question.create({
+                            data: {
+                                ...questionPayload,
+                                examId: id,
+                                addedByLecturerId: requestingUser.type === 'lecturer' ? requestingUser.id : null,
+                                addedByICTStaffId: requestingUser.type === 'ictstaff' ? requestingUser.id : null,
                             }
-                            if (incomingOpt.id && existingOptionsMapForQuestion.has(incomingOpt.id)) {
-                                optionsToUpdateOps.push({
-                                    where: { id: incomingOpt.id },
-                                    data: {
-                                        optionKey: incomingOpt.optionKey,
-                                        optionText: incomingOpt.optionText,
-                                        isCorrect: incomingOpt.optionKey === q.correctOptionKey
-                                    }
-                                });
-                                existingOptionsMapForQuestion.delete(incomingOpt.id); // Mark as processed
-                            } else {
-                                optionsToCreate.push({
-                                    questionId: q.id,
-                                    optionKey: incomingOpt.optionKey,
-                                    optionText: incomingOpt.optionText,
-                                    isCorrect: incomingOpt.optionKey === q.correctOptionKey
-                                });
-                            }
-                        }
-                        // Any remaining in existingOptionsMapForQuestion are to be deleted
-                        optionsToDeleteForQuestionIds.push(...Array.from(existingOptionsMapForQuestion.values()).map(o => o.id));
-
-                        if (optionsToCreate.length > 0) {
-                            await tx.questionOption.createMany({ data: optionsToCreate });
-                        }
-                        for (const updateOp of optionsToUpdateOps) {
-                            await tx.questionOption.update(updateOp);
-                        }
-                        if (optionsToDeleteForQuestionIds.length > 0) {
-                            await tx.questionOption.deleteMany({
-                                where: { id: { in: optionsToDeleteForQuestionIds } }
-                            });
-                        }
-
-                    } else {
-                        // Create new question with nested options
-                        const newQuestionData = {
-                            ...questionBaseData,
-                            examId: id,
-                            addedByLecturerId: requestingUser.type === 'lecturer' ? requestingUser.id : null,
-                            addedByICTStaffId: requestingUser.type === 'ictstaff' ? requestingUser.id : null,
-                        };
-
-                        const optionsToCreate = (q.options || []).map((opt, optIndex) => {
-                            if (!opt.optionKey || !opt.optionText) {
-                                throw new AppError(`New question at index ${index + 1}, Option at index ${optIndex + 1} is missing required fields (key, text).`, 400);
-                            }
-                            return {
-                                optionKey: opt.optionKey,
-                                optionText: opt.optionText,
-                                isCorrect: opt.optionKey === q.correctOptionKey
-                            };
                         });
-
-                        if (optionsToCreate.length > 0) {
-                            newQuestionData.options = { create: optionsToCreate };
+                        if ((questionType === QuestionType.MULTIPLE_CHOICE || questionType === QuestionType.TRUE_FALSE) && q.options) {
+                            const optionsToCreate = q.options.map(opt => ({
+                                questionId: newQuestion.id, optionKey: opt.optionKey, optionText: opt.optionText, isCorrect: opt.optionKey === q.correctOptionKey
+                            }));
+                            if (optionsToCreate.length > 0) await tx.questionOption.createMany({ data: optionsToCreate });
                         }
-
-                        await tx.question.create({
-                            data: newQuestionData
-                        });
                     }
                 }
-                finalQuestionsCount = incomingQuestions.length; // The new count of questions
-                dataToUpdate.questionsInBank = finalQuestionsCount; // Update questionsInBank
+                dataToUpdate.questionsInBank = incomingQuestions.length;
             }
 
-            // Check if any actual update operations were performed (exam-level or question-level)
-            if (Object.keys(dataToUpdate).length === 0 && !(updateData.questions !== undefined && Array.isArray(updateData.questions) && !(isActiveOrCompleted || hasAttempts))) {
-                 throw new AppError('No valid fields provided for update or question modifications disallowed by exam status.', 400);
-            }
-
-            // Perform the exam-level update
-            const updatedExamRecord = await tx.exam.update({
+            // Finally, perform the main update on the exam record
+            return await tx.exam.update({
                 where: { id },
                 data: dataToUpdate,
                 select: examSelection
             });
-            return updatedExamRecord;
         });
 
-        return updatedExam;
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error updating exam (raw):", error.message, error.stack);
+        console.error("Error updating exam (raw):", error);
         throw new AppError('Could not update exam.', 500);
     }
 };
+
 
 export const deleteExam = async (examId, requestingUser) => {
     try {

@@ -78,23 +78,17 @@ export const getSessions = async (query, requestingUser) => {
         const { examId, page = 1, limit = 10, isActive, search } = query;
         const where = {}; 
 
-        // Handle examId filtering and authorization
         if (examId) {
             const pExamId = parseInt(examId, 10);
             if (isNaN(pExamId)) throw new AppError("Invalid Exam ID format.", 400);
             where.examId = pExamId;
 
             if (!await canUserManageExam(requestingUser, pExamId)) {
-                // For exam-specific session lists, students only see active/active exams
                 if (requestingUser.type !== 'student') {
                     throw new AppError('You are not authorized to view sessions for this exam.', 403);
                 }
             }
         } else {
-            // If no examId is provided (e.g., a global /exam-sessions route, if it existed),
-            // only admin/ictstaff can view ALL sessions globally.
-            // This part of the logic is retained for completeness but will not be hit
-            // by the `getSessionsForExam` controller in the nested router.
             if (requestingUser.type !== 'admin' && requestingUser.type !== 'ictstaff') {
                 throw new AppError('You need to provide an Exam ID or have admin/ICT privileges to view all sessions.', 403);
             }
@@ -102,19 +96,25 @@ export const getSessions = async (query, requestingUser) => {
 
         if (isActive !== undefined) where.isActive = isActive === 'true';
 
+        // =============================================================
+        // ================ START OF THE FIX BLOCK =====================
+        // =============================================================
         // Add search capability across session name, exam title, and venue name
+        // REMOVED `mode: 'insensitive'` because it is not supported by your database.
         if (search) {
             where.OR = [
-                { sessionName: { contains: search, mode: 'insensitive' } },
-                { exam: { title: { contains: search, mode: 'insensitive' } } },
-                { venue: { name: { contains: search, mode: 'insensitive' } } },
+                { sessionName: { contains: search } },
+                { exam: { title: { contains: search } } },
+                { venue: { name: { contains: search } } },
             ];
         }
+        // ===========================================================
+        // =================== END OF THE FIX BLOCK ==================
+        // ===========================================================
 
-        // For students, only show active sessions for active exams (when fetching all or specific exam sessions)
         if (requestingUser.type === 'student') {
             where.isActive = true;
-            where.exam = { status: 'ACTIVE' }; // Ensure the parent exam is active
+            where.exam = { status: 'ACTIVE' };
         }
 
         const pageNum = parseInt(page, 10);
@@ -168,6 +168,8 @@ export const getExamSessionById = async (sessionId, requestingUser) => {
 export const updateExamSession = async (sessionId, updateData, updatingUser) => {
     try {
         const id = parseInt(sessionId, 10);
+        if (isNaN(id)) throw new AppError('Invalid session ID format.', 400);
+
         const existingSession = await prisma.examSession.findUnique({ where: { id } });
         if (!existingSession) throw new AppError('Exam session not found for update.', 404);
 
@@ -175,23 +177,41 @@ export const updateExamSession = async (sessionId, updateData, updatingUser) => 
             throw new AppError('You are not authorized to update this exam session.', 403);
         }
 
-        // Add checks: cannot update if attempts exist or session is completed.
-        const attempts = await prisma.examAttempt.count({where: {examSessionId: id}});
-        if(attempts > 0) {
-            // Allow only isActive update or similar minor changes if attempts exist
-            if(updateData.startTime || updateData.endTime || updateData.venueId || updateData.examId){
-                 throw new AppError('Cannot change core session details once attempts have begun. You may update isActive or sessionName.', 400);
+        const attempts = await prisma.examAttempt.count({ where: { examSessionId: id } });
+        if (attempts > 0) {
+            if (updateData.startTime || updateData.endTime || updateData.venueId || updateData.examId) {
+                throw new AppError('Cannot change core session details once attempts have begun.', 400);
             }
         }
 
-        const dataToUpdate = {...updateData};
-        if(dataToUpdate.startTime) dataToUpdate.startTime = new Date(dataToUpdate.startTime);
-        if(dataToUpdate.endTime) dataToUpdate.endTime = new Date(dataToUpdate.endTime);
-        if(dataToUpdate.accessPassword) dataToUpdate.accessPassword = await hashPassword(dataToUpdate.accessPassword);
-        else if (dataToUpdate.accessPassword === null || dataToUpdate.accessPassword === '') dataToUpdate.accessPassword = null;
+        const dataToUpdate = { ...updateData };
 
-        // MODIFIED: Handle venueId update with validation
-        if (dataToUpdate.venueId !== undefined) { 
+        // =============================================================
+        // ================ START OF THE FINAL FIX BLOCK ===============
+        // =============================================================
+        
+        // Handle the accessPassword logic explicitly
+        if (updateData.accessPassword && updateData.accessPassword.length > 0) {
+            // Case 1: A new password is provided. Hash and set it.
+            dataToUpdate.accessPassword = await hashPassword(updateData.accessPassword);
+        } else if (updateData.accessPassword === null) {
+            // Case 2: `null` is explicitly sent. Clear the password.
+            dataToUpdate.accessPassword = null;
+        } else {
+            // Case 3: `undefined` or `""` (empty string from form) is sent.
+            // This means "do not change the password".
+            // We achieve this by deleting the property from the update object.
+            delete dataToUpdate.accessPassword;
+        }
+
+        // ===========================================================
+        // =================== END OF THE FINAL FIX BLOCK ============
+        // ===========================================================
+
+        if (dataToUpdate.startTime) dataToUpdate.startTime = new Date(dataToUpdate.startTime);
+        if (dataToUpdate.endTime) dataToUpdate.endTime = new Date(dataToUpdate.endTime);
+
+        if (dataToUpdate.venueId !== undefined) {
             const pVenueId = parseInt(dataToUpdate.venueId, 10);
             if (isNaN(pVenueId)) throw new AppError('Invalid Venue ID format for update.', 400);
             const venue = await prisma.venue.findUnique({ where: { id: pVenueId, isActive: true } });
@@ -199,11 +219,14 @@ export const updateExamSession = async (sessionId, updateData, updatingUser) => 
             dataToUpdate.venueId = pVenueId;
         }
 
+        // These should not be updatable from this service
         delete dataToUpdate.id;
-        delete dataToUpdate.examId; // Exam of session should not change
+        delete dataToUpdate.examId;
 
         const updatedSession = await prisma.examSession.update({
-            where: { id }, data: dataToUpdate, select: sessionSelection
+            where: { id },
+            data: dataToUpdate,
+            select: sessionSelection
         });
         return updatedSession;
     } catch (error) {
