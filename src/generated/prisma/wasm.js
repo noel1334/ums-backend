@@ -575,6 +575,14 @@ exports.Prisma.QuestionOptionScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.ExamAttemptQuestionScalarFieldEnum = {
+  id: 'id',
+  examAttemptId: 'examAttemptId',
+  questionId: 'questionId',
+  displayOrder: 'displayOrder',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.ExamAttemptScalarFieldEnum = {
   id: 'id',
   studentId: 'studentId',
@@ -1470,6 +1478,7 @@ exports.Prisma.ModelName = {
   StudentExamSessionAssignment: 'StudentExamSessionAssignment',
   Question: 'Question',
   QuestionOption: 'QuestionOption',
+  ExamAttemptQuestion: 'ExamAttemptQuestion',
   ExamAttempt: 'ExamAttempt',
   StudentAnswer: 'StudentAnswer',
   ExamFee: 'ExamFee',

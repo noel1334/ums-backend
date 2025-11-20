@@ -1,14 +1,22 @@
 // src/controllers/examAttempt.controller.js
+
 import * as ExamAttemptService from '../services/examAttempt.service.js';
 import AppError from '../utils/AppError.js';
 
 export const startExamAttempt = async (req, res, next) => {
     try {
-        // examSessionId from body or params if nested route like /exam-sessions/:examSessionId/attempts/start
-        const examSessionId = req.body.examSessionId || req.params.examSessionId;
-        if (!examSessionId) return next(new AppError('Exam Session ID is required.', 400));
+        // --- THIS IS THE FIX ---
+        // The examSessionId is in the URL parameters, not the body.
+        // We get it directly from req.params.
+        const { examSessionId } = req.params;
+        // --- END OF FIX ---
 
-        const clientIpAddress = req.ip; // Or req.headers['x-forwarded-for'] if behind proxy
+        if (!examSessionId) {
+            // This check is now a safeguard in case the route changes unexpectedly.
+            return next(new AppError('Exam Session ID is missing from the URL.', 400));
+        }
+
+        const clientIpAddress = req.ip;
         const clientUserAgent = req.headers['user-agent'];
 
         const attemptDetails = await ExamAttemptService.startExamAttempt(
@@ -25,8 +33,8 @@ export const startExamAttempt = async (req, res, next) => {
 
 export const saveStudentAnswer = async (req, res, next) => {
     try {
-        const attemptId = req.params.attemptId;
-        const studentId = req.user.id; // Ensure student can only save to their own attempt
+        const { attemptId } = req.params; // Correctly get attemptId from params
+        const studentId = req.user.id;
         const { questionId, selectedOptionKey, answerText } = req.body;
 
         if (!questionId || (selectedOptionKey === undefined && answerText === undefined)) {
@@ -42,7 +50,7 @@ export const saveStudentAnswer = async (req, res, next) => {
 
 export const submitExamAttempt = async (req, res, next) => {
     try {
-        const attemptId = req.params.attemptId;
+        const { attemptId } = req.params; // Correctly get attemptId from params
         const studentId = req.user.id;
 
         const result = await ExamAttemptService.submitExamAttempt(attemptId, studentId);
@@ -54,12 +62,24 @@ export const submitExamAttempt = async (req, res, next) => {
 
 export const getExamAttemptResult = async (req, res, next) => {
     try {
-        const attemptId = req.params.attemptId;
-        // Student ID can be from req.user (for self) or from params (for admin/lecturer view)
+        const { attemptId } = req.params; // Correctly get attemptId from params
         const studentIdForAuth = req.user.id;
 
         const result = await ExamAttemptService.getExamAttemptResult(attemptId, studentIdForAuth, req.user);
         res.status(200).json({ status: 'success', data: result });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ===================================================================
+// --- NEW CONTROLLER: Handle deleting an exam attempt ---
+// ===================================================================
+export const deleteExamAttempt = async (req, res, next) => {
+    try {
+        const { attemptId } = req.params;
+        await ExamAttemptService.deleteExamAttempt(attemptId);
+        res.status(200).json({ status: 'success', message: 'Exam attempt deleted successfully.' });
     } catch (error) {
         next(error);
     }

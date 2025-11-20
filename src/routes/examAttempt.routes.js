@@ -3,39 +3,48 @@ import { Router } from 'express';
 import * as ExamAttemptController from '../controllers/examAttempt.controller.js';
 import {
     authenticateToken,
-    authorize, // For student-only routes
-    // Add other specific authorizations if needed for viewing results by lecturers/admins
-    authorizeAdminOrPermittedICTStaff,
+    authorize,
 } from '../middlewares/auth.middleware.js';
-import { authenticateExamAttemptToken } from '../middlewares/auth.middleware.js';
-const router = Router({ mergeParams: true }); // mergeParams if nested under sessions
-router.use(authenticateExamAttemptToken);
-const canManageExams = authorizeAdminOrPermittedICTStaff('canManageExams');
-router.post('/start', // Assuming examSessionId is in body or already in params from parent router
+
+const router = Router({ mergeParams: true });
+
+// Route to start (or resume) an exam attempt.
+router.post('/start',
     authenticateToken,
     authorize(['student']),
     ExamAttemptController.startExamAttempt
 );
 
+// Route to save an answer for a specific question within an attempt.
 router.patch('/:attemptId/answers',
     authenticateToken,
     authorize(['student']),
     ExamAttemptController.saveStudentAnswer
 );
 
+// Route to finalize and submit the entire exam attempt.
 router.post('/:attemptId/submit',
     authenticateToken,
     authorize(['student']),
     ExamAttemptController.submitExamAttempt
 );
+
+// Route to get the results of a completed attempt.
 router.get('/:attemptId/result',
     authenticateToken,
-    authorize(['student', 'admin', 'ictstaff', 'lecturer', 'HOD', 'DEAN', 'EXAMINER']), // Broad, service handles specifics
+    authorize(['student', 'admin', 'ictstaff', 'lecturer', 'HOD', 'DEAN', 'EXAMINER']),
     ExamAttemptController.getExamAttemptResult
 );
 
-// Future: Admin/Lecturer routes to list attempts for an exam/session
-// router.get('/', authenticateToken, canManageExams, ExamAttemptController.listAttemptsForSessionOrExam);
+router.get('/:attemptId/result',
+    authenticateToken,
+    authorize(['student', 'admin', 'ictstaff', 'lecturer', 'HOD', 'DEAN', 'EXAMINER']),
+    ExamAttemptController.getExamAttemptResult
+);
 
-
+router.delete('/:attemptId',
+    authenticateToken,
+    authorize(['admin', 'ictstaff']), // Only admins/ICT staff can delete
+    ExamAttemptController.deleteExamAttempt
+);
 export default router;

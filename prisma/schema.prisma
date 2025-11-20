@@ -310,7 +310,7 @@ model Student {
   notifications         Notification[]
   examAttempts          ExamAttempt[] // Student's attempts at various exams
   assignedExamSessions  StudentExamSessionAssignment[] // Sessions student is assigned to
-  studentExamPayment            StudentExamPayment[]
+  studentExamPayment    StudentExamPayment[]
 
   @@index([name])
   @@index([email])
@@ -863,38 +863,38 @@ model Venue {
 }
 
 model Exam {
-  id                  Int           @id @default(autoincrement())
+  id                  Int        @id @default(autoincrement())
   title               String
   courseId            Int
   semesterId          Int
   seasonId            Int
   examType            ExamType
-  instructions        String?       @db.Text
+  instructions        String?    @db.Text
   durationMinutes     Int
   totalMarks          Float?
   passMark            Float?
   questionsInBank     Int?
-   fee                 ExamFee? 
+  fee                 ExamFee?
   questionsToAttempt  Int
-  status              ExamStatus    @default(PENDING)
-  accessPassword      String?       @db.VarChar(255)
+  status              ExamStatus @default(PENDING)
+  accessPassword      String?    @db.VarChar(255)
   createdByLecturerId Int?
   createdByICTStaffId Int?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  course              Course        @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  semester            Semester      @relation(fields: [semesterId], references: [id], onDelete: Restrict)
-  season              Season        @relation(fields: [seasonId], references: [id], onDelete: Restrict)
-  createdByLecturer   Lecturer?     @relation(name: "LecturerCreatedExams", fields: [createdByLecturerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  createdByICTStaff   ICTStaff?     @relation(name: "ICTStaffCreatedExams", fields: [createdByICTStaffId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  course              Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  semester            Semester   @relation(fields: [semesterId], references: [id], onDelete: Restrict)
+  season              Season     @relation(fields: [seasonId], references: [id], onDelete: Restrict)
+  createdByLecturer   Lecturer?  @relation(name: "LecturerCreatedExams", fields: [createdByLecturerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdByICTStaff   ICTStaff?  @relation(name: "ICTStaffCreatedExams", fields: [createdByICTStaffId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   // Back-relations from other models
-  payments            StudentExamPayment[]
-  questions           Question[]
-  examSessions        ExamSession[]
-  examAttempts        ExamAttempt[] @relation("ExamAttemptsForExamConfig")
+  payments         StudentExamPayment[]
+  questions        Question[]
+  examSessions     ExamSession[]
+  examAttempts     ExamAttempt[]                  @relation("ExamAttemptsForExamConfig")
   // NEW: Inverse relation for direct student assignments to this exam
-  assignedStudents    StudentExamSessionAssignment[] 
+  assignedStudents StudentExamSessionAssignment[]
 
   @@index([courseId, semesterId, seasonId, examType])
   @@index([status])
@@ -942,26 +942,27 @@ model StudentExamSessionAssignment {
 }
 
 model Question {
-  id                Int              @id @default(autoincrement())
-  examId            Int
-  questionText      String           @db.Text
-  questionType      QuestionType
-  marks             Float
-  correctOptionKey  String?
-  explanation       String?          @db.Text
-  difficulty        String?
-  topic             String?
-  isBankQuestion    Boolean          @default(true)
-  displayOrder      Int?
-  addedByLecturerId Int?
-  addedByICTStaffId Int?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  options           QuestionOption[] // <<<< THIS LINE NEEDS TO BE PRESENT
-  studentAnswers    StudentAnswer[]
-  exam              Exam             @relation(fields: [examId], references: [id], onDelete: Cascade)
-  addedByLecturer   Lecturer?        @relation(name: "LecturerAuthoredQuestions", fields: [addedByLecturerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  addedByICTStaff   ICTStaff?        @relation(name: "ICTStaffAuthoredQuestions", fields: [addedByICTStaffId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  id                  Int                   @id @default(autoincrement())
+  examId              Int
+  questionText        String                @db.Text
+  questionType        QuestionType
+  marks               Float
+  correctOptionKey    String?
+  explanation         String?               @db.Text
+  difficulty          String?
+  topic               String?
+  isBankQuestion      Boolean               @default(true)
+  displayOrder        Int?
+  addedByLecturerId   Int?
+  addedByICTStaffId   Int?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  options             QuestionOption[] // <<<< THIS LINE NEEDS TO BE PRESENT
+  studentAnswers      StudentAnswer[]
+  examAttemptQuestion ExamAttemptQuestion[]
+  exam                Exam                  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  addedByLecturer     Lecturer?             @relation(name: "LecturerAuthoredQuestions", fields: [addedByLecturerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  addedByICTStaff     ICTStaff?             @relation(name: "ICTStaffAuthoredQuestions", fields: [addedByICTStaffId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([examId, questionType])
   @@index([topic])
@@ -980,25 +981,45 @@ model QuestionOption {
   @@unique([questionId, optionKey])
 }
 
+model ExamAttemptQuestion {
+  id            Int @id @default(autoincrement())
+  examAttemptId Int
+  questionId    Int
+  displayOrder  Int // To maintain the question order for the student
+
+  examAttempt ExamAttempt @relation(fields: [examAttemptId], references: [id], onDelete: Cascade)
+  question    Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([examAttemptId, questionId])
+  @@index([examAttemptId])
+}
+
 model ExamAttempt {
-  id              Int             @id @default(autoincrement())
+  id              Int       @id @default(autoincrement())
   studentId       Int
-  examId          Int // The overall exam configuration
-  examSessionId   Int // The specific session this attempt belongs to
-  startTime       DateTime        @default(now())
+  examId          Int
+  examSessionId   Int
+  startTime       DateTime  @default(now())
   endTime         DateTime?
   timeUsedSeconds Int?
   scoreAchieved   Float?
-  isSubmitted     Boolean         @default(false)
-  isGraded        Boolean         @default(false)
+  isSubmitted     Boolean   @default(false)
+  isGraded        Boolean   @default(false)
   ipAddress       String?
-  userAgent       String?         @db.Text
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  student         Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  exam            Exam            @relation("ExamAttemptsForExamConfig", fields: [examId], references: [id], onDelete: Restrict)
-  examSession     ExamSession     @relation("ExamAttemptsForSession", fields: [examSessionId], references: [id], onDelete: Restrict)
-  studentAnswers  StudentAnswer[]
+  userAgent       String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // RELATIONSHIPS
+  student        Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exam           Exam            @relation("ExamAttemptsForExamConfig", fields: [examId], references: [id], onDelete: Restrict)
+  examSession    ExamSession     @relation("ExamAttemptsForSession", fields: [examSessionId], references: [id], onDelete: Restrict)
+  studentAnswers StudentAnswer[]
+
+  // --- ADD THIS LINE ---
+  questions ExamAttemptQuestion[] // Links this attempt to its specific set of questions
 
   @@unique([studentId, examSessionId], name: "unique_student_attempt_per_session")
   @@index([examId, studentId])
@@ -1020,40 +1041,41 @@ model StudentAnswer {
 
   @@unique([examAttemptId, questionId])
 }
+
 // Defines the fee required to download the pass/details for a specific exam.
 model ExamFee {
-  id                Int      @id @default(autoincrement())
-  examId            Int      @unique // A fee is attached to ONE specific exam configuration
-  amount            Float
-  description       String?  // e.g., "Pass Fee for CSC101 Mid-Semester"
-  isActive          Boolean  @default(true) // Allows enabling/disabling this fee
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id          Int      @id @default(autoincrement())
+  examId      Int      @unique // A fee is attached to ONE specific exam configuration
+  amount      Float
+  description String? // e.g., "Pass Fee for CSC101 Mid-Semester"
+  isActive    Boolean  @default(true) // Allows enabling/disabling this fee
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  exam    Exam             @relation(fields: [examId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  payments  StudentExamPayment[]   // Inverse relation
+  exam     Exam                 @relation(fields: [examId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  payments StudentExamPayment[] // Inverse relation
 }
 
 // Tracks an individual student's payment for a specific exam.
 model StudentExamPayment {
-  id                       Int            @id @default(autoincrement())
-  studentId                Int
-  examId                   Int            // The specific exam this payment is for
-  examFeeId                Int            // Which fee definition this payment is for
-  amountExpected           Float
-  amountPaid               Float
-  paymentStatus            PaymentStatus  @default(PENDING) // From your existing PaymentStatus enum
-  paymentDate              DateTime?      // When payment was confirmed
-  paymentReference         String         @unique // Unique reference from your system or gateway
-  transactionId            String?        @unique // Gateway's specific transaction ID
-  paymentChannel           PaymentChannel?// From your existing PaymentChannel enum
-  paymentGatewayResponse   Json?
-  createdAt                DateTime       @default(now())
-  updatedAt                DateTime       @updatedAt
+  id                     Int             @id @default(autoincrement())
+  studentId              Int
+  examId                 Int // The specific exam this payment is for
+  examFeeId              Int // Which fee definition this payment is for
+  amountExpected         Float
+  amountPaid             Float
+  paymentStatus          PaymentStatus   @default(PENDING) // From your existing PaymentStatus enum
+  paymentDate            DateTime? // When payment was confirmed
+  paymentReference       String          @unique // Unique reference from your system or gateway
+  transactionId          String?         @unique // Gateway's specific transaction ID
+  paymentChannel         PaymentChannel? // From your existing PaymentChannel enum
+  paymentGatewayResponse Json?
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
 
-  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  exam        Exam        @relation(fields: [examId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  examFee     ExamFee     @relation(fields: [examFeeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  exam    Exam    @relation(fields: [examId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  examFee ExamFee @relation(fields: [examFeeId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   // A student can only have one payment record per exam.
   @@unique([studentId, examId])
@@ -1126,7 +1148,7 @@ model JambApplicant {
   id                     Int                  @id @default(autoincrement())
   jambRegNo              String               @unique
   name                   String
-  email                  String?              
+  email                  String?
   programName            String
   entryMode              EntryMode
   gender                 Gender?
@@ -1150,7 +1172,7 @@ model JambApplicant {
 model OnlineScreeningList {
   id           Int       @id @default(autoincrement())
   jambRegNo    String    @unique
-  email        String?   
+  email        String?
   password     String
   isActive     Boolean   @default(true) // Can this applicant log in to screening portal?
   lastLogin    DateTime?

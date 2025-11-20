@@ -1,29 +1,42 @@
+// src/routes/examSession.routes.js
 import { Router } from 'express';
 import * as ExamSessionController from '../controllers/examSession.controller.js';
 import {
     authenticateToken,
-    authorize // For broad role checks, service layer does finer grain
+    authorize
 } from '../middlewares/auth.middleware.js';
-import examAttemptRoutes from './examAttempt.routes.js';                // Import for nesting
-import studentExamAssignmentRoutes from './studentExamAssignment.routes.js'; 
+import examAttemptRoutes from './examAttempt.routes.js';
+import studentExamAssignmentRoutes from './studentExamAssignment.routes.js';
 
-// This router is intended to be nested under /exams/:examId
 const router = Router({ mergeParams: true });
-
-// Use the same broad authorization, service layer will check specifics for fetching
 const canManageSessionsAuth = authorize(['admin', 'ictstaff', 'HOD', 'DEAN', 'EXAMINER', 'LECTURER']);
 
+// --- EXISTING ROUTES (NO CHANGE) ---
 router.post('/', authenticateToken, canManageSessionsAuth, ExamSessionController.createExamSession);
-router.get('/', authenticateToken, canManageSessionsAuth, ExamSessionController.getSessionsForExam); 
-
+router.get('/', authenticateToken, canManageSessionsAuth, ExamSessionController.getSessionsForExam);
 router.route('/:sessionId')
-    .get(authenticateToken, canManageSessionsAuth, ExamSessionController.getExamSessionById) 
+    .get(authenticateToken, canManageSessionsAuth, ExamSessionController.getExamSessionById)
     .put(authenticateToken, canManageSessionsAuth, ExamSessionController.updateExamSession)
     .delete(authenticateToken, canManageSessionsAuth, ExamSessionController.deleteExamSession);
-
-// Nest student assignments under a specific session
 router.use('/:examSessionId/attempts', examAttemptRoutes);
 router.use('/:sessionId/assignments', studentExamAssignmentRoutes);
 
+// ===================================================================
+// --- NEW ROUTES TO FETCH ATTEMPTS AND RESULTS FOR ADMINS ---
+// ===================================================================
+router.get(
+    '/:sessionId/attempts-summary', // URL for the "Attempts" page
+    authenticateToken,
+    canManageSessionsAuth,
+    ExamSessionController.getSessionAttemptsSummary
+);
+
+router.get(
+    '/:sessionId/results-summary', // URL for the "Results" page
+    authenticateToken,
+    canManageSessionsAuth,
+    ExamSessionController.getSessionResultsSummary
+);
+// ===================================================================
 
 export default router;

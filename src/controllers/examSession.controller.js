@@ -1,5 +1,8 @@
 import * as examSessionService from '../services/examSession.service.js';
 import catchAsync from '../utils/catchAsync.js';
+// NEW: Import the examAttempt service
+import * as ExamAttemptService from '../services/examAttempt.service.js'
+
 
 export const createExamSession = catchAsync(async (req, res, next) => {
     const { examId } = req.params; // Get examId from URL params
@@ -45,3 +48,27 @@ export const deleteExamSession = catchAsync(async (req, res, next) => {
         data: null
     });
 });
+
+// ===================================================================
+// --- NEW CONTROLLER FUNCTIONS FOR ADMIN DASHBOARD ---
+// ===================================================================
+
+export const getSessionAttemptsSummary = async (req, res, next) => {
+    try {
+        const { sessionId } = req.params;
+        const attempts = await ExamAttemptService.getAttemptsSummaryForSession(sessionId);
+        res.status(200).json({ status: 'success', data: { attempts } });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getSessionResultsSummary = async (req, res, next) => {
+    try {
+        const { sessionId } = req.params;
+        const results = await ExamAttemptService.getResultsSummaryForSession(sessionId);
+        res.status(200).json({ status: 'success', data: { results } });
+    } catch (error) {
+        next(error);
+    }
+};

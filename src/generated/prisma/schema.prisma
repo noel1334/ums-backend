@@ -942,26 +942,27 @@ model StudentExamSessionAssignment {
 }
 
 model Question {
-  id                Int              @id @default(autoincrement())
-  examId            Int
-  questionText      String           @db.Text
-  questionType      QuestionType
-  marks             Float
-  correctOptionKey  String?
-  explanation       String?          @db.Text
-  difficulty        String?
-  topic             String?
-  isBankQuestion    Boolean          @default(true)
-  displayOrder      Int?
-  addedByLecturerId Int?
-  addedByICTStaffId Int?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  options           QuestionOption[] // <<<< THIS LINE NEEDS TO BE PRESENT
-  studentAnswers    StudentAnswer[]
-  exam              Exam             @relation(fields: [examId], references: [id], onDelete: Cascade)
-  addedByLecturer   Lecturer?        @relation(name: "LecturerAuthoredQuestions", fields: [addedByLecturerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  addedByICTStaff   ICTStaff?        @relation(name: "ICTStaffAuthoredQuestions", fields: [addedByICTStaffId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  id                  Int                   @id @default(autoincrement())
+  examId              Int
+  questionText        String                @db.Text
+  questionType        QuestionType
+  marks               Float
+  correctOptionKey    String?
+  explanation         String?               @db.Text
+  difficulty          String?
+  topic               String?
+  isBankQuestion      Boolean               @default(true)
+  displayOrder        Int?
+  addedByLecturerId   Int?
+  addedByICTStaffId   Int?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  options             QuestionOption[] // <<<< THIS LINE NEEDS TO BE PRESENT
+  studentAnswers      StudentAnswer[]
+  examAttemptQuestion ExamAttemptQuestion[]
+  exam                Exam                  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  addedByLecturer     Lecturer?             @relation(name: "LecturerAuthoredQuestions", fields: [addedByLecturerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  addedByICTStaff     ICTStaff?             @relation(name: "ICTStaffAuthoredQuestions", fields: [addedByICTStaffId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([examId, questionType])
   @@index([topic])
@@ -980,25 +981,45 @@ model QuestionOption {
   @@unique([questionId, optionKey])
 }
 
+model ExamAttemptQuestion {
+  id            Int @id @default(autoincrement())
+  examAttemptId Int
+  questionId    Int
+  displayOrder  Int // To maintain the question order for the student
+
+  examAttempt ExamAttempt @relation(fields: [examAttemptId], references: [id], onDelete: Cascade)
+  question    Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([examAttemptId, questionId])
+  @@index([examAttemptId])
+}
+
 model ExamAttempt {
-  id              Int             @id @default(autoincrement())
+  id              Int       @id @default(autoincrement())
   studentId       Int
-  examId          Int // The overall exam configuration
-  examSessionId   Int // The specific session this attempt belongs to
-  startTime       DateTime        @default(now())
+  examId          Int
+  examSessionId   Int
+  startTime       DateTime  @default(now())
   endTime         DateTime?
   timeUsedSeconds Int?
   scoreAchieved   Float?
-  isSubmitted     Boolean         @default(false)
-  isGraded        Boolean         @default(false)
+  isSubmitted     Boolean   @default(false)
+  isGraded        Boolean   @default(false)
   ipAddress       String?
-  userAgent       String?         @db.Text
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  student         Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  exam            Exam            @relation("ExamAttemptsForExamConfig", fields: [examId], references: [id], onDelete: Restrict)
-  examSession     ExamSession     @relation("ExamAttemptsForSession", fields: [examSessionId], references: [id], onDelete: Restrict)
-  studentAnswers  StudentAnswer[]
+  userAgent       String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // RELATIONSHIPS
+  student        Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exam           Exam            @relation("ExamAttemptsForExamConfig", fields: [examId], references: [id], onDelete: Restrict)
+  examSession    ExamSession     @relation("ExamAttemptsForSession", fields: [examSessionId], references: [id], onDelete: Restrict)
+  studentAnswers StudentAnswer[]
+
+  // --- ADD THIS LINE ---
+  questions ExamAttemptQuestion[] // Links this attempt to its specific set of questions
 
   @@unique([studentId, examSessionId], name: "unique_student_attempt_per_session")
   @@index([examId, studentId])
