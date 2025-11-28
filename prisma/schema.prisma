@@ -372,6 +372,7 @@ model ICTStaff {
   canManageExams              Boolean  @default(false) // Permission to manage exams
   createdAt                   DateTime @default(now())
   updatedAt                   DateTime @updatedAt
+  submittedScores   Score[]    @relation("ScoresSubmittedByICT")
 
   authoredQuestions Question[] @relation("ICTStaffAuthoredQuestions")
   createdExams      Exam[]     @relation("ICTStaffCreatedExams") // Exams created by this ICT staff
@@ -629,6 +630,7 @@ model Score {
   cuGp                        Float? // <--- ADD THIS FIELD (or CU_GP)
   resultId                    Int? // Link to the semester result summary
   submittedByLecturerId       Int?
+  submittedByICTStaffId       Int?  
   submittedAt                 DateTime?
   isApprovedByExaminer        Boolean                   @default(false)
   examinerApprovedAt          DateTime?
@@ -641,6 +643,7 @@ model Score {
   studentCourseRegistration   StudentCourseRegistration @relation(fields: [studentCourseRegistrationId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   result                      Result?                   @relation(fields: [resultId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   submittedByLecturer         Lecturer?                 @relation("ScoresSubmittedBy", fields: [submittedByLecturerId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  submittedByICTStaff         ICTStaff?                 @relation("ScoresSubmittedByICT", fields: [submittedByICTStaffId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   examinerWhoApproved         Lecturer?                 @relation("ScoresApprovedByExaminer", fields: [examinerWhoApprovedId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   hodWhoAccepted              Lecturer?                 @relation("ScoresAcceptedByHOD", fields: [hodWhoAcceptedId], references: [id], onDelete: SetNull, onUpdate: Cascade)
 }

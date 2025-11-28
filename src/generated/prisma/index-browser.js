@@ -350,6 +350,7 @@ exports.Prisma.ScoreScalarFieldEnum = {
   cuGp: 'cuGp',
   resultId: 'resultId',
   submittedByLecturerId: 'submittedByLecturerId',
+  submittedByICTStaffId: 'submittedByICTStaffId',
   submittedAt: 'submittedAt',
   isApprovedByExaminer: 'isApprovedByExaminer',
   examinerApprovedAt: 'examinerApprovedAt',

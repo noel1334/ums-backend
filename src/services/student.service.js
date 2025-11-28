@@ -699,11 +699,11 @@ export const deleteStudent = async (id) => {
 export const getMyCourseStudentsList = async (requestingLecturer, query) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
-        const { courseId, semesterId, seasonId, currentLevelId, page = "1", limit = "1000" } = query; // Increased limit for scores
+        const { courseId, semesterId, seasonId, currentLevelId, page = "1", limit = "1000" } = query;
 
         const lecturerId = requestingLecturer.id;
 
-        // --- 1. Authorization Check (Find Assigned Courses) ---
+        // 1. Find courses assigned to this lecturer matching the filters
         const staffCourseWhere = { lecturerId: lecturerId };
         if (courseId) staffCourseWhere.courseId = parseInt(String(courseId), 10);
         if (semesterId) staffCourseWhere.semesterId = parseInt(String(semesterId), 10);
@@ -713,11 +713,12 @@ export const getMyCourseStudentsList = async (requestingLecturer, query) => {
             where: staffCourseWhere,
             select: { courseId: true, semesterId: true, seasonId: true }
         });
+
         if (staffCourses.length === 0) {
             return { students: [], totalPages: 0, currentPage: 1, limit: parseInt(limit, 10), totalStudents: 0 };
         }
 
-        // --- 2. Build Registration Query ---
+        // 2. Build Registration Query
         const registrationWhereClause = {
             OR: staffCourses.map(sc => ({
                 courseId: sc.courseId,
@@ -731,16 +732,27 @@ export const getMyCourseStudentsList = async (requestingLecturer, query) => {
             }
         };
 
-        // --- 3. Fetch Registrations (which contain the FK) ---
-        // We fetch ALL registrations that match the query criteria
+        // 3. Fetch Registrations
+        // We include the 'score' here so the frontend can see if a score exists immediately
+        // (Optional optimization, but helpful)
         const [registrations, totalStudents] = await prisma.$transaction([
             prisma.studentCourseRegistration.findMany({
                 where: registrationWhereClause,
-                select: registrationStudentSelection,
+                select: {
+                    ...registrationStudentSelection,
+                    // Optionally select score if you want to verify existence on the server side
+                    score: { 
+                        select: { 
+                            id: true, 
+                            totalScore: true, 
+                            grade: true,
+                            firstCA: true,   // <--- Added
+                            secondCA: true,  // <--- Added
+                            examScore: true  // <--- Added
+                        } 
+                    } 
+                },
                 orderBy: { student: { name: 'asc' } },
-                // NOTE: Batch submission needs all students, so we skip pagination here, 
-                // but you might need to adjust for performance on very large classes.
-                // We'll keep the limit high for class view.
                 take: 1000, 
             }),
             prisma.studentCourseRegistration.count({
@@ -748,29 +760,28 @@ export const getMyCourseStudentsList = async (requestingLecturer, query) => {
             })
         ]);
 
-        // --- 4. Map Output to Frontend Format ---
-        // The frontend expects StudentDataExtended, so we map the registration data into that structure.
+        // 4. Map Output to Frontend Format
         const students = registrations.map(reg => ({
             id: reg.student.id,
             regNo: reg.student.regNo,
+            jambRegNo: reg.student.jambRegNo,
             name: reg.student.name,
             email: reg.student.email,
+            profileImg: reg.student.profileImg,
             department: reg.student.department,
             currentLevel: reg.student.currentLevel,
             
-            // THE CRITICAL FIX: The registration ID is passed back to the frontend.
+            // IMPORTANT: Passing the FK back to frontend
             studentCourseRegistration: {
-                id: reg.id, // This is the ID that the frontend needs for the FK
+                id: reg.id, 
+                // Passing the score snippet helps the frontend know if data exists
+                score: reg.score 
             }
         }));
 
-
-        // The structure of the returned object is slightly different now, 
-        // returning an array of "student-like" objects where each object corresponds
-        // to a registration record for that student/course.
         return {
             students: students,
-            totalPages: Math.ceil(totalStudents / 1000), // Assuming a large effective limit
+            totalPages: Math.ceil(totalStudents / 1000),
             currentPage: 1,
             limit: 1000,
             totalStudents: totalStudents

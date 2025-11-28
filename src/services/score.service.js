@@ -1,9 +1,9 @@
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
-// NOTE: Assuming this utility function is correctly defined and available
 import { calculateGradeAndPoint } from '../utils/grading.utils.js'; 
 import { LecturerRole } from '../generated/prisma/index.js';
 
+// --- UPDATED SELECTION OBJECT ---
 const scorePublicSelection = {
     id: true,
     firstCA: true,
@@ -12,7 +12,7 @@ const scorePublicSelection = {
     totalScore: true,
     grade: true,
     point: true,
-    cuGp: true, // <--- ADDED NEW FIELD
+    cuGp: true,
     submittedAt: true,
     isApprovedByExaminer: true,
     examinerApprovedAt: true,
@@ -24,12 +24,15 @@ const scorePublicSelection = {
         select: {
             id: true,
             student: { select: { id: true, regNo: true, name: true, departmentId: true } },
-            course: { select: { id: true, code: true, title: true, creditUnit: true } }, // <--- CREDIT UNIT IS CRUCIAL HERE
+            course: { select: { id: true, code: true, title: true, creditUnit: true } },
             semester: { select: { id: true, name: true, type: true } },
             season: { select: { id: true, name: true } },
         }
     },
     submittedByLecturer: { select: { id: true, name: true, staffId: true } },
+    // --- ADDED THIS LINE ---
+    submittedByICTStaff: { select: { id: true, name: true, staffId: true } }, 
+    
     examinerWhoApproved: { select: { id: true, name: true, staffId: true } },
     hodWhoAccepted: { select: { id: true, name: true, staffId: true } },
     resultId: true,
@@ -50,8 +53,6 @@ async function isLecturerAssigned(lecturerId, registration) {
 
 /**
  * Helper for core score validation.
- * It now returns the calculated data, including the new 'cuGp' field.
- * NOTE: The logic has been adjusted to handle the new flow of fetching course credit unit.
  */
 function validateScoreData(data, existingScore = {}) {
     const dataForDb = {
@@ -60,13 +61,12 @@ function validateScoreData(data, existingScore = {}) {
         examScore: data.examScore !== undefined ? (data.examScore === null ? null : parseFloat(data.examScore)) : (existingScore.examScore ?? null),
     };
 
-    // Basic validation for scores
     for (const key of ['firstCA', 'secondCA', 'examScore']) {
         if (dataForDb[key] !== null && (isNaN(dataForDb[key]) || dataForDb[key] < 0)) {
             throw new AppError(`Invalid value for ${key}. Must be a non-negative number or null.`, 400);
         }
     }
-    // Specific validation based on your system's total breakdown (e.g., CA=30, Exam=70)
+    
     if (dataForDb.firstCA > 30) throw new AppError('First CA cannot exceed 30.', 400);
     if (dataForDb.secondCA > 30) throw new AppError('Second CA cannot exceed 30.', 400);
     if (dataForDb.examScore > 70) throw new AppError('Exam Score cannot exceed 70.', 400);
@@ -78,12 +78,8 @@ function validateScoreData(data, existingScore = {}) {
     dataForDb.grade = grade;
     dataForDb.point = point;
     
-    // NOTE: cuGp is CALCULATED LATER in create/update functions where creditUnit is available
-    // dataForDb.cuGp = ... 
-    
     return dataForDb;
 }
-
 
 export const createScore = async (scoreData, requestingUser) => {
     try {
@@ -95,14 +91,14 @@ export const createScore = async (scoreData, requestingUser) => {
 
         const registration = await prisma.studentCourseRegistration.findUnique({
             where: { id: pRegId },
-            include: { semester: true, course: { select: { creditUnit: true } } } // <--- FETCH CREDIT UNIT
+            include: { semester: true, course: { select: { creditUnit: true } } }
         });
         if (!registration) throw new AppError('Student course registration not found.', 404);
 
         const existingScore = await prisma.score.findUnique({ where: { studentCourseRegistrationId: pRegId } });
         if (existingScore) throw new AppError('A score for this registration already exists. Use update instead.', 409);
 
-        // Authorization checks remain
+        // Authorization checks
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageScores;
         const isAssignedLecturer = requestingUser.type === 'lecturer' && await isLecturerAssigned(requestingUser.id, registration);
@@ -116,16 +112,21 @@ export const createScore = async (scoreData, requestingUser) => {
 
         const dataForDb = validateScoreData(scoreData);
         
-        // --- NEW LOGIC: Calculate CU * GP ---
+        // Calculate CU * GP
         const creditUnit = registration.course.creditUnit || 0;
         dataForDb.cuGp = (dataForDb.point || 0) * creditUnit;
-        // --- END NEW LOGIC ---
 
+        // --- NEW: Handle Submitted By (Lecturer vs ICT) ---
         if (requestingUser.type === 'lecturer') {
             dataForDb.submittedByLecturerId = requestingUser.id;
+            dataForDb.submittedByICTStaffId = null;
+        } else if (isPermittedICT) {
+            dataForDb.submittedByICTStaffId = requestingUser.id;
+            dataForDb.submittedByLecturerId = null;
         }
+        
         dataForDb.submittedAt = new Date();
-        dataForDb.studentCourseRegistrationId = pRegId; // Set the FK
+        dataForDb.studentCourseRegistrationId = pRegId;
 
         const [newScore] = await prisma.$transaction([
             prisma.score.create({ data: dataForDb, select: scorePublicSelection }),
@@ -145,7 +146,6 @@ export const createScore = async (scoreData, requestingUser) => {
     }
 };
 
-// --- UPDATE SCORE ---
 export const updateScore = async (scoreId, scoreData, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -154,11 +154,10 @@ export const updateScore = async (scoreId, scoreData, requestingUser) => {
 
         const score = await prisma.score.findUnique({
             where: { id: pScoreId },
-            include: { studentCourseRegistration: { include: { semester: true, course: { select: { creditUnit: true } } } } } // <--- FETCH CREDIT UNIT
+            include: { studentCourseRegistration: { include: { semester: true, course: { select: { creditUnit: true } } } } }
         });
         if (!score) throw new AppError('Score record not found.', 404);
 
-        // Authorization checks remain
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageScores;
         const isAssignedLecturer = requestingUser.type === 'lecturer' && await isLecturerAssigned(requestingUser.id, score.studentCourseRegistration);
@@ -171,27 +170,26 @@ export const updateScore = async (scoreId, scoreData, requestingUser) => {
             throw new AppError('Score editing period is locked for this semester.', 400);
         }
         
-        // --- Score Calculation and Validation ---
         const dataForDb = validateScoreData(scoreData, score);
         
-        // --- NEW LOGIC: Calculate CU * GP ---
         const creditUnit = score.studentCourseRegistration.course.creditUnit || 0;
         dataForDb.cuGp = (dataForDb.point || 0) * creditUnit;
-        // --- END NEW LOGIC ---
         
-        // When score is updated, reset approvals
+        // Reset approvals on update
         dataForDb.isApprovedByExaminer = false;
         dataForDb.isAcceptedByHOD = false;
         dataForDb.examinerWhoApprovedId = null;
         dataForDb.hodWhoAcceptedId = null;
         
-        // Only update submittedByLecturerId if the user is a lecturer and not an admin/ICT staff
+        // --- NEW: Handle Submitted By Update ---
         if (requestingUser.type === 'lecturer') {
             dataForDb.submittedByLecturerId = requestingUser.id;
-            dataForDb.submittedAt = new Date();
-        } else if (isAdmin || isPermittedICT) {
-            dataForDb.submittedAt = new Date();
+            dataForDb.submittedByICTStaffId = null; // Switch ownership
+        } else if (isPermittedICT) {
+            dataForDb.submittedByICTStaffId = requestingUser.id;
+            dataForDb.submittedByLecturerId = null; // Switch ownership
         }
+        dataForDb.submittedAt = new Date();
 
         const updatedScore = await prisma.score.update({
             where: { id: score.id },
@@ -207,8 +205,7 @@ export const updateScore = async (scoreId, scoreData, requestingUser) => {
     }
 };
 
-
-// --- APPROVAL WORKFLOWS & GETTERS (The full logic from previous steps) ---
+// --- APPROVAL WORKFLOWS ---
 
 export const approveScoreByExaminer = async (scoreId, requestingUser) => {
     try {
@@ -314,7 +311,6 @@ export const getScoreById = async (id, requestingUser) => {
             requestingUser.role === LecturerRole.EXAMINER &&
             requestingUser.departmentId === reg.student.departmentId;
 
-
         if (isAdmin || isPermittedICT || isStudentOwner || isCourseLecturer || isHODForDept || isExaminerForDept) {
             return score;
         }
@@ -339,10 +335,8 @@ export const getAllScores = async (query, requestingUser) => {
         const studentCourseRegistrationWhere = {};
 
         if (requestingUser.type === 'admin' || (requestingUser.type === 'ictstaff' && requestingUser.canManageScores)) {
-            // Full access with filters
             if (studentId) studentCourseRegistrationWhere.studentId = parseInt(studentId, 10);
             if (departmentId) studentCourseRegistrationWhere.student = { departmentId: parseInt(departmentId, 10) };
-            // ... add other filters to studentCourseRegistrationWhere
         } else if (requestingUser.type === 'student') {
             studentCourseRegistrationWhere.studentId = requestingUser.id;
         } else if (requestingUser.type === 'lecturer') {
@@ -350,7 +344,7 @@ export const getAllScores = async (query, requestingUser) => {
                 if (!requestingUser.departmentId) throw new AppError('Department info missing for HOD/Examiner.', 500);
                 studentCourseRegistrationWhere.student = { departmentId: requestingUser.departmentId };
                 if (studentId) studentCourseRegistrationWhere.studentId = parseInt(studentId, 10);
-            } else { // Regular lecturer
+            } else { 
                 const staffCourses = await prisma.staffCourse.findMany({
                     where: { lecturerId: requestingUser.id },
                     select: { courseId: true, semesterId: true, seasonId: true }
@@ -376,7 +370,6 @@ export const getAllScores = async (query, requestingUser) => {
         if (isApprovedByExaminer !== undefined) where.isApprovedByExaminer = isApprovedByExaminer === 'true';
         if (isAcceptedByHOD !== undefined) where.isAcceptedByHOD = isAcceptedByHOD === 'true';
 
-
         const pageNum = parseInt(page, 10);
         const limitNum = parseInt(limit, 10);
         const skip = (pageNum - 1) * limitNum;
@@ -386,8 +379,8 @@ export const getAllScores = async (query, requestingUser) => {
             orderBy: { studentCourseRegistration: { student: { regNo: 'asc' } } },
             skip, take: limitNum
         });
-        const totalScores = await prisma.score.count({ where });
-        return { scores, totalPages: Math.ceil(totalScores / limitNum), currentPage: pageNum, totalScores };
+         const totalScores = await prisma.score.count({ where });
+        return { scores, totalPages: Math.ceil(totalScores / limitNum), currentPage: pageNum, totalItems: totalScores };
 
     } catch (error) {
         if (error instanceof AppError) throw error;
@@ -408,7 +401,6 @@ export const deleteScore = async (scoreId, requestingUser) => {
         });
         if (!score) throw new AppError('Score not found.', 404);
 
-        // Authorization
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageScores;
         let isAssignedLecturer = false;
@@ -420,11 +412,10 @@ export const deleteScore = async (scoreId, requestingUser) => {
             throw new AppError('You are not authorized to delete this score.', 403);
         }
 
-        // Business rule: Cannot delete if HOD accepted (unless admin)
         if (score.isAcceptedByHOD && !isAdmin) {
             throw new AppError('Cannot delete score: already accepted by HOD.', 400);
         }
-        // Business rule: Cannot delete if Examiner approved (unless admin or HOD of dept)
+        
         const isHODofStudentDept = requestingUser.type === 'lecturer' && requestingUser.role === LecturerRole.HOD &&
             requestingUser.departmentId === score.studentCourseRegistration.student.departmentId;
 
@@ -432,10 +423,8 @@ export const deleteScore = async (scoreId, requestingUser) => {
             throw new AppError('Cannot delete score: already approved by Examiner.', 400);
         }
 
-
         await prisma.$transaction(async (tx) => {
             await tx.score.delete({ where: { id: pScoreId } });
-            // Reset isScoreRecorded on the registration
             await tx.studentCourseRegistration.update({
                 where: { id: score.studentCourseRegistrationId },
                 data: { isScoreRecorded: false }
@@ -452,12 +441,6 @@ export const deleteScore = async (scoreId, requestingUser) => {
 
 
 // --- BATCH SCORE OPERATIONS ---
-/**
- * Creates multiple score records in a single transaction.
- * @param {Array<Object>} scoresData - Array of score data objects.
- * @param {Object} requestingUser - The user initiating the action.
- * @returns {Promise<Array<Object>>} - The created score records.
- */
 export const batchCreateScores = async (scoresData, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -473,29 +456,24 @@ export const batchCreateScores = async (scoresData, requestingUser) => {
         const registrationIdsToUpdate = [];
         const successfulCreations = []; 
         
-        // --- PRE-FETCH REGISTRATIONS AND COURSES ---
         const regIds = scoresData.map(d => parseInt(d.studentCourseRegistrationId, 10)).filter(id => !isNaN(id));
         const registrations = await prisma.studentCourseRegistration.findMany({
             where: { id: { in: regIds } },
-            include: { semester: true, course: { select: { creditUnit: true } } } // FETCH CREDIT UNIT
+            include: { semester: true, course: { select: { creditUnit: true } } }
         });
         const regMap = new Map(registrations.map(reg => [reg.id, reg]));
-        // ------------------------------------------
-
 
         for (const data of scoresData) {
             const { studentCourseRegistrationId } = data;
-            
             const pRegId = parseInt(studentCourseRegistrationId, 10);
             if (isNaN(pRegId)) continue;
 
             const registration = regMap.get(pRegId);
-            if (!registration) continue; // Skip if registration not found (404)
+            if (!registration) continue; 
 
             const existingScore = await prisma.score.findUnique({ where: { studentCourseRegistrationId: pRegId } });
-            if (existingScore) continue; // Skip if already exists (should be in UPDATE batch)
+            if (existingScore) continue; 
 
-            // Authorization checks remain
             const isAssignedLecturer = isLecturer && await isLecturerAssigned(requestingUser.id, registration);
             if (!isAdmin && !isPermittedICT && !isAssignedLecturer) {
                 throw new AppError('Unauthorized to create scores for one or more courses.', 403);
@@ -504,34 +482,34 @@ export const batchCreateScores = async (scoresData, requestingUser) => {
                 throw new AppError('Score entry period is locked for one or more courses.', 400);
             }
 
-            // Prepare Data
             const dataForDb = validateScoreData(data);
-            
-            // --- NEW LOGIC: Calculate CU * GP ---
             const creditUnit = registration.course.creditUnit || 0;
             dataForDb.cuGp = (dataForDb.point || 0) * creditUnit;
-            // --- END NEW LOGIC ---
             
-            if (requestingUser.type === 'lecturer') {
+            // --- NEW: Handle Submitted By (Batch) ---
+            if (isLecturer) {
                 dataForDb.submittedByLecturerId = requestingUser.id;
+                dataForDb.submittedByICTStaffId = null;
+            } else if (isPermittedICT) {
+                dataForDb.submittedByICTStaffId = requestingUser.id;
+                dataForDb.submittedByLecturerId = null;
             }
+            
             dataForDb.submittedAt = new Date();
             dataForDb.studentCourseRegistrationId = pRegId; 
 
-            // PUSH RAW CREATE PROMISE
             transactions.push(
                 prisma.score.create({ data: dataForDb })
             );
 
             registrationIdsToUpdate.push(dataForDb.studentCourseRegistrationId);
-            successfulCreations.push(dataForDb.studentCourseRegistrationId); // Track successful ones
+            successfulCreations.push(dataForDb.studentCourseRegistrationId);
         }
 
         if (transactions.length === 0) return [];
 
         await prisma.$transaction(transactions);
 
-        // Final Fetch and Return
         await prisma.studentCourseRegistration.updateMany({
             where: { id: { in: registrationIdsToUpdate } },
             data: { isScoreRecorded: true }
@@ -551,12 +529,6 @@ export const batchCreateScores = async (scoresData, requestingUser) => {
     }
 };
 
-/**
- * Updates multiple score records in a single transaction.
- * @param {Array<Object>} scoresData - Array of score data objects including score ID.
- * @param {Object} requestingUser - The user initiating the action.
- * @returns {Promise<Array<Object>>} - The updated score records.
- */
 export const batchUpdateScores = async (scoresData, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -571,25 +543,22 @@ export const batchUpdateScores = async (scoresData, requestingUser) => {
         const transactions = [];
         const updatedScoreIds = [];
         
-        // --- PRE-FETCH SCORES AND REGISTRATIONS ---
         const scoreIds = scoresData.map(d => parseInt(d.id, 10)).filter(id => !isNaN(id));
         const existingScoresWithReg = await prisma.score.findMany({
             where: { id: { in: scoreIds } },
-            include: { studentCourseRegistration: { include: { semester: true, course: { select: { creditUnit: true } } } } } // FETCH CREDIT UNIT
+            include: { studentCourseRegistration: { include: { semester: true, course: { select: { creditUnit: true } } } } }
         });
         const scoreMap = new Map(existingScoresWithReg.map(score => [score.id, score]));
-        // ------------------------------------------
 
         for (const data of scoresData) {
             const { id: scoreId, ...updateFields } = data;
-            if (!scoreId) continue; // Skip if ID is missing (should be caught by frontend)
+            if (!scoreId) continue; 
 
             const pScoreId = parseInt(scoreId, 10);
             const score = scoreMap.get(pScoreId);
             
-            if (!score) continue; // Skip if score not found (404)
+            if (!score) continue; 
 
-            // Authorization Checks
             const isAssignedLecturer = isLecturer && await isLecturerAssigned(requestingUser.id, score.studentCourseRegistration);
             if (!isAdmin && !isPermittedICT && !isAssignedLecturer) {
                 throw new AppError(`Unauthorized to update score ID ${pScoreId}.`, 403);
@@ -601,29 +570,25 @@ export const batchUpdateScores = async (scoresData, requestingUser) => {
                 throw new AppError(`Score editing period is locked for score ID ${pScoreId}.`, 400);
             }
 
-            // Calculate new score details
             const dataForDb = validateScoreData(updateFields, score);
-
-            // --- NEW LOGIC: Calculate CU * GP ---
             const creditUnit = score.studentCourseRegistration.course.creditUnit || 0;
             dataForDb.cuGp = (dataForDb.point || 0) * creditUnit;
-            // --- END NEW LOGIC ---
 
-            // When score is updated, reset approvals
             dataForDb.isApprovedByExaminer = false;
             dataForDb.isAcceptedByHOD = false;
             dataForDb.examinerWhoApprovedId = null;
             dataForDb.hodWhoAcceptedId = null;
             
-            // Set submission details
-            if (requestingUser.type === 'lecturer') {
+            // --- NEW: Handle Submitted By (Batch Update) ---
+            if (isLecturer) {
                 dataForDb.submittedByLecturerId = requestingUser.id;
-                dataForDb.submittedAt = new Date();
-            } else if (isAdmin || isPermittedICT) {
-                dataForDb.submittedAt = new Date();
+                dataForDb.submittedByICTStaffId = null;
+            } else if (isPermittedICT) {
+                dataForDb.submittedByICTStaffId = requestingUser.id;
+                dataForDb.submittedByLecturerId = null;
             }
+            dataForDb.submittedAt = new Date();
 
-            // Push the update operation
             transactions.push(
                 prisma.score.update({
                     where: { id: pScoreId },
@@ -634,14 +599,10 @@ export const batchUpdateScores = async (scoresData, requestingUser) => {
             updatedScoreIds.push(pScoreId);
         }
 
-        // 2. Execute all updates atomically
         await prisma.$transaction(transactions);
 
-        // 3. Fetch the fully updated records for the return value
         const updatedScores = await prisma.score.findMany({
-            where: {
-                id: { in: updatedScoreIds }
-            },
+            where: { id: { in: updatedScoreIds } },
             select: scorePublicSelection
         });
 
@@ -654,12 +615,6 @@ export const batchUpdateScores = async (scoresData, requestingUser) => {
     }
 };
 
-/**
- * Deletes multiple score records in a single transaction.
- * @param {Array<number>} scoreIds - Array of score IDs to delete.
- * @param {Object} requestingUser - The user initiating the action.
- * @returns {Promise<number>} - The number of scores deleted.
- */
 export const batchDeleteScores = async (scoreIds, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
