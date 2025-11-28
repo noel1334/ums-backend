@@ -2,6 +2,7 @@ import * as StudentService from '../services/student.service.js';
 import * as StudentAcademicsService from '../services/studentAcademics.service.js'; // NEW IMPORT
 import AppError from '../utils/AppError.js';
 import { LecturerRole } from '../generated/prisma/index.js'; // Needed for HOD role check
+import catchAsync from '../utils/catchAsync.js';
 
 // Admin creates student
 export const createStudent = async (req, res, next) => {
@@ -113,18 +114,15 @@ export const updateStudent = async (req, res, next) => {
 
 
 // New Controller Action: For any lecturer to get students in their assigned courses
-export const getMyCourseStudents = async (req, res, next) => {
-    try {
-        // req.user is the authenticated lecturer
-        const result = await StudentService.getMyCourseStudentsList(req.user, req.query);
-        res.status(200).json({
-            status: 'success',
-            data: result,
-        });
-    } catch (error) {
-        next(error);
-    }
-};
+
+export const getMyCourseStudents = catchAsync(async (req, res, next) => {
+    // req.user is the authenticated lecturer passed from auth middleware
+    const result = await StudentService.getMyCourseStudentsList(req.user, req.query);
+    res.status(200).json({
+        status: 'success',
+        data: result,
+    });
+});
 
 export const getMyRegistrableCourses = async (req, res, next) => {
     try {
