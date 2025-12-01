@@ -94,8 +94,10 @@ export const getAllSemesters = async (query) => {
             seasonId,
             isActive,
             type,
-            page = 1, // Default to page 1
-            limit = 10 // Default to 10 items per page
+            name,   // <--- Add this
+            search, // <--- Add this (just in case frontend sends 'search')
+            page = 1,
+            limit = 10
         } = query;
 
         const pageNum = parseInt(page, 10);
@@ -103,6 +105,8 @@ export const getAllSemesters = async (query) => {
         const skip = (pageNum - 1) * limitNum;
 
         const where = {};
+        
+        // 1. Handle Filters
         if (seasonId) {
             const parsedSeasonId = parseInt(seasonId, 10);
             if (isNaN(parsedSeasonId)) throw new AppError('Invalid seasonId format in query.', 400);
@@ -114,6 +118,29 @@ export const getAllSemesters = async (query) => {
                 throw new AppError(`Invalid semester type for filtering: ${type}.`, 400);
             }
             where.type = type;
+        }
+
+        // 2. Handle Search (The missing part)
+        const searchTerm = name || search;
+        if (searchTerm) {
+            // This allows searching by Semester Name (e.g., "First") 
+            // OR Season Name (e.g., "2024")
+            where.OR = [
+                { 
+                    name: { 
+                        contains: searchTerm, 
+                        mode: 'insensitive' 
+                    } 
+                },
+                { 
+                    season: { 
+                        name: { 
+                            contains: searchTerm, 
+                            mode: 'insensitive' 
+                        } 
+                    } 
+                }
+            ];
         }
 
         const [semesters, totalSemesters] = await prisma.$transaction([
@@ -131,10 +158,10 @@ export const getAllSemesters = async (query) => {
         ]);
 
         return {
-            semesters, // The array of semester objects for the current page
+            semesters,
             totalPages: Math.ceil(totalSemesters / limitNum),
             currentPage: pageNum,
-            totalSemesters, // The total count of all semesters matching filters
+            totalSemesters,
         };
     } catch (error) {
         if (error instanceof AppError) throw error;
@@ -142,7 +169,6 @@ export const getAllSemesters = async (query) => {
         throw new AppError('Could not retrieve semesters.', 500);
     }
 };
-
 
 export const getSemesterById = async (id) => {
     try {

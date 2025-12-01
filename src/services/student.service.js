@@ -122,16 +122,8 @@ const registrationStudentSelection = {
     semesterId: true,
     seasonId: true,
     // Include the student's details
-    student: {
-        select: {
-            id: true,
-            regNo: true,
-            name: true,
-            email: true,
-            department: { select: { name: true } },
-            currentLevel: { select: { value: true } },
-            // Add any other required fields here (e.g., currentLevelId)
-        }
+  student: {
+        select: studentFullSelection 
     },
     course: { select: { id: true, code: true, title: true, creditUnit: true } },
     // Add other fields if needed, like level, semester, season details for display
@@ -733,22 +725,19 @@ export const getMyCourseStudentsList = async (requestingLecturer, query) => {
         };
 
         // 3. Fetch Registrations
-        // We include the 'score' here so the frontend can see if a score exists immediately
-        // (Optional optimization, but helpful)
         const [registrations, totalStudents] = await prisma.$transaction([
             prisma.studentCourseRegistration.findMany({
                 where: registrationWhereClause,
                 select: {
                     ...registrationStudentSelection,
-                    // Optionally select score if you want to verify existence on the server side
                     score: { 
                         select: { 
                             id: true, 
                             totalScore: true, 
                             grade: true,
-                            firstCA: true,   // <--- Added
-                            secondCA: true,  // <--- Added
-                            examScore: true  // <--- Added
+                            firstCA: true,
+                            secondCA: true,
+                            examScore: true
                         } 
                     } 
                 },
@@ -761,23 +750,19 @@ export const getMyCourseStudentsList = async (requestingLecturer, query) => {
         ]);
 
         // 4. Map Output to Frontend Format
+        // --- CHANGE STARTS HERE ---
         const students = registrations.map(reg => ({
-            id: reg.student.id,
-            regNo: reg.student.regNo,
-            jambRegNo: reg.student.jambRegNo,
-            name: reg.student.name,
-            email: reg.student.email,
-            profileImg: reg.student.profileImg,
-            department: reg.student.department,
-            currentLevel: reg.student.currentLevel,
+            // Spread ALL student properties fetched by studentFullSelection
+            // This includes studentDetails, admissionOfferDetails, program, levels, etc.
+            ...reg.student, 
             
-            // IMPORTANT: Passing the FK back to frontend
+            // Attach the registration info required by frontend logic
             studentCourseRegistration: {
                 id: reg.id, 
-                // Passing the score snippet helps the frontend know if data exists
                 score: reg.score 
             }
         }));
+        // --- CHANGE ENDS HERE ---
 
         return {
             students: students,
@@ -798,68 +783,103 @@ export const getDepartmentStudents = async (requestingUser, query) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
 
-        // Authorization Check: Must be HOD or Admin
+        // 1. Authorization Check: Must be HOD or Admin
         if (requestingUser.type !== 'admin' && requestingUser.role !== LecturerRole.HOD) {
             throw new AppError("You are not authorized to view your department's students.", 403);
         }
+        
+        // 2. Data Integrity Check
         if (!requestingUser.departmentId) {
             throw new AppError("Your user profile is missing department information.", 500);
         }
 
+        // 3. Destructure Query Parameters
         const {
-            programId, currentLevelId, isActive, name, regNo,
-            page: queryPage = "1", limit: queryLimit = "20"
+            programId, 
+            currentLevelId, 
+            isActive, 
+            name, 
+            regNo,
+            search, // <--- Added 'search' to handle the general search bar
+            page: queryPage = "1", 
+            limit: queryLimit = "20"
         } = query;
 
-        // Core filter: Only get students from the requesting user's department
+        // 4. Base Filter: Only students in the user's department
         const where = {
             departmentId: requestingUser.departmentId
         };
 
-        // --- Additional optional filters ---
+        // --- FILTER LOGIC ---
+
+        // Filter by Program
         if (programId && String(programId).trim()) {
             const pId = parseInt(String(programId), 10);
             if (!isNaN(pId)) where.programId = pId;
         }
-        if (currentLevelId && String(currentLevelId).trim()) {
-            const pId = parseInt(String(currentLevelId), 10);
-            if (!isNaN(pId)) where.currentLevelId = pId;
-        }
-        if (isActive !== undefined && isActive !== "") {
-            where.isActive = isActive === 'true';
-        }
-        if (name && String(name).trim()) {
-            where.name = { contains: String(name).trim(), mode: 'insensitive' };
-        }
-        if (regNo && String(regNo).trim()) {
-            where.regNo = { equals: String(regNo).trim(), mode: 'insensitive' };
+        
+        // Filter by Level (Fixed: ensures it parses the ID correctly)
+        if (currentLevelId && String(currentLevelId).trim() && String(currentLevelId) !== 'all') {
+            const levelId = parseInt(String(currentLevelId), 10);
+            if (!isNaN(levelId)) where.currentLevelId = levelId;
         }
 
-        // --- Pagination ---
+        // Filter by Active Status (Current vs Graduated)
+        // Frontend sends boolean or string "true"/"false"
+        if (isActive !== undefined && isActive !== "all" && isActive !== "") {
+            const isActiveBool = String(isActive) === 'true';
+            where.isActive = isActiveBool;
+        }
+
+        // --- SEARCH LOGIC ---
+        
+        // Priority 1: General Search (Matches Name OR RegNo)
+        if (search && String(search).trim()) {
+            const searchStr = String(search).trim();
+            where.OR = [
+                { name: { contains: searchStr, mode: 'insensitive' } },
+                { regNo: { contains: searchStr, mode: 'insensitive' } }
+            ];
+        } 
+        // Priority 2: Specific Column Search (Fallback if general search isn't used)
+        else {
+            if (name && String(name).trim()) {
+                where.name = { contains: String(name).trim(), mode: 'insensitive' };
+            }
+            if (regNo && String(regNo).trim()) {
+                where.regNo = { equals: String(regNo).trim(), mode: 'insensitive' };
+            }
+        }
+
+        // 5. Pagination Logic
         let pageNum = parseInt(queryPage, 10);
         let limitNum = parseInt(queryLimit, 10);
+        
         if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
-        if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) limitNum = 20;
+        if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) limitNum = 20; // Cap limit at 100
+        
         const skip = (pageNum - 1) * limitNum;
 
-        // --- Database Query ---
-        const [students, totalStudents] = await prisma.$transaction([
+        // 6. Database Transaction (Fetch Data + Count)
+        const [students, totalItems] = await prisma.$transaction([
             prisma.student.findMany({
                 where,
-                select: studentPublicSelection,
-                orderBy: { name: 'asc' },
+                select: studentPublicSelection, // Ensure this object is defined in your imports
+                orderBy: { name: 'asc' }, // Sort alphabetically by default
                 skip,
                 take: limitNum,
             }),
             prisma.student.count({ where })
         ]);
 
+        // 7. Return Response
         return {
             students,
-            totalPages: Math.ceil(totalStudents / limitNum),
+            totalPages: Math.ceil(totalItems / limitNum),
             currentPage: pageNum,
             limit: limitNum,
-            totalStudents
+            totalItems, // Matched with frontend expectation
+            totalStudents: totalItems // Legacy support if needed
         };
 
     } catch (error) {
