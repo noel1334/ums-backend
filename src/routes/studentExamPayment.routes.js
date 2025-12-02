@@ -21,6 +21,18 @@ router.get('/my-status/exam/:examId',
 );
 
 /**
+ * @route GET /api/v1/student-exam-payments/my-history
+ * @desc Student gets their paginated exam payment history with optional filters.
+ * @access Private (Student)
+ */
+router.get('/my-history',
+    authenticateToken,
+    isStudent,
+    StudentExamPaymentController.getMyExamPaymentHistory // New controller function
+);
+
+
+/**
  * @route POST /api/v1/student-exam-payments/verify-paystack
  * @desc Receives a reference from the frontend after a Paystack transaction,
  *       verifies it with Paystack, and creates the payment record.

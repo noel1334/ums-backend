@@ -609,7 +609,6 @@ export const verifyExamAccessPassword = async (examId, providedPassword, request
 
         // --- ADD THIS LOG ---
         console.log('DEBUG: Result of password comparison (isMatch):', isMatch);
-        // --- END ADDED LOG ---
 
         if (!isMatch) {
             throw new AppError('Incorrect exam access password.', 401);
@@ -641,10 +640,10 @@ export const updateExamStatus = async (examId, newStatus, requestingUser) => {
                 title: true,
                 courseId: true,
                 status: true,
-                questionsInBank: true,
+                // REMOVED questionsInBank from here, as we'll get an accurate count below
                 _count: {
                     select: {
-                        questions: true,
+                        questions: true, // This is the field we will use for the live question count
                         examAttempts: true,
                         examSessions: { where: { isActive: true } }
                     }
@@ -659,13 +658,16 @@ export const updateExamStatus = async (examId, newStatus, requestingUser) => {
             throw new AppError('Not authorized to change the status of this exam.', 403);
         }
 
-        // Prevent status changes if the exam is already in certain states and has attempts
         const hasAttempts = existingExam._count.examAttempts > 0;
         const currentStatus = existingExam.status;
 
+        // *** FIX: Get the actual current question count directly from Prisma's _count ***
+        const actualQuestionCount = existingExam._count.questions;
+
         // Specific business logic for status transitions
         if (newStatus === ExamStatus.ACTIVE) {
-            if (existingExam.questionsInBank === null || existingExam.questionsInBank < 1) {
+            // *** FIX: Use actualQuestionCount for validation ***
+            if (actualQuestionCount < 1) { // Check if there are zero questions
                 throw new AppError('Cannot activate an exam that has no questions.', 400);
             }
             if (currentStatus === ExamStatus.COMPLETED || currentStatus === ExamStatus.GRADED || currentStatus === ExamStatus.RESULTS_PUBLISHED || currentStatus === ExamStatus.ARCHIVED) {

@@ -1,37 +1,60 @@
+// src/routes/notification.routes.js
+
 import { Router } from 'express';
 import * as NotificationController from '../controllers/notification.controller.js';
 import { authenticateToken, authorizeAdmin, authorize } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-// Student/Lecturer gets their own notifications
+// =========================================================================
+//  User-Specific Notification Routes (Accessible by recipients and Admins)
+// =========================================================================
+
+/**
+ * @route GET /api/v1/notifications/me
+ * @desc Fetch notifications for the authenticated user (student, lecturer, ICT staff, admin).
+ * @access Private (Any authenticated user)
+ */
 router.get(
-    '/my-notifications',
+    '/me', // Changed from '/my-notifications' to '/me'
     authenticateToken,
-    authorize(['student', 'lecturer', 'ictstaff', 'admin']), // Any authenticated user can get their own
+    authorize(['student', 'lecturer', 'ictstaff', 'admin']),
     NotificationController.getMyNotifications
 );
 
-// Student/Lecturer marks all their notifications as read
+/**
+ * @route PATCH /api/v1/notifications/me/mark-all-read
+ * @desc Mark all notifications for the authenticated user as read.
+ * @access Private (Any authenticated user)
+ */
 router.patch(
-    '/my-notifications/mark-all-read',
+    '/me/mark-all-read', // Changed from '/my-notifications/mark-all-read' to '/me/mark-all-read'
     authenticateToken,
     authorize(['student', 'lecturer', 'ictstaff', 'admin']),
     NotificationController.markAllMyNotificationsAsRead
 );
 
-
-// Student/Lecturer/Admin marks a specific notification as read/unread
+/**
+ * @route PATCH /api/v1/notifications/:id/read
+ * @desc Mark a specific notification as read/unread for the authenticated user or an Admin.
+ * @access Private (Recipient or Admin)
+ */
 router.patch(
-    '/:notificationId/read-status',
+    '/:id/read', // Changed from '/:notificationId/read-status' to '/:id/read'
     authenticateToken,
-    authorize(['student', 'lecturer', 'ictstaff', 'admin']), // Service does specific recipient check
+    authorize(['student', 'lecturer', 'ictstaff', 'admin']), // Service does specific recipient/admin check
     NotificationController.updateNotificationReadStatus
 );
 
+// =========================================================================
+//  Admin-Only Notification Management Routes
+// =========================================================================
 
-// --- Admin Only Routes ---
-// Admin creates a notification
+/**
+ * @route POST /api/v1/notifications/
+ * @desc Admin creates a notification to a specific recipient.
+ * @access Private (Admin)
+ */
 router.post(
     '/',
     authenticateToken,
@@ -39,15 +62,23 @@ router.post(
     NotificationController.createNotification
 );
 
-// Admin gets all notifications (with filters)
+/**
+ * @route GET /api/v1/notifications/all
+ * @desc Admin gets a paginated list of all notifications with filters.
+ * @access Private (Admin)
+ */
 router.get(
-    '/all', // Differentiate from /my-notifications
+    '/all',
     authenticateToken,
     authorizeAdmin,
     NotificationController.getAllNotificationsAdmin
 );
 
-// Admin deletes a notification
+/**
+ * @route DELETE /api/v1/notifications/:notificationId
+ * @desc Admin deletes a specific notification.
+ * @access Private (Admin)
+ */
 router.delete(
     '/:notificationId',
     authenticateToken,
@@ -55,5 +86,16 @@ router.delete(
     NotificationController.deleteNotification
 );
 
+/**
+ * @route POST /api/v1/notifications/payment-reminder
+ * @desc Admin triggers payment reminder notifications for students with pending exam fees.
+ * @access Private (Admin)
+ */
+router.post(
+    '/payment-reminder',
+    authenticateToken,
+    authorizeAdmin,
+    NotificationController.triggerPaymentReminder // NEW Controller function
+);
 
 export default router;

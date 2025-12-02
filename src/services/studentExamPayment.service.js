@@ -161,3 +161,53 @@ export const verifyAndRecordFlutterwaveExamPayment = async (transaction_id, tx_r
 
     return { message: 'Payment verified and recorded successfully.', payment: recordedPayment };
 };
+
+export const getStudentExamPaymentHistory = async (studentId, { page = 1, limit = 10, filters = {} }) => {
+    const skip = (page - 1) * limit;
+
+    const whereClause = {
+        studentId: studentId,
+    };
+
+    if (filters.paymentStatus) {
+        whereClause.paymentStatus = filters.paymentStatus;
+    }
+    if (filters.paymentChannel) {
+        whereClause.paymentChannel = filters.paymentChannel;
+    }
+
+    const [payments, totalItems] = await Promise.all([
+        prisma.studentExamPayment.findMany({
+            where: whereClause,
+            skip: skip,
+            take: limit,
+            orderBy: {
+                createdAt: 'desc', // Order by creation date, newest first
+            },
+            include: {
+                student: {
+                    select: { id: true, name: true, regNo: true },
+                },
+                exam: {
+                    select: {
+                        id: true,
+                        title: true,
+                        course: {
+                            select: { code: true }
+                        }
+                    },
+                },
+            },
+        }),
+        prisma.studentExamPayment.count({
+            where: whereClause,
+        }),
+    ]);
+
+    return {
+        items: payments,
+        totalItems,
+        totalPages: Math.ceil(totalItems / limit),
+        currentPage: page,
+    };
+};

@@ -52,3 +52,28 @@ export const verifyFlutterwavePayment = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * Gets the student's exam payment history.
+ */
+export const getMyExamPaymentHistory = async (req, res, next) => {
+    try {
+        const studentId = req.user.id; // Get student ID from authenticated user
+        const page = parseInt(req.query.page, 10) || 1;
+        const limit = parseInt(req.query.limit, 10) || 10;
+        const status = req.query.status; // Optional filter
+        const channel = req.query.channel; // Optional filter
+
+        const filters = {};
+        if (status && status !== 'All Status') filters.paymentStatus = status; // Assuming 'All Status' is a default value from frontend
+        if (channel && channel !== 'All Channels') filters.paymentChannel = channel; // Assuming 'All Channels' is a default value from frontend
+
+        const result = await StudentExamPaymentService.getStudentExamPaymentHistory(
+            studentId,
+            { page, limit, filters }
+        );
+        res.status(200).json({ status: 'success', data: result });
+    } catch (error) {
+        next(error);
+    }
+};

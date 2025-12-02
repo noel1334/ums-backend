@@ -1,6 +1,8 @@
 // src/services/notification.service.js
+
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
+import { PaymentStatus } from '../generated/prisma/index.js'; // Import PaymentStatus enum
 
 const notificationPublicSelection = {
     id: true,
@@ -35,6 +37,7 @@ export const createNotification = async (notificationData) => {
             if (!lecturer) throw new AppError(`Lecturer recipient with ID ${pRecipientId} not found.`, 404);
         } else if (recipientType === 'ADMIN') {
             // Could target specific admin if you have multiple, or use a general admin group ID
+            // For 'ADMIN' recipientType, ensure 'adminId' is provided if needed, or handle generically
         } // Add other types if needed
 
         const dataToCreate = {
@@ -51,7 +54,6 @@ export const createNotification = async (notificationData) => {
         if (lecturerId && recipientType === 'LECTURER' && parseInt(lecturerId, 10) === pRecipientId) {
             dataToCreate.lecturerId = parseInt(lecturerId, 10);
         }
-
 
         const newNotification = await prisma.notification.create({
             data: dataToCreate,
@@ -74,7 +76,7 @@ export const getMyNotifications = async (requestingUser, query) => {
         const where = {
             recipientId: requestingUser.id,
             // Determine recipientType based on requestingUser.type
-            recipientType: requestingUser.type.toUpperCase() // Assumes types like 'STUDENT', 'LECTURER'
+            recipientType: requestingUser.type.toUpperCase() // Assumes types like 'STUDENT', 'LECTURER', 'ICTSTAFF', 'ADMIN'
         };
 
         if (isRead !== undefined) {
@@ -135,7 +137,6 @@ export const getAllNotificationsAdmin = async (query) => {
     }
 };
 
-
 // Mark a notification as read/unread (by recipient or admin)
 export const updateNotificationReadStatus = async (notificationId, isRead, requestingUser) => {
     try {
@@ -148,7 +149,7 @@ export const updateNotificationReadStatus = async (notificationId, isRead, reque
         if (!notification) throw new AppError('Notification not found.', 404);
 
         // Authorization: Recipient or Admin
-        if (requestingUser.type !== 'admin' &&
+        if (requestingUser.type !== 'admin' && requestingUser.type !== 'ictstaff' &&
             !(notification.recipientId === requestingUser.id && notification.recipientType === requestingUser.type.toUpperCase())) {
             throw new AppError('You are not authorized to update this notification.', 403);
         }
@@ -203,5 +204,72 @@ export const deleteNotification = async (notificationId) => {
         if (error instanceof AppError) throw error;
         console.error("Error deleting notification:", error.message, error.stack);
         throw new AppError('Could not delete notification.', 500);
+    }
+};
+
+
+// NEW: Trigger payment reminder notifications for students with pending exam fees
+export const triggerPaymentReminderNotifications = async (filters = {}) => {
+    try {
+        if (!prisma) throw new AppError('Prisma client is not available.', 500);
+
+        console.log('DEBUG: Triggering payment reminders with filters:', filters);
+
+        const reminderWhereClause = {
+            paymentStatus: PaymentStatus.PENDING,
+            // Add other filters if provided (e.g., specific examId, courseId for targeted reminders)
+            // Example:
+            // ...(filters.examId && { examId: parseInt(filters.examId, 10) }),
+            // ...(filters.studentId && { studentId: parseInt(filters.studentId, 10) }),
+        };
+
+        const pendingPayments = await prisma.studentExamPayment.findMany({
+            where: reminderWhereClause,
+            include: {
+                student: {
+                    // FIX: Added a comma between name: true and regNo: true
+                    select: { id: true, name: true, regNo: true }
+                },
+                exam: {
+                    select: { id: true, title: true, course: { select: { code: true } } }
+                }
+            }
+        });
+
+        if (pendingPayments.length === 0) {
+            console.log('DEBUG: No pending exam payments found to send reminders.');
+            return { count: 0, details: 'No pending payments found.' };
+        }
+
+        const notificationsCreated = [];
+        for (const payment of pendingPayments) {
+            const message = `Reminder: Your payment of ₦${payment.amountExpected.toLocaleString()} for ${payment.exam.course.code} - ${payment.exam.title} is still pending. Please complete your payment to avoid issues.`;
+            
+            // Optional: Check if a similar reminder was sent recently to avoid spamming
+            // For now, it sends a new notification each time.
+            
+            const newNotification = await prisma.notification.create({
+                data: {
+                    recipientType: 'STUDENT',
+                    recipientId: payment.student.id,
+                    studentId: payment.student.id, // Explicitly link
+                    message: message,
+                    isRead: false,
+                },
+                select: { id: true, recipientId: true, message, createdAt: true }
+            });
+            notificationsCreated.push(newNotification);
+        }
+
+        console.log(`DEBUG: Created ${notificationsCreated.length} payment reminder notifications.`);
+        return {
+            count: notificationsCreated.length,
+            details: notificationsCreated.map(n => ({ id: n.id, recipientId: n.recipientId, message: n.message })),
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("Error triggering payment reminder notifications:", error.message, error.stack);
+        throw new AppError('Could not trigger payment reminder notifications.', 500);
     }
 };
