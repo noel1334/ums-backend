@@ -37,6 +37,16 @@ export const deleteExam = async (req, res, next) => {
         res.status(200).json({ status: 'success', message: result.message });
     } catch (error) { next(error); }
 };
+export const cloneExam = async (req, res, next) => {
+    try {
+        const originalExamId = req.params.id;
+        const cloneData = req.body; // This will contain new title, academic session, etc.
+        const clonedExam = await ExamService.cloneExam(originalExamId, cloneData, req.user);
+        res.status(201).json({ status: 'success', data: { exam: clonedExam }, message: 'Exam cloned successfully.' });
+    } catch (error) {
+        next(error);
+    }
+};
 
 // NEW: Controller for verifying exam password
 export const verifyExamAccessPassword = async (req, res, next) => {

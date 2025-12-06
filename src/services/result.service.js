@@ -652,3 +652,146 @@ export const deleteManyResults = async (resultIds, requestingUser) => {
         throw new AppError('Could not delete multiple result records.', 500);
     }
 };
+
+// =================================================================================
+// --- NEW SERVICE FUNCTION: Toggle Result Release Status by Criteria ---
+/**
+ * Toggles the 'isApprovedForStudentRelease' status for results based on provided criteria.
+ *
+ * @param {object} criteria - Object containing filtering criteria (e.g., { seasonId: 1, departmentId: 2 }).
+ *                            Can include seasonId, semesterId, facultyId, departmentId, programId, levelId.
+ * @param {boolean} releaseStatus - `true` to approve for release, `false` to de-approve.
+ * @param {number} adminId - The ID of the admin performing the action.
+ * @returns {Promise<{message: string, updatedCount: number}>} - A message and the count of updated results.
+ * @throws {AppError} If criteria are invalid, no results found, or Prisma client is unavailable.
+ */
+export const toggleResultsReleaseStatusService = async (criteria, releaseStatus, adminId) => {
+    try {
+        if (!prisma) throw new AppError('Prisma client is not available.', 500);
+
+        const whereClause = {};
+
+        // Parse and add direct criteria
+        if (criteria.seasonId) {
+            const pSeasonId = parseInt(criteria.seasonId, 10);
+            if (isNaN(pSeasonId)) throw new AppError('Invalid Season ID format.', 400);
+            whereClause.seasonId = pSeasonId;
+        }
+        if (criteria.semesterId) {
+            const pSemesterId = parseInt(criteria.semesterId, 10);
+            if (isNaN(pSemesterId)) throw new AppError('Invalid Semester ID format.', 400);
+            whereClause.semesterId = pSemesterId;
+        }
+        if (criteria.departmentId) {
+            const pDepartmentId = parseInt(criteria.departmentId, 10);
+            if (isNaN(pDepartmentId)) throw new AppError('Invalid Department ID format.', 400);
+            whereClause.departmentId = pDepartmentId;
+        }
+        if (criteria.programId) {
+            const pProgramId = parseInt(criteria.programId, 10);
+            if (isNaN(pProgramId)) throw new AppError('Invalid Program ID format.', 400);
+            whereClause.programId = pProgramId;
+        }
+        if (criteria.levelId) {
+            const pLevelId = parseInt(criteria.levelId, 10);
+            if (isNaN(pLevelId)) throw new AppError('Invalid Level ID format.', 400);
+            whereClause.levelId = pLevelId;
+        }
+
+        // Handle facultyId, which requires an extra query
+        if (criteria.facultyId) {
+            const pFacultyId = parseInt(criteria.facultyId, 10);
+            if (isNaN(pFacultyId)) throw new AppError('Invalid Faculty ID format.', 400);
+
+            const departmentsInFaculty = await prisma.department.findMany({
+                where: { facultyId: pFacultyId },
+                select: { id: true }
+            });
+
+            if (departmentsInFaculty.length === 0) {
+                throw new AppError('No departments found for the specified faculty.', 404);
+            }
+
+            const departmentIds = departmentsInFaculty.map(dept => dept.id);
+            whereClause.departmentId = { in: departmentIds };
+        }
+
+        // Ensure at least one filtering criterion is provided
+        if (Object.keys(whereClause).length === 0) {
+            throw new AppError('At least one valid criterion (season, semester, faculty, department, program, or level) must be provided to toggle results.', 400);
+        }
+
+        // Construct the data payload for update
+        const updateData = {
+            isApprovedForStudentRelease: releaseStatus,
+            updatedAt: new Date(), // Always update the updatedAt timestamp
+        };
+
+        if (releaseStatus) {
+            updateData.studentReleaseApprovedAt = new Date();
+            updateData.studentReleaseApprovedByAdminId = adminId;
+        } else {
+            updateData.studentReleaseApprovedAt = null;
+            updateData.studentReleaseApprovedByAdminId = null;
+        }
+
+        const updatedResults = await prisma.result.updateMany({
+            where: whereClause,
+            data: updateData,
+        });
+
+        const actionMessage = releaseStatus ? 'approved for student release' : 'de-approved for student release';
+        return {
+            message: `${updatedResults.count} results successfully ${actionMessage}.`,
+            updatedCount: updatedResults.count,
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("Error toggling results release status:", error.message, error.stack);
+        throw new AppError('Could not toggle results release status.', 500);
+    }
+};
+
+export const batchToggleSpecificResultsReleaseService = async (resultIds, releaseStatus, adminId) => {
+    try {
+        if (!prisma) throw new AppError('Prisma client is not available.', 500);
+
+        const pResultIds = resultIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+
+        if (pResultIds.length === 0) {
+            throw new AppError('No valid result IDs provided for batch operation.', 400);
+        }
+
+        const updateData = {
+            isApprovedForStudentRelease: releaseStatus,
+            updatedAt: new Date(),
+        };
+
+        if (releaseStatus) {
+            updateData.studentReleaseApprovedAt = new Date();
+            updateData.studentReleaseApprovedByAdminId = parseInt(adminId, 10);
+        } else {
+            updateData.studentReleaseApprovedAt = null;
+            updateData.studentReleaseApprovedByAdminId = null;
+        }
+
+        const updatedResults = await prisma.result.updateMany({
+            where: {
+                id: { in: pResultIds },
+            },
+            data: updateData,
+        });
+
+        const actionMessage = releaseStatus ? 'approved for student release' : 'de-approved for student release';
+        return {
+            message: `${updatedResults.count} results successfully ${actionMessage}.`,
+            updatedCount: updatedResults.count,
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("Error batch toggling specific results release status:", error.message, error.stack);
+        throw new AppError('Could not batch toggle specific results release status.', 500);
+    }
+};

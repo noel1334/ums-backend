@@ -549,6 +549,151 @@ export const deleteExam = async (examId, requestingUser) => {
     }
 };
 
+export const cloneExam = async (originalExamId, cloneData, cloningUser) => {
+    try {
+        if (!prisma) throw new AppError('Prisma client unavailable', 500);
+        const id = parseInt(originalExamId, 10);
+        if (isNaN(id)) throw new AppError('Invalid original exam ID format.', 400);
+
+        // 1. Fetch the original exam with all its questions and options
+        const originalExam = await prisma.exam.findUnique({
+            where: { id },
+            select: {
+                ...examSelection, // Use base selection for copying fields
+                questions: {
+                    select: {
+                        questionText: true,
+                        questionType: true,
+                        marks: true,
+                        explanation: true,
+                        difficulty: true,
+                        topic: true,
+                        isBankQuestion: true,
+                        displayOrder: true,
+                        correctOptionKey: true,
+                        options: {
+                            select: {
+                                optionKey: true,
+                                optionText: true,
+                                isCorrect: true,
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!originalExam) {
+            throw new AppError('Original exam not found for cloning.', 404);
+        }
+
+        // 2. Authorization: Check if the user can manage (create) exams for the original course
+        if (!await canUserManageExamForCourse(cloningUser, originalExam.courseId)) {
+            throw new AppError('Not authorized to clone exams for this course/department.', 403);
+        }
+
+        // 3. Prepare data for the new (cloned) exam
+        const {
+            title, // New title from cloneData
+            semesterId, // New semesterId from cloneData (or derived from academicSession)
+            seasonId,   // New seasonId from cloneData (or derived from academicSession)
+            // Optional: startDate, endDate, accessPassword (if provided, otherwise null/copied)
+            accessPassword // If provided, hash it.
+        } = cloneData;
+
+        // Basic validation for new required fields
+        if (!title || !semesterId || !seasonId) {
+            throw new AppError('New title, semester, and academic session (season) are required for cloning.', 400);
+        }
+
+        const newSemesterId = parseInt(semesterId, 10);
+        const newSeasonId = parseInt(seasonId, 10);
+
+        if (isNaN(newSemesterId) || isNaN(newSeasonId)) {
+            throw new AppError('Invalid numeric format for new semester or season ID.', 400);
+        }
+
+        const [newSemester, newSeason] = await Promise.all([
+            prisma.semester.findUnique({ where: { id: newSemesterId, isActive: true } }),
+            prisma.season.findUnique({ where: { id: newSeasonId } })
+        ]);
+        if (!newSemester) throw new AppError(`Active semester ID ${newSemesterId} not found.`, 404);
+        if (!newSeason) throw new AppError(`Season ID ${newSeasonId} not found.`, 404);
+
+
+        const dataToCreate = {
+            title: title || `${originalExam.title} (Copy)`, // Use provided title or default
+            courseId: originalExam.courseId,
+            semesterId: newSemesterId, // Use new semester ID
+            seasonId: newSeasonId,     // Use new season ID
+            examType: originalExam.examType,
+            instructions: originalExam.instructions,
+            durationMinutes: originalExam.durationMinutes,
+            totalMarks: originalExam.totalMarks,
+            passMark: originalExam.passMark,
+            questionsToAttempt: originalExam.questionsToAttempt,
+            status: ExamStatus.PENDING, // Cloned exam starts as PENDING
+            accessPassword: accessPassword ? await hashPassword(accessPassword) : null, // Hash new password if provided
+        };
+
+        if (cloningUser.type === 'lecturer') dataToCreate.createdByLecturerId = cloningUser.id;
+        if (cloningUser.type === 'ictstaff') dataToCreate.createdByICTStaffId = cloningUser.id;
+
+        // 4. Prepare questions and options for nested creation
+        const clonedQuestionsData = originalExam.questions.map(question => {
+            const questionData = {
+                questionText: question.questionText,
+                questionType: question.questionType,
+                marks: question.marks,
+                explanation: question.explanation,
+                difficulty: question.difficulty,
+                topic: question.topic,
+                isBankQuestion: question.isBankQuestion,
+                displayOrder: question.displayOrder,
+                correctOptionKey: question.correctOptionKey,
+                addedByLecturerId: cloningUser.type === 'lecturer' ? cloningUser.id : null,
+                addedByICTStaffId: cloningUser.type === 'ictstaff' ? cloningUser.id : null,
+            };
+
+            // Only clone options if the question type supports them
+            if ((question.questionType === QuestionType.MULTIPLE_CHOICE || question.questionType === QuestionType.TRUE_FALSE) && question.options.length > 0) {
+                questionData.options = {
+                    create: question.options.map(option => ({
+                        optionKey: option.optionKey,
+                        optionText: option.optionText,
+                        isCorrect: option.isCorrect,
+                    }))
+                };
+            }
+            return questionData;
+        });
+
+        // Add cloned questions to dataToCreate
+        if (clonedQuestionsData.length > 0) {
+            dataToCreate.questions = {
+                create: clonedQuestionsData
+            };
+            dataToCreate.questionsInBank = clonedQuestionsData.length;
+        } else {
+            dataToCreate.questionsInBank = 0;
+        }
+
+
+        // 5. Create the new exam and its associated questions/options in a transaction
+        const newExam = await prisma.exam.create({
+            data: dataToCreate,
+            select: examSelection // Return the newly created exam with basic selection
+        });
+
+        return newExam;
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("Error cloning exam (raw):", error.message, error.stack);
+        throw new AppError('Could not clone exam.', 500);
+    }
+};
+
 // NEW FUNCTION: Verify Exam Access Password
 export const verifyExamAccessPassword = async (examId, providedPassword, requestingUser) => {
     try {
@@ -564,16 +709,16 @@ export const verifyExamAccessPassword = async (examId, providedPassword, request
         console.log('DEBUG: Length of provided password:', providedPassword ? providedPassword.length : 'N/A');
         // --- END ADDED LOGS ---
 
-        const exam = await prisma.exam.findUnique({
-            where: { id },
-            select: {
-                id: true,
-                courseId: true,
-                accessPassword: true,
-                status: true,
-                questionsInBank: true,
-            }
-        });
+         const exam = await prisma.exam.findUnique({
+        where: { id },
+        select: {
+            id: true,
+            courseId: true,
+            accessPassword: true, // This is the field we care about
+            status: true,
+            questionsInBank: true,
+        }
+    });
 
         if (!exam) {
             console.log('DEBUG: Exam not found for ID:', id); // Added log
@@ -599,6 +744,8 @@ export const verifyExamAccessPassword = async (examId, providedPassword, request
             console.log('DEBUG: User not authorized to verify password.'); // Added log
             throw new AppError('Not authorized to perform password verification for this exam.', 403);
         }
+
+        
 
         if (!exam.accessPassword) {
             console.log('DEBUG: Exam has no access password set in DB.'); // Added log

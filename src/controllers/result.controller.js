@@ -97,3 +97,51 @@ export const deleteManyResults = async (req, res, next) => {
         res.status(200).json({ status: 'success', message: result.message, data: { deletedCount: result.deletedCount } });
     } catch (error) { next(error); }
 };
+
+// --- NEW CONTROLLER: Toggle Result Release Status by Criteria ---
+export const toggleResultsReleaseStatusController = catchAsync(async (req, res, next) => {
+    const { criteria, action } = req.body; // criteria object, action: 'approve' | 'deapprove'
+    const { user } = req;
+
+    if (!criteria || Object.keys(criteria).length === 0) {
+        throw new AppError('Approval criteria (season, semester, faculty, department, program, or level) must be provided.', 400);
+    }
+
+    if (action !== 'approve' && action !== 'deapprove') {
+        throw new AppError('Action must be "approve" or "deapprove".', 400);
+    }
+
+    const releaseStatus = action === 'approve';
+
+    const result = await ResultService.toggleResultsReleaseStatusService(criteria, releaseStatus, user.id);
+
+    res.status(200).json({
+        status: 'success',
+        message: result.message,
+        data: { updatedCount: result.updatedCount }
+    });
+});
+
+// --- NEW CONTROLLER: Batch Toggle Result Release Status for specific IDs ---
+export const batchToggleSpecificResultsReleaseController = catchAsync(async (req, res, next) => {
+    const { resultIds, action } = req.body; // resultIds: array of IDs, action: 'approve' | 'deapprove'
+    const { user } = req;
+
+    if (!resultIds || !Array.isArray(resultIds) || resultIds.length === 0) {
+        throw new AppError('An array of result IDs is required.', 400);
+    }
+
+    if (action !== 'approve' && action !== 'deapprove') {
+        throw new AppError('Action must be "approve" or "deapprove".', 400);
+    }
+
+    const releaseStatus = action === 'approve';
+
+    const result = await ResultService.batchToggleSpecificResultsReleaseService(resultIds, releaseStatus, user.id);
+
+    res.status(200).json({
+        status: 'success',
+        message: result.message,
+        data: { updatedCount: result.updatedCount }
+    });
+});

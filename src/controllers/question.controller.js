@@ -1,5 +1,7 @@
-import * as QuestionService from '../services/question.service.js';
+import * as QuestionService from '../services/question.service.js'; // Correctly imported as QuestionService
 import AppError from '../utils/AppError.js';
+import catchAsync from '../utils/catchAsync.js';
+
 
 // Assumes examId will be in req.params from a nested route like /exams/:examId/questions
 export const createQuestion = async (req, res, next) => {
@@ -11,15 +13,28 @@ export const createQuestion = async (req, res, next) => {
     } catch (error) { next(error); }
 };
 
-export const createMultipleQuestions = async (req, res, next) => {
-    try {
-        const examId = req.params.examId;
-        if (!examId) return next(new AppError('Exam ID is required in path.', 400));
-        // Expect req.body to be an array of question objects
-        const newQuestions = await QuestionService.createMultipleQuestions(examId, req.body, req.user);
-        res.status(201).json({ status: 'success', data: { questions: newQuestions } });
-    } catch (error) { next(error); }
-};
+export const createMultipleQuestions = catchAsync(async (req, res, next) => {
+  const { examId } = req.params;
+  // CRUCIAL CHANGE: Extract the 'questions' array from req.body
+  const questionsData = req.body.questions;
+
+  // Optional: Add an explicit check here as well for robustness
+  if (!Array.isArray(questionsData) || questionsData.length === 0) {
+    throw new AppError('No questions array found in the request body.', 400);
+  }
+
+  const createdQuestions = await QuestionService.createMultipleQuestions( // FIX: Changed to QuestionService
+    examId,
+    questionsData, // Pass the extracted array directly to the service
+    req.user // Assuming req.user contains the authenticated user's data
+  );
+
+  res.status(201).json({
+    status: 'success',
+    message: `${createdQuestions.length} questions added to the exam successfully.`,
+    data: { questions: createdQuestions },
+  });
+});
 
 
 export const getQuestionsForExam = async (req, res, next) => {

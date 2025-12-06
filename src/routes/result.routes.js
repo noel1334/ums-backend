@@ -52,5 +52,19 @@ router.delete('/:id', authenticateToken, canGenerateAndDeleteResults, ResultCont
 // Using a POST for batch deletion is often preferred to allow a request body for IDs,
 // although semantically DELETE can also have a body.
 router.post('/batch-delete', authenticateToken, canGenerateAndDeleteResults, ResultController.deleteManyResults);
+// --- NEW ROUTE: Toggle Result Release Status by Criteria ---
+router.patch(
+    '/toggle-release-status',
+    authenticateToken,
+    authorizeAdmin, // Only admin can perform this broad action
+    ResultController.toggleResultsReleaseStatusController
+);
+// --- NEW ROUTE: Batch Toggle Result Release Status for specific IDs ---
+router.patch(
+    '/batch-toggle-release-status',
+    authenticateToken,
+    authorizeAdmin, // Only admin can perform this broad action
+    ResultController.batchToggleSpecificResultsReleaseController
+)
 
 export default router;

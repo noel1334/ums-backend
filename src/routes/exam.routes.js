@@ -46,6 +46,11 @@ router.route('/:id')
         authorize(['admin', 'ictstaff', 'HOD', 'DEAN', 'EXAMINER', 'LECTURER']), // Broad, service validates
         ExamController.deleteExam
     );
+router.post('/:id/clone',
+    authenticateToken,
+    authorize(['admin', 'ictstaff', 'HOD', 'DEAN', 'EXAMINER', 'LECTURER']), // Only users who can create exams can clone them
+    ExamController.cloneExam // New controller function
+);
 
 // NEW ROUTE: Verify Exam Access Password
 // Any user who might need to view an exam (lecturer, student) can try to verify.
