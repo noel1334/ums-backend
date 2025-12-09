@@ -439,7 +439,7 @@ export const getExamAttemptResult = async (attemptId, studentIdForAuth, requesti
             timeUsedSeconds: attempt.timeUsedSeconds,
             totalScore: attempt.scoreAchieved,
             maxScore: attempt.exam.totalMarks,
-            percentage: attempt.exam.totalMarks > 0 ? ((attempt.scoreAchieved / attempt.exam.totalMarks) * 100) : 0,
+            // REMOVED percentage: attempt.exam.totalMarks > 0 ? ((attempt.scoreAchieved / attempt.exam.totalMarks) * 100) : 0,
 
             // The detailed question-by-question breakdown
             questions: questionAnalysis
@@ -477,8 +477,8 @@ export const getAttemptsSummaryForSession = async (examSessionId) => {
             student: {
                 select: { id: true, name: true, regNo: true }
             },
-            exam: {
-                select: { questionsToAttempt: true, totalMarks: true }
+            exam: { // <--- This includes the 'exam' model
+                select: { questionsToAttempt: true, totalMarks: true } // <--- Selecting totalMarks here
             },
             _count: {
                 select: { studentAnswers: true }
@@ -510,7 +510,10 @@ export const getAttemptsSummaryForSession = async (examSessionId) => {
             duration: durationStr,
             questionsAnswered: attempt._count.studentAnswers,
             totalQuestions: attempt.exam.questionsToAttempt,
-            score: attempt.scoreAchieved !== null ? ((attempt.scoreAchieved / attempt.exam.totalMarks) * 100).toFixed(0) : 0,
+            // --- MODIFIED LINES HERE ---
+            score: attempt.scoreAchieved, // Now directly uses the raw score
+            totalMarks: attempt.exam.totalMarks, // Provides the total marks for the exam
+            // --- END MODIFICATION ---
             status: attempt.isSubmitted ? 'Completed' : 'In Progress' // Add more logic for 'Submitted Early' if needed
         };
     });
@@ -545,7 +548,7 @@ export const getResultsSummaryForSession = async (examSessionId) => {
         }
     });
 
-    // Simple grade calculation helper
+    // Simple grade calculation helper (keeping for potential internal use, but won't be in API response)
     const calculateGrade = (percentage) => {
         if (percentage >= 70) return 'A';
         if (percentage >= 60) return 'B';
@@ -555,8 +558,8 @@ export const getResultsSummaryForSession = async (examSessionId) => {
     };
 
     const formattedResults = submittedAttempts.map(attempt => {
-        const percentage = ((attempt.scoreAchieved / attempt.exam.totalMarks) * 100);
-        const status = percentage >= (attempt.exam.passMark || 50) ? 'Pass' : 'Fail';
+        const percentage = ((attempt.scoreAchieved / attempt.exam.totalMarks) * 100); // Removed percentage calculation
+        const status = percentage >= (attempt.exam.passMark || 50) ? 'Pass' : 'Fail'; // Removed status derivation from percentage
 
         return {
             id: attempt.id,
@@ -565,9 +568,9 @@ export const getResultsSummaryForSession = async (examSessionId) => {
             regNo: attempt.student.regNo,
             totalScore: attempt.scoreAchieved,
             maxScore: attempt.exam.totalMarks,
-            percentage: percentage.toFixed(0),
-            grade: calculateGrade(percentage),
-            status: status
+             percentage: percentage.toFixed(0),
+             grade: calculateGrade(percentage),
+            status: attempt.isGraded ? 'Graded' : 'Pending Grading' // Generic status based on grading state
         };
     });
 

@@ -328,7 +328,7 @@ export const getAllScores = async (query, requestingUser) => {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
         const {
             studentId, courseId, semesterId, seasonId, departmentId, programId, levelId,
-            isApprovedByExaminer, isAcceptedByHOD,
+            isApprovedByExaminer, isAcceptedByHOD,studentCourseRegistrationIds,
             page = 1, limit = 10
         } = query;
         const where = {};
@@ -362,6 +362,12 @@ export const getAllScores = async (query, requestingUser) => {
         if (semesterId) studentCourseRegistrationWhere.semesterId = parseInt(semesterId, 10);
         if (seasonId) studentCourseRegistrationWhere.seasonId = parseInt(seasonId, 10);
         if (levelId) studentCourseRegistrationWhere.levelId = parseInt(levelId, 10);
+         if (studentCourseRegistrationIds && Array.isArray(studentCourseRegistrationIds)) {
+            const pRegIds = studentCourseRegistrationIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+            if (pRegIds.length > 0) {
+                studentCourseRegistrationWhere.id = { in: pRegIds };
+            }
+        }
 
         if (Object.keys(studentCourseRegistrationWhere).length > 0) {
             where.studentCourseRegistration = studentCourseRegistrationWhere;

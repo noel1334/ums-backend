@@ -252,6 +252,7 @@ exports.Prisma.LevelScalarFieldEnum = {
   id: 'id',
   name: 'name',
   value: 'value',
+  degreeType: 'degreeType',
   description: 'description',
   order: 'order',
   createdAt: 'createdAt',
@@ -1240,7 +1241,10 @@ exports.DegreeType = exports.$Enums.DegreeType = {
   MASTERS: 'MASTERS',
   PHD: 'PHD',
   CERTIFICATE: 'CERTIFICATE',
-  DIPLOMA: 'DIPLOMA'
+  DIPLOMA: 'DIPLOMA',
+  ND: 'ND',
+  HND: 'HND',
+  NCE: 'NCE'
 };
 
 exports.StudyMode = exports.$Enums.StudyMode = {

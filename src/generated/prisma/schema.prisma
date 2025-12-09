@@ -45,6 +45,9 @@ enum DegreeType {
   PHD
   CERTIFICATE
   DIPLOMA
+  ND // National Diploma - NEW
+  HND // Higher National Diploma - NEW
+  NCE // Nigeria Certificate in Education - NEW
 }
 
 // --- RESULT & GRADING ENUMS ---
@@ -449,12 +452,14 @@ model Program {
   @@index([name]) // Changed from unique_program_name_globally to just index for flexibility
 }
 
+// MODIFIED Level model
 model Level {
   id                            Int                            @id @default(autoincrement())
-  name                          String                         @unique // e.g., "100 Level"
-  value                         Int                            @unique // e.g., 100, 200, 300, 400, 500
+  name                          String // e.g., "100 Level", "Year 1"
+  value                         Int // e.g., 100, 200, 300, 400, 500
+  degreeType                    DegreeType // NEW: Associate level with a degree type - now required
   description                   String?
-  order                         Int?                           @unique // Optional: 1, 2, 3, 4 for sorting and progression logic
+  order                         Int? // Optional: 1, 2, 3, 4 for sorting and progression logic
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
   studentsAtEntryLevel          Student[]                      @relation("EntryLevel")
@@ -465,6 +470,11 @@ model Level {
   schoolFeeLists                SchoolFeeList[]
   Result                        Result[]
   programCourseUnitRequirements ProgramCourseUnitRequirement[]
+
+  // NEW: Unique constraints based on degreeType, making levels unique per program type
+  @@unique([name, degreeType], name: "unique_level_name_per_degree_type")
+  @@unique([value, degreeType], name: "unique_level_value_per_degree_type")
+  @@unique([order, degreeType], name: "unique_level_order_per_degree_type")
 }
 
 model ProgramCourseUnitRequirement {
