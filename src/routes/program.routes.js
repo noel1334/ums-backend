@@ -21,7 +21,7 @@ const canManage = authorizeAdmin;
 
 router.route('/')
     .post(authenticateToken, canManage, ProgramController.createProgram)
-    .get(authenticateToken, canView, ProgramController.getAllPrograms); // Now uses the corrected 'canView'
+    .get( ProgramController.getAllPrograms); // Now uses the corrected 'canView'
 
 router.route('/:id')
     .get(authenticateToken, canView, ProgramController.getProgramById)

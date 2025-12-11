@@ -1,34 +1,52 @@
-// src/services/programService.js
+// src/services/program.service.js
 
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
-// Import new enum type
+// Import new enum types
 import { DegreeType, StudyMode } from '../generated/prisma/index.js';
 
+// MODIFIED: programPublicSelection to include new fields
 const programPublicSelection = {
-    id: true, programCode: true, name: true, degree: true, degreeType: true,
-    duration: true, departmentId: true, createdAt: true, updatedAt: true,
-    modeOfStudy: true, // <-- ADDED: Include modeOfStudy in the selection
+    id: true,
+    programCode: true,
+    name: true,
+    degree: true,
+    degreeType: true,
+    duration: true,
+    departmentId: true,
+    modeOfStudy: true,
+    jambRequired: true,
+    onlineScreeningRequired: true,
+    createdAt: true,
+    updatedAt: true,
     department: { select: { id: true, name: true, faculty: { select: { id: true, name: true } } } },
     _count: {
         select: { students: true, programCourses: true }
     }
 };
 
+// MODIFIED: createProgram to handle new fields
 export const createProgram = async (programData) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
-        const { programCode, name, degree, degreeType, duration, departmentId, modeOfStudy } = programData; // <-- ADDED modeOfStudy
+        const { 
+            programCode, name, degree, degreeType, duration, departmentId, modeOfStudy,
+            jambRequired,
+            onlineScreeningRequired
+        } = programData;
 
-        if (!programCode || !name || !degree || !degreeType || duration === undefined || !departmentId || !modeOfStudy) { // <-- Validate modeOfStudy
+        if (!programCode || !name || !degree || !degreeType || duration === undefined || !departmentId || !modeOfStudy) {
             throw new AppError('Program code, name, degree, degree type, duration, department ID, and mode of study are required.', 400);
         }
         if (!Object.values(DegreeType).includes(degreeType)) {
             throw new AppError(`Invalid degree type: ${degreeType}. Must be one of ${Object.values(DegreeType).join(', ')}.`, 400);
         }
-        if (!Object.values(StudyMode).includes(modeOfStudy)) { // <-- Validate modeOfStudy enum
+        if (!Object.values(StudyMode).includes(modeOfStudy)) {
             throw new AppError(`Invalid mode of study: ${modeOfStudy}. Must be one of ${Object.values(StudyMode).join(', ')}.`, 400);
         }
+
+        const pJambRequired = jambRequired === undefined ? false : Boolean(jambRequired);
+        const pOnlineScreeningRequired = onlineScreeningRequired === undefined ? true : Boolean(onlineScreeningRequired);
 
         const pDuration = parseInt(duration, 10);
         const pDepartmentId = parseInt(departmentId, 10);
@@ -51,7 +69,9 @@ export const createProgram = async (programData) => {
                 degreeType,
                 duration: pDuration,
                 departmentId: pDepartmentId,
-                modeOfStudy, // <-- ADDED: modeOfStudy to data
+                modeOfStudy,
+                jambRequired: pJambRequired,
+                onlineScreeningRequired: pOnlineScreeningRequired
             },
             select: programPublicSelection
         });
@@ -106,22 +126,51 @@ export const getProgramById = async (id) => {
     }
 };
 
+// MODIFIED: getAllPrograms to handle `degreeType` as a string or array of strings
 export const getAllPrograms = async (query) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
         
-        // --- ADD THIS LOG HERE ---
         console.log("[Backend Program Service] getAllPrograms called with query:", query);
-        // --- END LOG ---
 
-        const { departmentId, degreeType, name, programCode, page = 1, limit = 10, modeOfStudy } = query;
-        const where = {};
+        const { 
+            departmentId, 
+            degreeType,
+            name, 
+            programCode, 
+            page = 1, 
+            limit = 10, 
+            modeOfStudy, 
+            jambRequired, 
+            onlineScreeningRequired 
+        } = query;
+        const where = {}; // FIX: Removed `: any`
 
         if (departmentId) where.departmentId = parseInt(departmentId, 10);
-        if (degreeType && Object.values(DegreeType).includes(degreeType)) where.degreeType = degreeType;
-        if (name) where.name = { contains: name }; // This is where the search term is used
+        
+        if (degreeType) {
+            let parsedDegreeTypes = [];
+            if (Array.isArray(degreeType)) {
+                parsedDegreeTypes = degreeType.filter(dt => Object.values(DegreeType).includes(dt));
+            } else if (typeof degreeType === 'string' && Object.values(DegreeType).includes(degreeType)) {
+                parsedDegreeTypes = [degreeType];
+            }
+
+            if (parsedDegreeTypes.length > 0) {
+                where.degreeType = { in: parsedDegreeTypes };
+            }
+        }
+        
+        if (name) where.name = { contains: name };
         if (programCode) where.programCode = { contains: programCode };
         if (modeOfStudy && Object.values(StudyMode).includes(modeOfStudy)) where.modeOfStudy = modeOfStudy;
+        
+        if (jambRequired !== undefined) {
+            where.jambRequired = String(jambRequired).toLowerCase() === 'true';
+        }
+        if (onlineScreeningRequired !== undefined) {
+            where.onlineScreeningRequired = String(onlineScreeningRequired).toLowerCase() === 'true';
+        }
 
         const pageNum = parseInt(page, 10);
         const limitNum = parseInt(limit, 10);
@@ -142,6 +191,7 @@ export const getAllPrograms = async (query) => {
     }
 };
 
+// MODIFIED: updateProgram to handle new fields
 export const updateProgram = async (id, updateData) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -151,8 +201,12 @@ export const updateProgram = async (id, updateData) => {
         const existingProgram = await prisma.program.findUnique({ where: { id: programId } });
         if (!existingProgram) throw new AppError('Program not found for update.', 404);
 
-        const { programCode, name, degree, degreeType, duration, departmentId, modeOfStudy } = updateData; // <-- ADDED modeOfStudy
-        const dataToUpdate = {};
+        const { 
+            programCode, name, degree, degreeType, duration, departmentId, modeOfStudy,
+            jambRequired,
+            onlineScreeningRequired
+        } = updateData;
+        const dataToUpdate = {}; // FIX: Removed `: any`
 
         if (programCode !== undefined) {
             if (programCode !== existingProgram.programCode) {
@@ -181,11 +235,18 @@ export const updateProgram = async (id, updateData) => {
             if (!dept) throw new AppError(`Target department ID ${pDepartmentId} not found.`, 404);
             dataToUpdate.departmentId = pDepartmentId;
         }
-        if (modeOfStudy !== undefined) { // <-- ADDED: Handle modeOfStudy update
+        if (modeOfStudy !== undefined) {
             if (!Object.values(StudyMode).includes(modeOfStudy)) {
                 throw new AppError('Invalid mode of study for update.', 400);
             }
             dataToUpdate.modeOfStudy = modeOfStudy;
+        }
+
+        if (jambRequired !== undefined) {
+            dataToUpdate.jambRequired = Boolean(jambRequired);
+        }
+        if (onlineScreeningRequired !== undefined) {
+            dataToUpdate.onlineScreeningRequired = Boolean(onlineScreeningRequired);
         }
 
         if (Object.keys(dataToUpdate).length === 0) {

@@ -244,6 +244,8 @@ exports.Prisma.ProgramScalarFieldEnum = {
   duration: 'duration',
   modeOfStudy: 'modeOfStudy',
   departmentId: 'departmentId',
+  jambRequired: 'jambRequired',
+  onlineScreeningRequired: 'onlineScreeningRequired',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -646,6 +648,7 @@ exports.Prisma.ScreeningFeeListScalarFieldEnum = {
   id: 'id',
   seasonId: 'seasonId',
   entryMode: 'entryMode',
+  degreeType: 'degreeType',
   amount: 'amount',
   description: 'description',
   isActive: 'isActive',
@@ -895,6 +898,15 @@ exports.Prisma.AdmissionLetterSectionScalarFieldEnum = {
   order: 'order',
   isConditional: 'isConditional',
   conditionField: 'conditionField',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.RegistrationControlScalarFieldEnum = {
+  id: 'id',
+  degreeType: 'degreeType',
+  isActive: 'isActive',
+  message: 'message',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -1217,6 +1229,10 @@ exports.Prisma.AdmissionLetterSectionOrderByRelevanceFieldEnum = {
   content: 'content',
   conditionField: 'conditionField'
 };
+
+exports.Prisma.RegistrationControlOrderByRelevanceFieldEnum = {
+  message: 'message'
+};
 exports.EntryMode = exports.$Enums.EntryMode = {
   UTME: 'UTME',
   DIRECT_ENTRY: 'DIRECT_ENTRY',
@@ -1505,7 +1521,8 @@ exports.Prisma.ModelName = {
   PhysicalScreeningList: 'PhysicalScreeningList',
   AdmissionOffer: 'AdmissionOffer',
   AdmissionLetterTemplate: 'AdmissionLetterTemplate',
-  AdmissionLetterSection: 'AdmissionLetterSection'
+  AdmissionLetterSection: 'AdmissionLetterSection',
+  RegistrationControl: 'RegistrationControl'
 };
 
 /**

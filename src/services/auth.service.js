@@ -405,52 +405,67 @@ export const loginToViewAccessibleExams = async (regNo, providedAccessPassword) 
     }
 };
 
-export const loginApplicantScreening = async (jambRegNo, password) => {
+export const loginApplicantScreening = async (identifier, password) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
-        const trimmedJambRegNo = String(jambRegNo).trim();
+        const trimmedIdentifier = String(identifier).trim();
 
-        // Find the screening account and check for a linked application profile ID
-        const screeningAccount = await prisma.onlineScreeningList.findUnique({
-            where: { jambRegNo: trimmedJambRegNo },
-            select: { id: true, password: true, isActive: true, applicationProfile: { select: { id: true } } }
+        if (!trimmedIdentifier || !password) {
+            throw new AppError('Identifier (JAMB RegNo or Email) and password are required.', 400);
+        }
+
+        let screeningAccount;
+        // Attempt to find by jambRegNo first
+        screeningAccount = await prisma.onlineScreeningList.findUnique({
+            where: { jambRegNo: trimmedIdentifier },
+            select: { id: true, password: true, isActive: true, applicationProfile: { select: { id: true, jambRegNo: true } } }
         });
 
-        if (!screeningAccount) throw new AppError('Invalid JAMB RegNo or you are not shortlisted.', 404);
-        if (!screeningAccount.isActive) throw new AppError('Screening account is inactive.', 403);
+        // If not found by jambRegNo, try by email
+        if (!screeningAccount) {
+            screeningAccount = await prisma.onlineScreeningList.findUnique({
+                where: { email: trimmedIdentifier },
+                select: { id: true, password: true, isActive: true, applicationProfile: { select: { id: true, jambRegNo: true } } }
+            });
+        }
+        
+        if (!screeningAccount) {
+            throw new AppError('Invalid credentials or no screening account found.', 404);
+        }
+        if (!screeningAccount.isActive) {
+            throw new AppError('Screening account is inactive.', 403);
+        }
         if (!screeningAccount.applicationProfile?.id) {
-            throw new AppError('Critical Error: No application profile linked.', 500);
+            throw new AppError('Critical Error: No application profile linked to this screening account. Please contact support.', 500);
         }
 
         const isPasswordMatch = await comparePassword(password, screeningAccount.password);
-        if (!isPasswordMatch) throw new AppError('Incorrect password.', 401);
+        if (!isPasswordMatch) {
+            throw new AppError('Incorrect password.', 401);
+        }
 
         await prisma.onlineScreeningList.update({
             where: { id: screeningAccount.id },
             data: { lastLogin: new Date() }
         });
 
-        // Fetch the FULL profile to return to the frontend
         const fullApplicationProfile = await getMyApplicationProfile(screeningAccount.applicationProfile.id);
 
-        // --- THIS IS THE FIX ---
-        // Create a token payload that has ALL the fields the middleware expects.
         const applicantTokenPayload = {
             userId: fullApplicationProfile.id,
             type: 'applicant',
-            jambRegNo: fullApplicationProfile.jambRegNo // Add the JAMB number to the token
+            jambRegNo: fullApplicationProfile.jambRegNo || null 
         };
 
         const token = jwt.sign(applicantTokenPayload, config.jwtSecret, { expiresIn: '8h' });
 
-        // Return the token and the FULL profile object
         return {
             token,
             applicantProfile: fullApplicationProfile
         };
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("[AUTH_SERVICE_ERROR] LoginApplicantScreening:", error.message);
+        console.error("[AUTH_SERVICE_ERROR] LoginApplicantScreening:", error.message, error.stack);
         throw new AppError('Applicant screening login failed.', 500);
     }
 };

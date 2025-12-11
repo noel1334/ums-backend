@@ -1,4 +1,3 @@
-
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
 import { ApplicationStatus, EntryMode, DocumentType, DegreeType } from '../generated/prisma/index.js'; // Import DegreeType
@@ -31,7 +30,7 @@ const offerSelection = {
             id: true,
             jambRegNo: true,
             email: true,
-            phone: true, // This `phone` is correct, it's directly on ApplicationProfile
+            phone: true,
             bioData: {
                 select: {
                     firstName: true,
@@ -68,7 +67,7 @@ const offerSelection = {
             name: true,
             programCode: true,
             degree: true,
-            degreeType: true,
+            degreeType: true, // IMPORTANT: Ensure degreeType is selected here
             duration: true,
             modeOfStudy: true,
             department: {
@@ -80,7 +79,7 @@ const offerSelection = {
             }
         }
     },
-    offeredLevel: { select: { id: true, name: true } },
+    offeredLevel: { select: { id: true, name: true, value: true, degreeType: true } }, // IMPORTANT: Select value and degreeType for offeredLevel
     admissionSeason: { select: { id: true, name: true } },
     admissionSemester: { select: { id: true, name: true, type: true } },
     createdStudent: { select: { id: true, regNo: true, name: true } }
@@ -95,12 +94,10 @@ export const getProgramAdmissionStats = async (seasonId) => {
         }
     }
 
-    // Fetch all relevant accepted offers and process them in Node.js
-    // This is often more flexible than complex Prisma groupBy queries for conditional sums.
     const offers = await prisma.admissionOffer.findMany({
         where: {
-            isAccepted: true, // Only count accepted offers for statistics
-            ...(seasonIdNum && { admissionSeasonId: seasonIdNum }) // Apply season filter if provided
+            isAccepted: true,
+            ...(seasonIdNum && { admissionSeasonId: seasonIdNum })
         },
         select: {
             offeredProgram: { select: { id: true, name: true } },
@@ -118,11 +115,13 @@ export const getProgramAdmissionStats = async (seasonId) => {
         }
     });
 
-    const statsMap = new Map(); // Map to hold program statistics
+    const statsMap = new Map();
 
     offers.forEach(offer => {
         const programId = offer.offeredProgram.id;
         const programName = offer.offeredProgram.name;
+        // The entryMode should ideally be derived from applicationProfile.entryMode if available,
+        // or a more robust logic in applicationProfile.service.js, but using jambApplicant.entryMode for now.
         const entryMode = offer.applicationProfile.onlineScreeningList?.jambApplicant?.entryMode;
 
         if (!statsMap.has(programId)) {
@@ -141,10 +140,15 @@ export const getProgramAdmissionStats = async (seasonId) => {
             stats.utmeAdmitted++;
         } else if (entryMode === EntryMode.DIRECT_ENTRY) {
             stats.deAdmitted++;
+        } else if (!entryMode && offer.applicationProfile.jambRegNo === null) {
+            // This is a direct entry applicant without a JAMB record.
+            // If you have a specific way to categorize them (e.g., 'PG_DIRECT'), use that.
+            // For now, let's count them towards DE for general purposes, or create a new category.
+            // Assuming for simplicity, non-JAMB entry falls under a broader 'DE' umbrella for stats.
+             stats.deAdmitted++;
         }
     });
 
-    // Convert map values to an array, and sort by total admitted (optional)
     return Array.from(statsMap.values()).sort((a, b) => b.totalAdmitted - a.totalAdmitted);
 };
 
@@ -154,11 +158,9 @@ export const createAdmissionOffer = async (offerData) => {
         const {
             applicationProfileId, offeredProgramId, offeredLevelId,
             admissionSeasonId, admissionSemesterId, acceptanceDeadline,
-            // acceptanceFeeListId is now optional for single creation too
-            acceptanceFeeListId // This parameter is now optional.
+            acceptanceFeeListId
         } = offerData;
 
-        // Validation - acceptanceFeeListId is removed from required checks
         if (!applicationProfileId || !offeredProgramId || !offeredLevelId || !admissionSeasonId || !admissionSemesterId) {
             throw new AppError('Application Profile ID, Offered Program, Level, Season, and Semester are required.', 400);
         }
@@ -168,27 +170,38 @@ export const createAdmissionOffer = async (offerData) => {
         const pOfferedLevelId = parseInt(offeredLevelId, 10);
         const pAdmissionSeasonId = parseInt(admissionSeasonId, 10);
         const pAdmissionSemesterId = parseInt(admissionSemesterId, 10);
-        const pAcceptanceFeeListId = acceptanceFeeListId ? parseInt(acceptanceFeeListId, 10) : null; // Handle optional parsing
+        const pAcceptanceFeeListId = acceptanceFeeListId ? parseInt(acceptanceFeeListId, 10) : null;
+
+        // Fetch Program details to get its degreeType before validating level
+        const program = await prisma.program.findUnique({
+            where: { id: pOfferedProgramId },
+            select: { id: true, name: true, degreeType: true } // Select degreeType
+        });
+        if (!program) throw new AppError(`Offered Program ID ${pOfferedProgramId} not found.`, 404);
 
         // Validate existence of related entities
-        const [appProfile, program, level, season, semester] = await Promise.all([
+        const [appProfile, level, season, semester] = await Promise.all([
             prisma.applicationProfile.findUnique({ where: { id: pAppProfileId } }),
-            prisma.program.findUnique({ where: { id: pOfferedProgramId } }),
-            prisma.level.findUnique({ where: { id: pOfferedLevelId } }),
+            // FIX: Query level using both ID and the program's degreeType
+            prisma.level.findUnique({
+                where: {
+                    // Assuming offeredLevelId is the ID of the Level record.
+                    // If it's the 'value' (e.g., 100), you would use `value_degreeType: { value: pOfferedLevelId, degreeType: program.degreeType }`
+                    id: pOfferedLevelId,
+                    degreeType: program.degreeType // Ensure the level matches the program's degree type
+                }
+            }),
             prisma.season.findUnique({ where: { id: pAdmissionSeasonId } }),
             prisma.semester.findUnique({ where: { id: pAdmissionSemesterId } }),
-            // Removed feeList validation: prisma.acceptanceFeeList.findUnique({ where: { id: pAcceptanceFeeListId, isActive: true } })
         ]);
 
         if (!appProfile) throw new AppError(`Application Profile ID ${pAppProfileId} not found.`, 404);
         if (appProfile.applicationStatus !== ApplicationStatus.SCREENING_PASSED && appProfile.applicationStatus !== ApplicationStatus.ADMITTED) {
-            throw new AppError(`Cannot create offer. Applicant status is '${appProfile.applicationStatus}'. Expected SCREENING_PASSED.`, 400);
+            throw new AppError(`Cannot create offer. Applicant status is '${appProfile.applicationStatus}'. Expected SCREENING_PASSED or ADMITTED.`, 400);
         }
-        if (!program) throw new AppError(`Offered Program ID ${pOfferedProgramId} not found.`, 404);
-        if (!level) throw new AppError(`Offered Level ID ${pOfferedLevelId} not found.`, 404);
+        if (!level) throw new AppError(`Offered Level ID ${pOfferedLevelId} for degree type ${program.degreeType} not found.`, 404);
         if (!season) throw new AppError(`Admission Season ID ${pAdmissionSeasonId} not found.`, 404);
         if (!semester) throw new AppError(`Admission Semester ID ${pAdmissionSemesterId} not found.`, 404);
-        // Removed: if (!feeList) throw new AppError(`Active Acceptance Fee List ID ${pAcceptanceFeeListId} not found.`, 404);
 
 
         const existingOffer = await prisma.admissionOffer.findUnique({
@@ -208,25 +221,23 @@ export const createAdmissionOffer = async (offerData) => {
         const newOffer = await prisma.admissionOffer.create({
             data: {
                 applicationProfileId: pAppProfileId,
-                physicalScreeningId: physicalScreeningRecord?.id || null, // Link to physical screening
+                physicalScreeningId: physicalScreeningRecord?.id || null,
                 offeredProgramId: pOfferedProgramId,
                 offeredLevelId: pOfferedLevelId,
                 admissionSeasonId: pAdmissionSeasonId,
                 admissionSemesterId: pAdmissionSemesterId,
-                acceptanceFeeListId: pAcceptanceFeeListId, // This can now be null
+                acceptanceFeeListId: pAcceptanceFeeListId,
                 offerDate: new Date(),
                 acceptanceDeadline: acceptanceDeadline ? new Date(acceptanceDeadline) : null,
             },
             select: offerSelection
         });
 
-        // Update ApplicationProfile status
         await prisma.applicationProfile.update({
             where: { id: pAppProfileId },
             data: { applicationStatus: ApplicationStatus.ADMITTED }
         });
 
-        // Update PhysicalScreeningList status to ADMITTED as well
         await prisma.physicalScreeningList.update({
             where: { applicationProfileId: pAppProfileId },
             data: { status: ApplicationStatus.ADMITTED }
@@ -253,54 +264,90 @@ export const createBatchAdmissionOffers = async (applicationProfileIds, offerDet
         throw new AppError('Admission Season, Semester, and Acceptance Deadline are required.', 400);
     }
 
-    // 1. Fetch eligible candidates and their related physicalScreening record ID.
+    // 1. Fetch eligible candidates and their related physicalScreening record ID, and TARGET PROGRAM.
     const candidates = await prisma.applicationProfile.findMany({
         where: {
             id: { in: applicationProfileIds },
             applicationStatus: ApplicationStatus.SCREENING_PASSED,
         },
         include: {
+            targetProgram: { // IMPORTANT: Include target program to get degreeType
+                select: { id: true, degreeType: true }
+            },
             onlineScreeningList: {
                 include: { jambApplicant: { select: { entryMode: true } } }
             },
             admissionOffer: true, // Check if an offer already exists
-            // Include the physicalScreening relation to get its ID
             physicalScreening: {
                 select: {
-                    id: true 
+                    id: true
                 }
             }
         }
     });
 
-    // 2. Filter out candidates who are not eligible or already have an offer
-    const eligibleCandidates = candidates.filter(c => !c.admissionOffer);
+    // 2. Filter out candidates who are not eligible or already have an offer or no target program
+    const eligibleCandidates = candidates.filter(c => !c.admissionOffer && c.targetProgramId && c.targetProgram);
     if (eligibleCandidates.length === 0) {
-        throw new AppError('No eligible candidates found. They may already have an offer or did not pass screening.', 400);
-    }
-    
-    // 3. Get the Level IDs for UTME (100) and Direct Entry (200)
-    const level100 = await prisma.level.findUnique({ where: { value: 100 } });
-    const level200 = await prisma.level.findUnique({ where: { value: 200 } });
-    if (!level100 || !level200) {
-        throw new AppError('Database setup error: 100 and 200 Level records must exist.', 500);
+        throw new AppError('No eligible candidates found. They may already have an offer, did not pass screening, or lack a target program.', 400);
     }
 
-    // 4. Prepare the data for creating multiple admission offers, including physicalScreeningId
+    // 3. Pre-fetch ALL relevant levels to avoid N+1 queries inside the loop.
+    // We need 100 and 200 levels for every possible DegreeType that a program might have.
+    // However, for batch processing, we can simplify this if the levels are consistent.
+    // Assuming 100 and 200 levels are configured for 'UNDERGRADUATE' and potentially 'ND', 'NCE', 'HND'.
+    const allLevels = await prisma.level.findMany({
+        where: {
+            OR: [
+                { value: 100 },
+                { value: 200 },
+            ]
+        },
+        select: { id: true, value: true, degreeType: true }
+    });
+
+    // Create a map for quick lookup: `(value, degreeType) -> Level.id`
+    const levelMap = new Map();
+    allLevels.forEach(level => {
+        levelMap.set(`${level.value}-${level.degreeType}`, level.id);
+    });
+
+    // 4. Prepare the data for creating multiple admission offers
     const offersToCreate = eligibleCandidates.map(candidate => {
-        const entryMode = candidate.onlineScreeningList.jambApplicant.entryMode;
-        const offeredLevelId = entryMode === EntryMode.DIRECT_ENTRY ? level200.id : level100.id;
+        const programDegreeType = candidate.targetProgram.degreeType;
+        const entryMode = candidate.onlineScreeningList.jambApplicant?.entryMode; // Can be null for direct entry
+
+        let offeredLevelValue;
+        if (entryMode === EntryMode.DIRECT_ENTRY || programDegreeType === DegreeType.HND) { // HND is often direct entry to 200
+            offeredLevelValue = 200;
+        } else if (entryMode === EntryMode.UTME || programDegreeType === DegreeType.UNDERGRADUATE || programDegreeType === DegreeType.ND || programDegreeType === DegreeType.NCE) {
+            offeredLevelValue = 100;
+        } else {
+            // For Postgraduate, Certificate, Diploma, it might not be 100/200 level entry.
+            // You might need a default level or a more specific rule for these.
+            // For now, let's assume they start at a default Level 100 or 200 if not explicitly defined.
+            // A more robust solution might require a 'defaultEntryLevelId' on the Program model for PG.
+            // For this fix, let's ensure it doesn't break for PG.
+            offeredLevelValue = 100; // Fallback, consider making this configurable per program type
+            console.warn(`No specific entry level rule for DegreeType ${programDegreeType} with entry mode ${entryMode}. Defaulting to level 100.`);
+        }
+
+        const offeredLevelId = levelMap.get(`${offeredLevelValue}-${programDegreeType}`);
+
+        if (!offeredLevelId) {
+            // This indicates a missing Level configuration (e.g., 100 Level for 'ND' is not in DB)
+            throw new AppError(`Database setup error: Entry Level ${offeredLevelValue} for DegreeType ${programDegreeType} not found. Ensure all required Levels are configured.`, 500);
+        }
         
         if (!candidate.targetProgramId) {
-            throw new AppError(`Candidate ${candidate.jambRegNo} does not have an assigned target program.`, 400);
+            throw new AppError(`Candidate ${candidate.id} does not have an assigned target program. This should have been filtered earlier.`, 400);
         }
 
         return {
             applicationProfileId: candidate.id,
-            // Add the physicalScreeningId, using optional chaining for safety
-            physicalScreeningId: candidate.physicalScreening?.id || null, 
+            physicalScreeningId: candidate.physicalScreening?.id || null,
             offeredProgramId: candidate.targetProgramId,
-            offeredLevelId: offeredLevelId,
+            offeredLevelId: offeredLevelId, // Use the correct level ID
             admissionSeasonId,
             admissionSemesterId,
             acceptanceDeadline: new Date(acceptanceDeadline),
@@ -355,42 +402,39 @@ export const getAllAdmissionOffers = async (query) => {
             filters.push({
                 OR: [
                     { applicationProfile: { jambRegNo: { contains: search } } },
+                    // Also search by name if target program is set, or if biodata exists
                     { applicationProfile: { onlineScreeningList: { jambApplicant: { name: { contains: search } } } } },
+                    { applicationProfile: { bioData: { OR: [{ firstName: { contains: search } }, { lastName: { contains: search } }] } } },
                 ]
             });
         }
 
-        // 2. Filter by Admission Season
         if (admissionSeasonId && admissionSeasonId !== 'all') {
             filters.push({ admissionSeasonId: parseInt(admissionSeasonId, 10) });
         }
 
-        // 3. Filter by Offered Program
         if (offeredProgramId && offeredProgramId !== 'all') {
             filters.push({ offeredProgramId: parseInt(offeredProgramId, 10) });
         }
 
-        // 4. Filter by Entry Mode
         if (entryMode && entryMode !== 'all') {
             filters.push({
                 applicationProfile: {
                     onlineScreeningList: {
                         jambApplicant: {
-                            entryMode: entryMode // Directly filter by the enum value
+                            entryMode: entryMode
                         }
                     }
                 }
             });
         }
         
-        // 5. Filter by Acceptance Status
         if (isAccepted !== undefined && isAccepted !== 'all') {
             if (isAccepted === 'true') filters.push({ isAccepted: true });
             else if (isAccepted === 'false') filters.push({ isAccepted: false });
             else if (isAccepted === 'null') filters.push({ isAccepted: null });
         }
         
-        // Combine all filters with an 'AND' clause
         if (filters.length > 0) {
             where.AND = filters;
         }
@@ -402,7 +446,7 @@ export const getAllAdmissionOffers = async (query) => {
         const [offers, totalOffers] = await prisma.$transaction([
             prisma.admissionOffer.findMany({
                 where, 
-                select: offerSelection, // Your existing selection object
+                select: offerSelection,
                 orderBy: { offerDate: 'desc' },
                 skip, take: limitNum
             }),
@@ -418,7 +462,7 @@ export const getAllAdmissionOffers = async (query) => {
 };
 
 
-export const getAdmissionOfferById = async (id) => { // For Admin/ICT
+export const getAdmissionOfferById = async (id) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
         const offerId = parseInt(id, 10);
@@ -437,7 +481,6 @@ export const getAdmissionOfferById = async (id) => { // For Admin/ICT
     }
 };
 
-// Update by Admin - limited fields typically (e.g., deadline, letter URL)
 export const updateAdmissionOfferAsAdmin = async (id, updateData) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
@@ -448,7 +491,7 @@ export const updateAdmissionOfferAsAdmin = async (id, updateData) => {
         if (!existingOffer) throw new AppError('Admission offer not found for update.', 404);
 
         const dataForDb = {};
-        const { acceptanceDeadline, admissionLetterUrl, remarks } = updateData; // Example updatable fields by admin
+        const { acceptanceDeadline, admissionLetterUrl, remarks } = updateData;
 
         if (updateData.hasOwnProperty('acceptanceDeadline')) {
             dataForDb.acceptanceDeadline = acceptanceDeadline ? new Date(acceptanceDeadline) : null;
@@ -456,7 +499,6 @@ export const updateAdmissionOfferAsAdmin = async (id, updateData) => {
         if (updateData.hasOwnProperty('admissionLetterUrl')) {
             dataForDb.admissionLetterUrl = admissionLetterUrl;
         }
-        // Admin might update `isAccepted` or `generatedStudentRegNo` through other processes, not direct update here.
 
         if (Object.keys(dataForDb).length === 0) throw new AppError('No valid fields to update.', 400);
 
@@ -473,8 +515,6 @@ export const updateAdmissionOfferAsAdmin = async (id, updateData) => {
     }
 };
 
-// --- Applicant Operations ---
-
 export const getMyAdmissionOffer = async (applicationProfileId) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
@@ -487,7 +527,6 @@ export const getMyAdmissionOffer = async (applicationProfileId) => {
         });
 
         if (!offer) {
-            // It's not an error if an applicant doesn't have an offer yet, just no data.
             return null;
         }
         return offer;
@@ -513,12 +552,11 @@ export const respondToAdmissionOffer = async (applicationProfileId, acceptanceSt
         });
 
         if (!offer) throw new AppError('No admission offer found for you to respond to.', 404);
-        if (offer.isAccepted !== null) { // Already responded
+        if (offer.isAccepted !== null) {
             const currentStatus = offer.isAccepted ? 'accepted' : 'rejected';
             throw new AppError(`You have already ${currentStatus} this admission offer.`, 400);
         }
         if (offer.acceptanceDeadline && new Date() > new Date(offer.acceptanceDeadline)) {
-            // Optionally auto-reject or close application
             await prisma.applicationProfile.update({
                 where: {id: profileId},
                 data: {applicationStatus: ApplicationStatus.CLOSED}
@@ -529,13 +567,10 @@ export const respondToAdmissionOffer = async (applicationProfileId, acceptanceSt
         let newAppStatus;
         if (acceptanceStatus === true) {
             newAppStatus = ApplicationStatus.ADMISSION_ACCEPTED;
-            // Next step for student would be to pay acceptance fee.
-            // ApplicationStatus might change to PENDING_PAYMENT after this.
-            if (offer.acceptanceFeeListId) { // If an acceptance fee is defined
+            if (offer.acceptanceFeeListId) {
                 newAppStatus = ApplicationStatus.PENDING_PAYMENT;
-            } else { // No acceptance fee defined, consider them accepted
+            } else {
                 newAppStatus = ApplicationStatus.ADMISSION_ACCEPTED;
-                 // Potentially move to ENROLLED if no fee and no other steps
             }
         } else {
             newAppStatus = ApplicationStatus.ADMISSION_REJECTED;
@@ -573,21 +608,21 @@ export const batchEmailNotificationAdmission = async (payload) => {
         where: {
             id: { in: offerIds },
             OR: [
-                { isAccepted: true },  // Already accepted the offer
-                { isAccepted: null }   // Offer is still pending acceptance/rejection
+                { isAccepted: true },
+                { isAccepted: null }
             ]
         },
         select: {
             id: true,
-            offeredProgram: { select: { name: true, degreeType: true, duration: true } }, // Program details
-            offeredLevel: { select: { name: true } }, // Entry Level
-            admissionSeason: { select: { name: true } }, // Admission Season
-            admissionSemester: { select: { name: true, type: true } }, // Admission Semester
+            offeredProgram: { select: { name: true, degreeType: true, duration: true } },
+            offeredLevel: { select: { name: true } },
+            admissionSeason: { select: { name: true } },
+            admissionSemester: { select: { name: true, type: true } },
             applicationProfile: {
                 select: {
                     email: true,
                     onlineScreeningList: {
-                        select: { jambApplicant: { select: { name: true } } } // Applicant Name
+                        select: { jambApplicant: { select: { name: true } } }
                     }
                 }
             }
@@ -601,7 +636,6 @@ export const batchEmailNotificationAdmission = async (payload) => {
         const season = offer.admissionSeason;
         const semester = offer.admissionSemester;
 
-        // Ensure we have essential data for the email
         if (!applicant || !applicant.name || !offer.applicationProfile.email) return null;
 
         return {
@@ -613,7 +647,7 @@ export const batchEmailNotificationAdmission = async (payload) => {
             entry_level: level.name,
             admission_season: season.name,
             admission_semester: `${semester.name} (${semester.type.replace(/_/g, ' ')})`,
-            screening_portal_link: config.screeningPortalUrl 
+            screening_portal_link: config.screeningPortalUrl
         };
     }).filter(e => e !== null);
 
@@ -623,7 +657,6 @@ export const batchEmailNotificationAdmission = async (payload) => {
 
     for (const emailData of emailsToSend) {
         let personalizedMessage = message;
-        // Replace all placeholders dynamically
         for (const key in emailData) {
             if (Object.prototype.hasOwnProperty.call(emailData, key) && key !== 'to') {
                 const placeholder = `{${key}}`;
@@ -640,7 +673,6 @@ export const batchEmailNotificationAdmission = async (payload) => {
             });
         } catch (error) {
             console.error(`Failed to send admission notification email to ${emailData.to}:`, error);
-            // Optionally: log to a dedicated table for failed emails in production
         }
     }
 
@@ -657,8 +689,8 @@ export const deleteAdmissionOffer = async (id) => {
             where: { id: offerId },
             select: {
                 applicationProfileId: true,
-                createdStudentId: true, // Check if a student was created
-                isAccepted: true // Check if already accepted
+                createdStudentId: true,
+                isAccepted: true
             }
         });
 
@@ -666,9 +698,6 @@ export const deleteAdmissionOffer = async (id) => {
             throw new AppError('Admission offer not found.', 404);
         }
 
-        // Optional business rules: Prevent deletion if student already created or offer accepted
-        // You might want to allow deletion even if a student was created,
-        // but the student record itself won't be deleted by this.
         if (existingOffer.createdStudentId) {
             throw new AppError('Cannot delete an offer that has already led to student registration. Please manage student record directly if needed.', 400);
         }
@@ -677,30 +706,24 @@ export const deleteAdmissionOffer = async (id) => {
         }
 
         await prisma.$transaction(async (tx) => {
-            // Delete the admission offer record
             await tx.admissionOffer.delete({
                 where: { id: offerId }
             });
 
-            // If the offer existed and was linked to an application profile,
-            // check if this was the ONLY offer for that profile.
             if (existingOffer.applicationProfileId) {
                 const otherOffersCount = await tx.admissionOffer.count({
                     where: {
                         applicationProfileId: existingOffer.applicationProfileId,
-                        id: { not: offerId } // Exclude the offer we just deleted
+                        id: { not: offerId }
                     }
                 });
 
-                // If no other offers exist for this application profile, revert its status
                 if (otherOffersCount === 0) {
                     await tx.applicationProfile.update({
                         where: { id: existingOffer.applicationProfileId },
-                        // Revert to SCREENING_PASSED, assuming that was the state before admission
-                        data: { applicationStatus: ApplicationStatus.SCREENING_PASSED } 
+                        data: { applicationStatus: ApplicationStatus.SCREENING_PASSED }
                     });
 
-                    // Also update the PhysicalScreeningList status if one exists for this profile
                     await tx.physicalScreeningList.updateMany({
                         where: { applicationProfileId: existingOffer.applicationProfileId },
                         data: { status: ApplicationStatus.SCREENING_PASSED }
@@ -723,37 +746,31 @@ export const batchEmailAdmissionNotifications = async (payload) => {
         throw new AppError('An array of Admission Offer IDs is required.', 400);
     }
     
-    // --- IMPORTANT: Enhance select to get generatedStudentRegNo, createdStudentId, and jambRegNo ---
     const offers = await prisma.admissionOffer.findMany({
         where: {
             id: { in: offerIds },
             OR: [
-                { isAccepted: true },  // Already accepted the offer
-                { isAccepted: null }   // Offer is still pending acceptance/rejection
+                { isAccepted: true },
+                { isAccepted: null }
             ]
         },
         select: {
             id: true,
-            generatedStudentRegNo: true, // Needed for {reg_no}
-            createdStudentId: true,      // Needed to check if student record exists
+            generatedStudentRegNo: true,
+            createdStudentId: true,
             applicationProfile: {
                 select: {
                     email: true,
-                    jambRegNo: true, // Needed for {jamb_no}
-                    bioData: { select: { firstName: true, lastName: true } }, // For applicant_name
+                    jambRegNo: true,
+                    bioData: { select: { firstName: true, lastName: true } },
                     onlineScreeningList: {
-                        select: { jambApplicant: { select: { name: true } } } // Fallback for applicant_name
+                        select: { jambApplicant: { select: { name: true } } }
                     }
                 }
             },
-            createdStudent: { // NEW: Select linked student's regNo if available
+            createdStudent: {
                 select: { regNo: true }
             }
-            // Add other offer details if you need them for other email placeholders
-            // offeredProgram: { select: { name: true, degreeType: true, duration: true } },
-            // offeredLevel: { select: { name: true } },
-            // admissionSeason: { select: { name: true } },
-            // admissionSemester: { select: { name: true, type: true } },
         }
     });
 
@@ -762,32 +779,25 @@ export const batchEmailAdmissionNotifications = async (payload) => {
         const applicantLastName = offer.applicationProfile.bioData?.lastName;
         const applicantJambName = offer.applicationProfile.onlineScreeningList?.jambApplicant?.name;
 
-        // Prioritize bioData name, then JAMB name, fallback to "Applicant"
         const applicantName = (applicantFirstName && applicantLastName) 
                             ? `${applicantFirstName} ${applicantLastName}`.trim()
                             : applicantJambName || 'Applicant';
 
-        // Determine the registration number: use created student's regNo if available,
-        // otherwise generatedStudentRegNo from the offer, else N/A.
         const regNo = offer.createdStudent?.regNo || offer.generatedStudentRegNo || 'N/A';
         const jambNo = offer.applicationProfile.jambRegNo || 'N/A';
         
-        // Fetch default password and portal link from your backend's config
-        const studentDefaultPassword = config.studentDefaultPassword || 'Contact Admissions Office'; // Fallback message
-        const studentPortalLink = config.studentPortalUrl || 'http://your-student-portal-url.com'; // Fallback URL
+        const studentDefaultPassword = config.studentDefaultPassword || 'Contact Admissions Office';
+        const studentPortalLink = config.studentPortalUrl || 'http://your-student-portal-url.com';
 
-        // Ensure we have essential data for the email
-        if (!offer.applicationProfile.email) return null; // Skip if no email
+        if (!offer.applicationProfile.email) return null;
 
         return {
             to: offer.applicationProfile.email,
             applicant_name: applicantName,
-            reg_no: regNo,                  // Dynamic Registration Number
-            jamb_no: jambNo,                // JAMB Registration Number
-            default_password: studentDefaultPassword, // From backend config
-            student_portal_link: studentPortalLink,  // From backend config
-            // Add any other dynamic data you want to replace here
-            // e.g., program_name: offer.offeredProgram?.name,
+            reg_no: regNo,
+            jamb_no: jambNo,
+            default_password: studentDefaultPassword,
+            student_portal_link: studentPortalLink,
         };
     }).filter(e => e !== null);
 
@@ -797,11 +807,9 @@ export const batchEmailAdmissionNotifications = async (payload) => {
 
     for (const emailData of emailsToSend) {
         let personalizedMessage = message;
-        // Replace all placeholders dynamically
         for (const key in emailData) {
-            // Only replace if the key is a string and not 'to' (which is the recipient email)
             if (typeof emailData[key] === 'string' && Object.prototype.hasOwnProperty.call(emailData, key) && key !== 'to') {
-                const placeholder = new RegExp(`{${key}}`, 'g'); // Create regex for global replacement
+                const placeholder = new RegExp(`{${key}}`, 'g');
                 personalizedMessage = personalizedMessage.replace(placeholder, emailData[key]);
             }
         }
@@ -815,7 +823,6 @@ export const batchEmailAdmissionNotifications = async (payload) => {
             });
         } catch (error) {
             console.error(`Failed to send admission notification email to ${emailData.to}:`, error);
-            // Optionally: log to a dedicated table for failed emails in production
         }
     }
 

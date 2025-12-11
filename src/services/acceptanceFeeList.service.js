@@ -3,6 +3,21 @@ import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
 import { EntryMode } from '../generated/prisma/index.js'; // Ensure EntryMode is imported
 
+
+const normalizeEntryMode = (inputMode) => {
+    if (inputMode === undefined || inputMode === null) return null;
+    const trimmed = String(inputMode).trim().toUpperCase(); // Convert to uppercase for consistent comparison
+
+    switch (trimmed) {
+        case 'UTME': return EntryMode.UTME;
+        case 'DE': // Map 'DE' to 'DIRECT_ENTRY'
+        case 'DIRECT_ENTRY': return EntryMode.DIRECT_ENTRY;
+        case 'TRANSFER': return EntryMode.TRANSFER;
+        case '': return null; // Treat empty string as null
+        default: return trimmed; // Return as is for the validation to catch
+    }
+};
+
 // Re-defining selection for clarity, ensure it includes all fields needed by frontend.
 const selection = {
     id: true,
@@ -39,8 +54,12 @@ export const createAcceptanceFee = async (data) => {
             throw new AppError('Invalid Season ID or Amount (must be positive).', 400);
         }
 
-        if (entryMode && !Object.values(EntryMode).includes(entryMode)) {
-            throw new AppError('Invalid Entry Mode.', 400);
+        // --- FIX: Normalize entryMode here ---
+        let processedEntryMode = normalizeEntryMode(entryMode);
+
+        // Validate the normalized entry mode
+        if (processedEntryMode !== null && !Object.values(EntryMode).includes(processedEntryMode)) {
+            throw new AppError(`Invalid Entry Mode: '${entryMode}'. Must be one of ${Object.values(EntryMode).join(', ')}.`, 400);
         }
 
         const seasonExists = await prisma.season.findUnique({ where: { id: pSeasonId } });
@@ -57,7 +76,7 @@ export const createAcceptanceFee = async (data) => {
                 seasonId: pSeasonId,
                 programId: pProgramId,
                 facultyId: pFacultyId,
-                entryMode: entryMode || null,
+                entryMode: processedEntryMode, // Use the processed value
                 amount: pAmount,
                 description: description || null,
                 isActive: isActive === undefined ? true : Boolean(isActive)
@@ -72,6 +91,7 @@ export const createAcceptanceFee = async (data) => {
         throw new AppError('Could not create acceptance fee.', 500);
     }
 };
+
 
 export const getAllAcceptanceFees = async (query) => {
     try {

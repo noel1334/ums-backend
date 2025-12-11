@@ -435,6 +435,8 @@ model Program {
   duration                      Int // In years
   modeOfStudy                   StudyMode?
   departmentId                  Int
+  jambRequired                  Boolean                        @default(true) // Indicates if this program requires a JAMB Reg. No.
+  onlineScreeningRequired       Boolean                        @default(true) // Indicates if online screening is required
   createdAt                     DateTime                       @default(now())
   updatedAt                     DateTime                       @updatedAt
   department                    Department                     @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -1099,6 +1101,7 @@ model ScreeningFeeList {
   id                Int                @id @default(autoincrement())
   seasonId          Int // The admission season this fee applies to
   entryMode         EntryMode // Fee might differ for UTME/DE
+  degreeType        DegreeType
   amount            Float
   description       String? // e.g., "2024/2025 UTME Application Fee"
   isActive          Boolean            @default(true) // Only active fee lists should be used
@@ -1107,7 +1110,10 @@ model ScreeningFeeList {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
-  @@unique([seasonId, entryMode])
+  @@unique([seasonId, entryMode, degreeType], name: "unique_screening_fee_item")
+  @@index([seasonId])
+  @@index([entryMode])
+  @@index([degreeType])
 }
 
 // Defines the admission acceptance fee (can vary by program, faculty, season)
@@ -1184,10 +1190,10 @@ model JambApplicant {
 
 model OnlineScreeningList {
   id           Int       @id @default(autoincrement())
-  jambRegNo    String    @unique
-  email        String?
+  jambRegNo    String?   @unique // This is nullable, which caused the error
+  email        String    @unique // Made non-nullable and unique for login purposes
   password     String
-  isActive     Boolean   @default(true) // Can this applicant log in to screening portal?
+  isActive     Boolean   @default(true)
   lastLogin    DateTime?
   scheduleDate DateTime?
   startDate    DateTime?
@@ -1196,17 +1202,17 @@ model OnlineScreeningList {
   applicationProfile ApplicationProfile?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
-  jambApplicant      JambApplicant       @relation(fields: [jambRegNo], references: [jambRegNo], onDelete: Cascade, onUpdate: Cascade)
+  // FIX THIS LINE: Make the relation field itself nullable
+  jambApplicant      JambApplicant?      @relation(fields: [jambRegNo], references: [jambRegNo], onDelete: SetNull, onUpdate: Cascade) // MODIFIED: Added '?' to make it optional, and changed onDelete to SetNull for consistency
 
-  @@unique([jambRegNo, email])
-  @@index([email])
-  @@index([scheduleDate]) // Index the new date fields for faster lookups
+  @@index([jambRegNo])
+  @@index([scheduleDate])
   @@index([startDate])
 }
 
 model ApplicationProfile {
   id                     Int                              @id @default(autoincrement())
-  jambRegNo              String                           @unique
+  jambRegNo              String?                          @unique
   onlineScreeningListId  Int                              @unique // Each profile belongs to one screening account
   email                  String                           @unique // Applicant's primary email for communication during application
   phone                  String?                          @unique
@@ -1361,7 +1367,7 @@ model ApplicantDocument {
 model PhysicalScreeningList {
   id                   Int                @id @default(autoincrement())
   applicationProfileId Int                @unique
-  jambRegNo            String
+  jambRegNo            String?
   screeningDate        DateTime?
   screeningStartDate   DateTime?
   screeningEndDate     DateTime?
@@ -1446,4 +1452,13 @@ model AdmissionLetterSection {
 
   @@unique([templateId, order])
   @@index([templateId, sectionType])
+}
+
+model RegistrationControl {
+  id         Int        @id @default(autoincrement())
+  degreeType DegreeType @unique // Each degree type gets one control entry
+  isActive   Boolean    @default(false) // Default to closed
+  message    String?    @db.Text // Message to show applicants when registration is closed
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 }

@@ -74,7 +74,6 @@ const studentFullSelection = {
                     jambRegNo: true,
                     email: true, // Original applicant email
                     phone: true, // Original applicant phone
-                    applicationStatus: true,
                     bioData: {  // <--- Include bioData with nationality
                         select: {
                             nationality: true, // Include nationality
@@ -205,18 +204,21 @@ export const createStudent = async (studentData) => {
         }
 
         // --- Existence Checks ---
-        const [departmentExists, programExists, adSeasonExists, adSemesterExists, admissionOfferExists] = await Promise.all([ // NEW: Check for admission offer
+        // Fetch program details here to get its degreeType
+        const [departmentExists, programRecord, adSeasonExists, adSemesterExists, admissionOfferExists] = await Promise.all([ // NEW: Check for admission offer
             prisma.department.findUnique({ where: { id: pDepartmentId } }),
-            prisma.program.findUnique({ where: { id: pProgramId, departmentId: pDepartmentId } }),
+            prisma.program.findUnique({ where: { id: pProgramId, departmentId: pDepartmentId } }), // Fetch program here
             prisma.season.findUnique({ where: { id: pAdmissionSeasonId } }),
             prisma.semester.findUnique({ where: { id: pAdmissionSemesterId, seasonId: pAdmissionSeasonId } }),
             prisma.admissionOffer.findUnique({ where: { applicationProfileId: pApplicationProfileId } }) // NEW: Check for existing admission offer
         ]);
         if (!departmentExists) throw new AppError(`Department ID ${pDepartmentId} not found.`, 404);
-        if (!programExists) throw new AppError(`Program ID ${pProgramId} not found or not in department ${pDepartmentId}.`, 404);
+        if (!programRecord) throw new AppError(`Program ID ${pProgramId} not found or not in department ${pDepartmentId}.`, 404);
         if (!adSeasonExists) throw new AppError(`Admission Season ID ${pAdmissionSeasonId} not found.`, 404);
         if (!adSemesterExists) throw new AppError(`Admission Semester ID ${pAdmissionSemesterId} (for season ${pAdmissionSeasonId}) not found.`, 404);
         if (!admissionOfferExists) throw new AppError(`Admission Offer for Application Profile ID ${pApplicationProfileId} not found. A student can only be created from an existing offer.`, 404); // NEW: Error if no offer
+
+        const programDegreeType = programRecord.degreeType; // Extract degreeType
 
         // --- Determine Entry Level ID ---
         let determinedEntryLevelId;
@@ -225,14 +227,28 @@ export const createStudent = async (studentData) => {
             if (isNaN(determinedEntryLevelId)) throw new AppError('Invalid entryLevelId provided.', 400);
             const entryLevelRecord = await prisma.level.findUnique({ where: { id: determinedEntryLevelId } });
             if (!entryLevelRecord) throw new AppError(`Provided Entry Level ID ${determinedEntryLevelId} not found.`, 404);
+            // Additionally check if the provided entryLevelId's degreeType matches the program's degreeType
+            if (entryLevelRecord.degreeType !== programDegreeType) {
+                throw new AppError(`Provided Entry Level ID ${determinedEntryLevelId} (DegreeType: ${entryLevelRecord.degreeType}) is not compatible with the Program's DegreeType: ${programDegreeType}.`, 400);
+            }
+
         } else {
             let entryLevelName;
             if (entryMode === EntryMode.UTME) entryLevelName = "100 Level";
             else if (entryMode === EntryMode.DIRECT_ENTRY) entryLevelName = "200 Level";
             else if (entryMode === EntryMode.TRANSFER) throw new AppError('For TRANSFER entry mode, an explicit entryLevelId is required.', 400);
             else throw new AppError('Cannot determine entry level for the given entry mode.', 400);
-            const entryLevelRecord = await prisma.level.findUnique({ where: { name: entryLevelName } });
-            if (!entryLevelRecord) throw new AppError(`Default entry level '${entryLevelName}' for mode '${entryMode}' not found. Please configure levels.`, 500);
+
+            // FIX: Use compound unique input for findUnique
+            const entryLevelRecord = await prisma.level.findUnique({ 
+                where: { 
+                    unique_level_name_per_degree_type: { // Use the compound unique key name
+                        name: entryLevelName, 
+                        degreeType: programDegreeType 
+                    }
+                } 
+            });
+            if (!entryLevelRecord) throw new AppError(`Default entry level '${entryLevelName}' for mode '${entryMode}' and degree type '${programDegreeType}' not found. Please configure levels.`, 500);
             determinedEntryLevelId = entryLevelRecord.id;
         }
 
@@ -530,11 +546,17 @@ export const updateStudent = async (id, updateData, requestingUser) => {
         const studentIdToUpdate = parseInt(String(id), 10);
         if (isNaN(studentIdToUpdate)) throw new AppError('Invalid student ID format.', 400);
 
+        // Include program to get degreeType
         const studentToUpdate = await prisma.student.findUnique({
             where: { id: studentIdToUpdate },
-            include: { studentDetails: true }
+            include: { 
+                studentDetails: true,
+                program: { select: { degreeType: true } } // Fetch program's degreeType
+            }
         });
         if (!studentToUpdate) throw new AppError('Student not found for update.', 404);
+
+        const programDegreeType = studentToUpdate.program.degreeType; // Get the degreeType from the student's current program
 
         const studentDataForDb = {};
         const studentDetailsDataForDb = {};
@@ -565,8 +587,17 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                         if (!updateData.hasOwnProperty('entryLevelId')) {
                             let entryLevelName = (studentDataForDb.entryMode === EntryMode.UTME) ? "100 Level" : (studentDataForDb.entryMode === EntryMode.DIRECT_ENTRY) ? "200 Level" : null;
                             if(entryLevelName) {
-                                const entryLevelRec = await prisma.level.findUnique({where: {name: entryLevelName}});
-                                if(entryLevelRec) studentDataForDb.entryLevelId = entryLevelRec.id; else console.warn(`Default level ${entryLevelName} not found for entry mode update.`);
+                                // FIX: Use compound unique input for findUnique
+                                const entryLevelRec = await prisma.level.findUnique({
+                                    where: { 
+                                        unique_level_name_per_degree_type: { // Use the compound unique key name
+                                            name: entryLevelName,
+                                            degreeType: programDegreeType // Use the program's degreeType
+                                        }
+                                    }
+                                });
+                                if(entryLevelRec) studentDataForDb.entryLevelId = entryLevelRec.id; 
+                                else console.warn(`Default level ${entryLevelName} for degree type ${programDegreeType} not found for entry mode update.`);
                             }
                         }
                     } else if (['yearOfAdmission'].includes(key) && value != null) {
@@ -993,26 +1024,27 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
     const failedCreations = [];
 
     // Pre-fetch all levels, departments, programs, seasons, semesters for efficiency and validation
-    // This avoids N+1 queries inside the loop for common lookups.
     const [allLevels, allDepartments, allPrograms, allSeasons, allSemesters] = await Promise.all([
-        prisma.level.findMany({ select: { id: true, name: true, value: true } }),
+        prisma.level.findMany({ select: { id: true, name: true, value: true, degreeType: true } }), // Select degreeType for levels
         prisma.department.findMany({ select: { id: true, name: true } }),
-        prisma.program.findMany({ select: { id: true, name: true, departmentId: true } }),
+        prisma.program.findMany({ select: { id: true, name: true, departmentId: true, degreeType: true } }), // Select degreeType for programs
         prisma.season.findMany({ select: { id: true, name: true } }),
         prisma.semester.findMany({ select: { id: true, name: true, seasonId: true } }),
     ]);
 
     // Create maps for quick lookups
-    const levelMapByName = new Map(allLevels.map(level => [level.name, level.id]));
-    const levelMapById = new Map(allLevels.map(level => [level.id, level.name]));
+    // For levels, create a map that includes degreeType in the key for unique lookup
+    const levelMapById = new Map(allLevels.map(level => [level.id, level])); // Store full level object by ID
+    // Changed to reflect the `unique_level_name_per_degree_type` compound key for lookup
+    const levelMapByCompoundKey = new Map(allLevels.map(level => [`${level.name}-${level.degreeType}`, level.id])); 
+
     const departmentMapById = new Map(allDepartments.map(dept => [dept.id, dept]));
-    const programMapById = new Map(allPrograms.map(prog => [prog.id, prog]));
+    const programMapById = new Map(allPrograms.map(prog => [prog.id, prog])); // Store full program object by ID
     const seasonMapById = new Map(allSeasons.map(season => [season.id, season]));
     const semesterMapById = new Map(allSemesters.map(semester => [semester.id, semester]));
 
 
     // Pre-fetch existing students/details to check for unique constraint violations (email, jambRegNo, phone, regNo)
-    // This provides better error messages than a generic P2002.
     const existingStudentUniques = await prisma.student.findMany({
         select: { jambRegNo: true, email: true, regNo: true, studentDetails: { select: { phone: true } } }
     });
@@ -1088,18 +1120,23 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
 
                 // --- Existence Checks (IDs refer to actual records in DB) ---
                 if (!departmentMapById.has(pDepartmentId)) rowErrors.push(`Department ID ${pDepartmentId} not found.`);
-                const programRecord = programMapById.get(pProgramId);
+                const programRecord = programMapById.get(pProgramId); // Get program record here
                 if (!programRecord || programRecord.departmentId !== pDepartmentId) rowErrors.push(`Program ID ${pProgramId} not found or not in department ${pDepartmentId}.`);
                 if (!seasonMapById.has(pAdmissionSeasonId)) rowErrors.push(`Admission Season ID ${pAdmissionSeasonId} not found.`);
                 const semesterRecord = semesterMapById.get(pAdmissionSemesterId);
                 if (!semesterRecord || semesterRecord.seasonId !== pAdmissionSeasonId) rowErrors.push(`Admission Semester ID ${pAdmissionSemesterId} (for season ${pAdmissionSeasonId}) not found.`);
                 
+                const programDegreeType = programRecord?.degreeType; // Get the program's degree type
+
                 // --- Determine Entry Level ID ---
                 let determinedEntryLevelId;
                 if (entryLevelIdInput !== undefined && entryLevelIdInput !== null && String(entryLevelIdInput).trim() !== '') {
                     determinedEntryLevelId = parseInt(String(entryLevelIdInput), 10);
-                    if (isNaN(determinedEntryLevelId) || !levelMapById.has(determinedEntryLevelId)) {
+                    const levelRecord = levelMapById.get(determinedEntryLevelId); // Get full level record by ID
+                    if (isNaN(determinedEntryLevelId) || !levelRecord) {
                         rowErrors.push(`Provided Entry Level ID ${determinedEntryLevelId} is invalid or not found.`);
+                    } else if (levelRecord.degreeType !== programDegreeType) {
+                         rowErrors.push(`Provided Entry Level ID ${determinedEntryLevelId} (DegreeType: ${levelRecord.degreeType}) is not compatible with the Program's DegreeType: ${programDegreeType}.`);
                     }
                 } else {
                     let defaultEntryLevelName;
@@ -1108,12 +1145,15 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                     else if (sEntryMode === EntryMode.TRANSFER) rowErrors.push('For TRANSFER entry mode, an explicit entryLevelId is required.');
                     else rowErrors.push('Cannot determine entry level for the given entry mode.');
                     
-                    if (defaultEntryLevelName) {
-                        determinedEntryLevelId = levelMapByName.get(defaultEntryLevelName);
-                        if (!determinedEntryLevelId) rowErrors.push(`Default entry level '${defaultEntryLevelName}' for mode '${sEntryMode}' not found. Please configure levels.`);
+                    if (defaultEntryLevelName && programDegreeType) { // Ensure programDegreeType is also available
+                        // FIX: Use compound key for lookup
+                        determinedEntryLevelId = levelMapByCompoundKey.get(`${defaultEntryLevelName}-${programDegreeType}`);
+                        if (!determinedEntryLevelId) rowErrors.push(`Default entry level '${defaultEntryLevelName}' for mode '${sEntryMode}' and degree type '${programDegreeType}' not found. Please configure levels.`);
+                    } else if (defaultEntryLevelName && !programDegreeType) {
+                        rowErrors.push(`Program Degree Type missing to determine default entry level for '${defaultEntryLevelName}'.`);
                     }
                 }
-                if (!determinedEntryLevelId) rowErrors.push('Entry Level could not be determined.'); // Final check after all attempts
+                if (!determinedEntryLevelId) rowErrors.push('Entry Level could not be determined.');
 
                 // --- Password Handling ---
                 let passwordToHash;
@@ -1131,12 +1171,10 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                     rowErrors.push('Failed to hash password.');
                 }
 
-                // If any errors accumulated for this row, throw an AppError to trigger transaction rollback
                 if (rowErrors.length > 0) {
                     throw new AppError(rowErrors.join(' '), 400); 
                 }
 
-                // --- Step 1: Create Student Record (without regNo initially) ---
                 const studentCreateDataBase = {
                     jambRegNo: sJambRegNo,
                     name: sName,
@@ -1149,7 +1187,7 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                     departmentId: pDepartmentId,
                     programId: pProgramId,
                     entryLevelId: determinedEntryLevelId,
-                    currentLevelId: determinedEntryLevelId, // Current level is same as entry level initially
+                    currentLevelId: determinedEntryLevelId,
                     currentSeasonId: pAdmissionSeasonId,
                     currentSemesterId: pAdmissionSemesterId,
                     password: hashedPassword,
@@ -1159,7 +1197,7 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
 
                 let studentDetailsCreatePayload;
                 if (pDob || gender || sAddress || sPhone || sGuardianName || sGuardianPhone) {
-                    if (!gender && gender !== null) { // If gender isn't explicitly null, it's required for details creation
+                    if (!gender && gender !== null && gender !== undefined) { // If gender isn't explicitly null, it's required for details creation
                         rowErrors.push('Gender is required if providing other student details unless explicitly set to null.');
                     }
                     studentDetailsCreatePayload = {
@@ -1177,56 +1215,46 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                         ...studentCreateDataBase,
                         ...(studentDetailsCreatePayload && { studentDetails: { create: studentDetailsCreatePayload } })
                     },
-                    // Select fields needed for regNo generation and subsequent updates
                     select: { id: true, yearOfAdmission: true, entryMode: true, departmentId: true, email: true, jambRegNo: true }
                 });
 
-                // Update sets for intra-batch validation to prevent duplicates within the same batch
                 existingEmails.add(createdStudent.email);
                 if (createdStudent.jambRegNo) existingJambRegNos.add(createdStudent.jambRegNo);
 
-
-                // --- Step 2: Generate and Update RegNo ---
                 const yearAbbr = String(createdStudent.yearOfAdmission).slice(-2);
                 const entryModeAbbr = getEntryModeAbbreviation(createdStudent.entryMode);
-                const sequencePart = createdStudent.id.toString().padStart(5, '0'); // Pad ID to 5 digits
+                const sequencePart = createdStudent.id.toString().padStart(5, '0');
                 const finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${createdStudent.departmentId}`;
 
                 const studentWithRegNo = await tx.student.update({
                     where: { id: createdStudent.id },
                     data: { regNo: finalRegNo },
-                    select: { id: true, regNo: true } // Select only needed fields for successfulCreations array
+                    select: { id: true, regNo: true }
                 });
-                existingRegNos.add(studentWithRegNo.regNo); // Add to set for intra-batch validation
+                existingRegNos.add(studentWithRegNo.regNo);
 
-
-                // --- Step 3: Update AdmissionOffer (if linked by applicationProfileId) ---
-                // Find the admission offer by applicationProfileId
                 const admissionOffer = await tx.admissionOffer.findUnique({
                     where: { applicationProfileId: applicationProfileId },
-                    select: { id: true } // Only need the ID of the offer to update it
+                    select: { id: true }
                 });
 
                 if (admissionOffer) {
                     await tx.admissionOffer.update({
                         where: { id: admissionOffer.id },
                         data: {
-                            generatedStudentRegNo: finalRegNo, // Set the generated regNo
-                            createdStudentId: createdStudent.id, // Link the new student's ID
+                            generatedStudentRegNo: finalRegNo,
+                            createdStudentId: createdStudent.id,
                         }
                     });
                 } else {
-                    // Log a warning if no offer found. Depending on your business logic,
-                    // this might also be an error that prevents student creation.
                     console.warn(`[BatchCreateStudents] Student created (ID: ${createdStudent.id}, RegNo: ${finalRegNo}) but no AdmissionOffer found for applicationProfileId: ${applicationProfileId}.`);
                 }
 
                 return { student: studentWithRegNo, message: 'Student created and offer updated successfully.' };
 
             });
-            successfulCreations.push(studentCreationResult); // Push the result of the successful transaction
+            successfulCreations.push(studentCreationResult);
         } catch (error) {
-            // Catch specific validation errors for the current student
             const errorMessage = error instanceof AppError ? error.message : 'An unexpected error occurred during creation for this record.';
             failedCreations.push({ index, data: studentData, error: errorMessage });
             console.error(`[BatchCreateStudents] Failed to create student at index ${index}:`, errorMessage, error.stack);
@@ -1238,9 +1266,9 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
     let message = `Batch processing complete. Successfully created: ${createdCount}. Failed: ${skippedCount}.`;
     let status = 'success';
     if (skippedCount > 0 && createdCount > 0) {
-        status = 'partial_success'; // Some records failed, some succeeded
+        status = 'partial_success';
     } else if (createdCount === 0 && skippedCount > 0) {
-        status = 'fail'; // All records failed
+        status = 'fail';
         message = `Batch import failed. All ${skippedCount} students had errors.`;
     }
 
@@ -1250,8 +1278,8 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
         data: {
             createdCount,
             skippedCount,
-            successfulCreations, // Optionally return details of successful ones
-            failedCreations // Detailed errors for failed ones
+            successfulCreations,
+            failedCreations
         }
     };
 };

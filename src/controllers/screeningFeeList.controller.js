@@ -1,4 +1,3 @@
-// src/controllers/screeningFeeList.controller.js
 import * as ScreeningFeeListService from '../services/screeningFeeList.service.js';
 import AppError from '../utils/AppError.js';
 
@@ -40,14 +39,18 @@ export const deleteScreeningFee = async (req, res, next) => {
 
 export const getApplicableFee = async (req, res, next) => {
     try {
-        // The `authenticateApplicantToken` middleware now attaches the full profile.
-        // We use that data directly instead of querying the database again.
-        if (!req.applicantProfile) {
-            // This is a safety check.
-            return next(new AppError('Applicant authentication failed, profile not found on request.', 401));
+        // The `authenticateApplicantToken` middleware should attach the full applicant's
+        // ApplicationProfile object to `req.applicantProfile`
+        if (!req.applicantProfile || !req.applicantProfile.id) {
+            // This is a safety check: ensure the profile and its ID are available
+            return next(new AppError('Applicant authentication failed or profile ID not found on request.', 401));
         }
         
-        const fee = await ScreeningFeeListService.getApplicableFeeForApplicant(req.applicantProfile);
+        // --- FIX APPLIED HERE ---
+        // Pass ONLY the numerical 'id' from the applicantProfile object to the service function
+        const applicationProfileId = req.applicantProfile.id;
+
+        const fee = await ScreeningFeeListService.getApplicableFeeForApplicant(applicationProfileId);
         res.status(200).json({ status: 'success', data: { screeningFee: fee } });
     } catch (error) { 
         next(error); 

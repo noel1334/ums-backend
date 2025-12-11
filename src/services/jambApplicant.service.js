@@ -62,11 +62,9 @@ export const createJambApplicant = async (data, uploaderUser) => {
                     parsedDateOfBirth = date;
                 } else {
                     console.warn(`Invalid dateOfBirth format: ${dateOfBirth}. Setting to NULL.`);
-                    // Optionally log the invalid date for debugging
                 }
             } catch (error) {
                 console.warn(`Error parsing dateOfBirth: ${dateOfBirth}. Setting to NULL. Error:`, error);
-                // Optionally log the full error
             }
         }
 
@@ -78,7 +76,7 @@ export const createJambApplicant = async (data, uploaderUser) => {
             programName,
             entryMode,
             gender: gender || null,
-            dateOfBirth: parsedDateOfBirth,  // Use parsed or null value
+            dateOfBirth: parsedDateOfBirth,
             jambScore: (jambScore !== null && jambScore !== undefined) ? parseInt(jambScore, 10) : null,
             deGrade: deGrade || null,
             jambYear: jambYear || null,
@@ -327,7 +325,7 @@ export const getJambApplicantByJambRegNo = async (jambRegNo) => {
             select: {
                 jambRegNo: true, name: true, programName: true, entryMode: true, jambScore: true,
                 jambSeason: { select: { name: true } },
-                onlineScreeningAccount: { select: { id: true } } // Corrected from 'application'
+                onlineScreeningAccount: { select: { id: true } }
             }
         });
 
@@ -446,8 +444,16 @@ export const deleteJambApplicant = async (id) => {
             throw new AppError('JAMB applicant not found for deletion.', 404);
         }
 
+        // IMPORTANT: The `OnlineScreeningList.jambApplicant` relation needs to be optional (`JambApplicant?`)
+        // and its `onDelete` action set to `SetNull` (as discussed in the previous turn)
+        // for this check to allow deletion if `onlineScreeningAccount` has `jambRegNo` as `null`.
+        // If it was `onDelete: Cascade` or `Restrict` and the field was not nullable, this check would be critical.
+        // With `onDelete: SetNull` on the relation, the linked account's jambRegNo would become null,
+        // allowing the JambApplicant to be deleted. However, this business rule still makes sense:
+        // if an applicant *has* started the online screening process (meaning an `OnlineScreeningList` exists),
+        // deleting their original JAMB record might be disruptive.
         if (existingApplicant.onlineScreeningAccount) {
-            throw new AppError('Cannot delete. An online screening account already exists for this applicant.', 400);
+            throw new AppError('Cannot delete. An online screening account already exists for this applicant. Delete the screening account first if necessary.', 400);
         }
 
         await prisma.jambApplicant.delete({ where: { id: applicantId } });
@@ -475,7 +481,7 @@ export const batchDeleteJambApplicants = async (ids) => {
     const applicantsWithAccounts = await prisma.jambApplicant.count({
         where: {
             id: { in: applicantIds },
-            onlineScreeningAccount: { isNot: null }
+            onlineScreeningAccount: { isNot: null } // Checks if a screening account exists
         }
     });
 
@@ -493,6 +499,7 @@ export const batchDeleteJambApplicants = async (ids) => {
         
         return { message: `${deleteResult.count} applicant(s) deleted successfully.` };
     } catch (error) {
+        if (error instanceof AppError) throw error;
         console.error("Error during batch delete of JAMB applicants:", error);
         throw new AppError('Could not perform batch deletion.', 500);
     }
@@ -514,7 +521,6 @@ export const batchUpdateJambApplicants = async (ids, updateData) => {
         throw new AppError('All provided IDs must be valid integers.', 400);
     }
     
-    // --- THIS IS THE FIX ---
     // Create an empty object, then conditionally add properties to it.
     const dataToUpdate = {};
     if (jambYear) {
@@ -523,7 +529,6 @@ export const batchUpdateJambApplicants = async (ids, updateData) => {
     if (jambSeasonId) {
         dataToUpdate.jambSeasonId = parseInt(jambSeasonId, 10);
     }
-    // ----------------------
     
     try {
         const result = await prisma.jambApplicant.updateMany({
@@ -535,6 +540,7 @@ export const batchUpdateJambApplicants = async (ids, updateData) => {
 
         return { message: `${result.count} applicant(s) updated successfully.` };
     } catch (error) {
+        if (error instanceof AppError) throw error;
         console.error("Error during batch update of JAMB applicants:", error);
         throw new AppError('Could not perform batch update.', 500);
     }
@@ -565,7 +571,6 @@ export const batchEmailJambApplicants = async (ids, subject, messageTemplate) =>
     let successfulEmails = 0;
     const errors = [];
 
-    // This loop now calls the same efficient sendEmail function every time.
     for (const applicant of applicants) {
         try {
             let message = messageTemplate
