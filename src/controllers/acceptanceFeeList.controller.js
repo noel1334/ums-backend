@@ -3,7 +3,6 @@ import AppError from '../utils/AppError.js';
 
 export const createAcceptanceFee = async (req, res, next) => {
     try {
-        // Add any specific validation for req.body if needed, though service does main validation
         const newFee = await AcceptanceFeeListService.createAcceptanceFee(req.body);
         res.status(201).json({
             status: 'success',
@@ -70,7 +69,7 @@ export const deleteAcceptanceFee = async (req, res, next) => {
             return next(new AppError('Acceptance Fee ID is required in the path.', 400));
         }
         const result = await AcceptanceFeeListService.deleteAcceptanceFee(feeId);
-        res.status(200).json({ // Or 204 if you prefer no content in the body for delete
+        res.status(200).json({
             status: 'success',
             message: result.message
         });
@@ -81,24 +80,19 @@ export const deleteAcceptanceFee = async (req, res, next) => {
 
 export const getMyApplicableAcceptanceFee = async (req, res, next) => {
     try {
-        // ... (applicantProfile check)
-
         const feeData = await AcceptanceFeeListService.getApplicableAcceptanceFee(req.applicantProfile.id);
 
-        // SCENARIO 1: Acceptance fee has already been paid
         if (feeData && feeData.message && feeData.fee === null) {
             return res.status(200).json({
                 status: 'info',
                 message: feeData.message,
-                data: { acceptanceFee: null } // Here, acceptanceFee is explicitly null
+                data: { acceptanceFee: null }
             });
         }
 
-        // SCENARIO 2: An actual fee object was found
-        // If feeData is the actual fee object
         res.status(200).json({
             status: 'success',
-            data: { acceptanceFee: feeData } // Here, acceptanceFee is set to feeData
+            data: { acceptanceFee: feeData }
         });
 
     } catch (error) {

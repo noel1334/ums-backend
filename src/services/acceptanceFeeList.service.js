@@ -1,24 +1,22 @@
-// src/services/acceptanceFeeList.service.js (Corrected)
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
-import { EntryMode } from '../generated/prisma/index.js'; // Ensure EntryMode is imported
+import { EntryMode, ApplicationStatus, DocumentType, DegreeType } from '../generated/prisma/index.js'; // Ensure all enums are imported
 
 
 const normalizeEntryMode = (inputMode) => {
     if (inputMode === undefined || inputMode === null) return null;
-    const trimmed = String(inputMode).trim().toUpperCase(); // Convert to uppercase for consistent comparison
+    const trimmed = String(inputMode).trim().toUpperCase();
 
     switch (trimmed) {
         case 'UTME': return EntryMode.UTME;
-        case 'DE': // Map 'DE' to 'DIRECT_ENTRY'
+        case 'DE': 
         case 'DIRECT_ENTRY': return EntryMode.DIRECT_ENTRY;
         case 'TRANSFER': return EntryMode.TRANSFER;
-        case '': return null; // Treat empty string as null
-        default: return trimmed; // Return as is for the validation to catch
+        case '': return null; 
+        default: return trimmed; 
     }
 };
 
-// Re-defining selection for clarity, ensure it includes all fields needed by frontend.
 const selection = {
     id: true,
     amount: true,
@@ -26,14 +24,13 @@ const selection = {
     isActive: true,
     createdAt: true,
     updatedAt: true,
-    seasonId: true, // Include raw IDs for convenience if needed on frontend
+    seasonId: true,
     programId: true,
     facultyId: true,
     entryMode: true,
-    // Include nested relations for frontend display
     season: { select: { id: true, name: true } },
-    program: { select: { id: true, name: true, programCode: true } }, // Include programCode
-    faculty: { select: { id: true, name: true, facultyCode: true } } // Include facultyCode
+    program: { select: { id: true, name: true, programCode: true } },
+    faculty: { select: { id: true, name: true, facultyCode: true } }
 };
 
 export const createAcceptanceFee = async (data) => {
@@ -54,10 +51,8 @@ export const createAcceptanceFee = async (data) => {
             throw new AppError('Invalid Season ID or Amount (must be positive).', 400);
         }
 
-        // --- FIX: Normalize entryMode here ---
         let processedEntryMode = normalizeEntryMode(entryMode);
 
-        // Validate the normalized entry mode
         if (processedEntryMode !== null && !Object.values(EntryMode).includes(processedEntryMode)) {
             throw new AppError(`Invalid Entry Mode: '${entryMode}'. Must be one of ${Object.values(EntryMode).join(', ')}.`, 400);
         }
@@ -76,7 +71,7 @@ export const createAcceptanceFee = async (data) => {
                 seasonId: pSeasonId,
                 programId: pProgramId,
                 facultyId: pFacultyId,
-                entryMode: processedEntryMode, // Use the processed value
+                entryMode: processedEntryMode,
                 amount: pAmount,
                 description: description || null,
                 isActive: isActive === undefined ? true : Boolean(isActive)
@@ -148,7 +143,6 @@ export const updateAcceptanceFee = async (id, updateData) => {
         const dataForDb = {};
         const { amount, description, isActive, seasonId, programId, facultyId, entryMode } = updateData;
 
-        // Disallow changing unique fields via update for simplicity; force new record if combination changes.
         if (seasonId !== undefined && parseInt(seasonId, 10) !== existingFee.seasonId) {
             throw new AppError('Cannot change Season ID for an existing acceptance fee.', 400);
         }
@@ -186,31 +180,48 @@ export const updateAcceptanceFee = async (id, updateData) => {
     }
 };
 
+// --- MODIFIED deleteAcceptanceFee function ---
 export const deleteAcceptanceFee = async (id) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
         const feeId = parseInt(id, 10);
         if (isNaN(feeId)) throw new AppError('Invalid ID format.', 400);
 
+        // Fetch the existing fee and its counts
         const existingFee = await prisma.acceptanceFeeList.findUnique({
             where: { id: feeId },
-            include: { _count: { select: { applicantPayments: true, admissionOffers: true } } }
+            include: { 
+                _count: { 
+                    select: { 
+                        applicantPayments: true, 
+                        admissionOffers: true 
+                    } 
+                } 
+            }
         });
         if (!existingFee) throw new AppError('Acceptance fee not found for deletion.', 404);
 
-        if (existingFee._count.applicantPayments > 0 || existingFee._count.admissionOffers > 0) {
-            throw new AppError('Cannot delete acceptance fee. It has associated payments or admission offers. Consider deactivating it instead.', 400);
-        }
+        // --- REMOVED THE BUSINESS RULE CHECK HERE ---
+        // The previous if condition `if (existingFee._count.applicantPayments > 0 || existingFee._count.admissionOffers > 0)`
+        // has been removed. Deletion will now proceed regardless of associated records.
 
+        // Perform the deletion
+        // Prisma's onDelete actions (SetNull/Cascade) defined in schema.prisma will handle related records.
         await prisma.acceptanceFeeList.delete({ where: { id: feeId } });
         return { message: 'Acceptance fee deleted successfully.' };
     } catch (error) {
         if (error instanceof AppError) throw error;
-        if (error.code === 'P2003') throw new AppError('Cannot delete fee due to existing relations.', 400);
+        // P2003 could still happen if there's a RESTRICT rule not covered by SetNull/Cascade.
+        // If it still fails with P2003, review your schema.prisma's onDelete actions for AdmissionOffer/ApplicantPayment related to AcceptanceFeeList.
+        if (error.code === 'P2003') {
+            throw new AppError('Cannot delete fee due to existing relations. Ensure all relations allow CASCADE or SET NULL on delete.', 400);
+        }
         console.error("Error deleting acceptance fee:", error.message, error.stack);
         throw new AppError('Could not delete acceptance fee.', 500);
     }
 };
+
+// --- REMAINDER OF ADMISSION OFFER SERVICE (getMyApplicableAcceptanceFee, etc.) ---
 export const getApplicableAcceptanceFee = async (applicationProfileId) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
@@ -236,7 +247,6 @@ export const getApplicableAcceptanceFee = async (applicationProfileId) => {
             throw new AppError('No admission offer found for this applicant.', 404);
         }
 
-        // Check if acceptance fee has already been paid
         if (applicationProfile.admissionOffer.hasPaidAcceptanceFee) {
             console.log(`[AcceptanceFeeService] Applicant ${profileId} has already paid acceptance fee.`);
             return { message: "Acceptance fee has already been paid for this offer.", fee: null };
@@ -247,9 +257,8 @@ export const getApplicableAcceptanceFee = async (applicationProfileId) => {
         const programId = offer.offeredProgramId;
         const facultyId = offer.offeredProgram?.department?.facultyId;
 
-        // --- NEW: Fetch jambApplicant separately to get entryMode ---
         let entryMode = null;
-        if (applicationProfile.jambRegNo) { // Assuming applicationProfile has jambRegNo
+        if (applicationProfile.jambRegNo) { 
             const jambApplicant = await prisma.jambApplicant.findUnique({
                 where: { jambRegNo: applicationProfile.jambRegNo },
                 select: { entryMode: true }
@@ -258,14 +267,11 @@ export const getApplicableAcceptanceFee = async (applicationProfileId) => {
         } else {
             console.warn(`[AcceptanceFeeService] applicationProfile ${profileId} does not have a jambRegNo to fetch entryMode.`);
         }
-        // --- END NEW ---
 
         console.log(`[AcceptanceFeeService] Searching for fee for Season: ${seasonId}, Program: ${programId}, Faculty: ${facultyId}, EntryMode: ${entryMode}`);
 
         let applicableFee = null;
 
-        // --- Fee Finding Logic (no changes needed here, as it uses the 'entryMode' variable) ---
-        // Prioritize specific match (Program + EntryMode)
         if (programId && entryMode) {
             applicableFee = await prisma.acceptanceFeeList.findFirst({
                 where: { isActive: true, seasonId, programId, entryMode },
@@ -274,7 +280,6 @@ export const getApplicableAcceptanceFee = async (applicationProfileId) => {
             });
         }
 
-        // Program-specific (any entry mode)
         if (!applicableFee && programId) {
             applicableFee = await prisma.acceptanceFeeList.findFirst({
                 where: { isActive: true, seasonId, programId, entryMode: null },
@@ -283,7 +288,6 @@ export const getApplicableAcceptanceFee = async (applicationProfileId) => {
             });
         }
 
-        // Faculty-specific (and EntryMode)
         if (!applicableFee && facultyId && entryMode) {
             applicableFee = await prisma.acceptanceFeeList.findFirst({
                 where: { isActive: true, seasonId, programId: null, facultyId, entryMode },
@@ -292,7 +296,6 @@ export const getApplicableAcceptanceFee = async (applicationProfileId) => {
             });
         }
 
-        // Faculty-specific (any entry mode)
         if (!applicableFee && facultyId) {
             applicableFee = await prisma.acceptanceFeeList.findFirst({
                 where: { isActive: true, seasonId, programId: null, facultyId, entryMode: null },
@@ -301,7 +304,6 @@ export const getApplicableAcceptanceFee = async (applicationProfileId) => {
             });
         }
 
-        // General for season (and EntryMode)
         if (!applicableFee && entryMode) {
             applicableFee = await prisma.acceptanceFeeList.findFirst({
                 where: { isActive: true, seasonId, programId: null, facultyId: null, entryMode },
@@ -310,7 +312,6 @@ export const getApplicableAcceptanceFee = async (applicationProfileId) => {
             });
         }
 
-        // Most general for season (any program, faculty, entryMode)
         if (!applicableFee) {
             applicableFee = await prisma.acceptanceFeeList.findFirst({
                 where: { isActive: true, seasonId, programId: null, facultyId: null, entryMode: null },
@@ -318,15 +319,12 @@ export const getApplicableAcceptanceFee = async (applicationProfileId) => {
                 select: selection
             });
         }
-        // --- End Fee Finding Logic ---
-
 
         if (!applicableFee) {
             console.warn(`[AcceptanceFeeService] No active acceptance fee found for Season: ${seasonId}, Program: ${programId}, Faculty: ${facultyId}, EntryMode: ${entryMode}.`);
             throw new AppError('No applicable acceptance fee found for your admission offer. Please contact support.', 404);
         }
 
-        // Link this specific fee list item to the admission offer if not already done
         if (!offer.acceptanceFeeListId || offer.acceptanceFeeListId !== applicableFee.id) {
             await prisma.admissionOffer.update({
                 where: { id: offer.id },
@@ -336,7 +334,7 @@ export const getApplicableAcceptanceFee = async (applicationProfileId) => {
         }
 
         console.log(`[AcceptanceFeeService] Found applicable fee:`, applicableFee);
-        return applicableFee; // Return the full fee list item
+        return applicableFee; 
     } catch (error) {
         if (error instanceof AppError) throw error;
         console.error("Error fetching applicable acceptance fee:", error.message, error.stack);

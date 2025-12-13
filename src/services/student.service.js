@@ -1,11 +1,12 @@
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
 import { hashPassword } from '../utils/password.utils.js'; 
-import { EntryMode, Gender, LecturerRole, DocumentType } from '../generated/prisma/index.js'; 
+import { EntryMode, Gender, LecturerRole, DocumentType, DegreeType } from '../generated/prisma/index.js'; 
 
 import { SemesterType, CourseType } from '../generated/prisma/index.js'; 
 import config from '../config/index.js'; 
 
+// --- UPDATED SELECTION OBJECTS ---
 const studentPublicSelection = {
     id: true,
     regNo: true,
@@ -29,24 +30,22 @@ const studentPublicSelection = {
     profileImg: true,
     createdAt: true,
     updatedAt: true,
-    entryLevel: { select: { id: true, name: true, value: true } },
-    currentLevel: { select: { id: true, name: true, value: true } },
-    department: { select: { id: true, name: true, faculty: { select: { id: true, name: true, facultyCode: true } } } }, // Add this
-    program: { select: { id: true, name: true, programCode: true, degree: true, duration: true, modeOfStudy: true } }, // Add this
+    entryLevel: { select: { id: true, name: true, value: true, degreeType: true, order: true } },
+    currentLevel: { select: { id: true, name: true, value: true, degreeType: true, order: true } },
+    department: { select: { id: true, name: true, faculty: { select: { id: true, name: true, facultyCode: true } } } },
+    program: { select: { id: true, name: true, programCode: true, degree: true, duration: true, modeOfStudy: true, degreeType: true } },
     admissionSeason: { select: { id: true, name: true } },
     admissionSemester: { select: { id: true, name: true, type: true } },
     graduationSeason: { select: { id: true, name: true } },
     graduationSemester: { select: { id: true, name: true, type: true } },
     currentSeason: { select: { id: true, name: true } },
     currentSemester: { select: { id: true, name: true, type: true } },
-    studentDetails: true, // This includes dob, gender, address, phone, guardian info
+    studentDetails: true,
     _count: { select: { registrations: true, results: true } }
 };
 
-// Comprehensive selection for individual student profiles (Admin/ICT view)
 const studentFullSelection = {
-    ...studentPublicSelection, // Start with everything in public selection
-    // Add additional comprehensive details below:
+    ...studentPublicSelection, 
     admissionOfferDetails: {
         select: {
             id: true,
@@ -60,23 +59,19 @@ const studentFullSelection = {
                     department: { select: { id: true, name: true, faculty: { select: { id: true, name: true } } } }
                 }
             },
-            offeredLevel: { select: { id: true, name: true } },
+            offeredLevel: { select: { id: true, name: true, value: true, degreeType: true, order: true } },
             admissionSeason: { select: { id: true, name: true } },
-            admissionSemester: { select: { id: true, name: true } }
-        }
-    },
-    // Link back to original application profile for detailed applicant data
-    admissionOfferDetails: {
-        select: {
-            applicationProfile: {
+            admissionSemester: { select: { id: true, name: true } },
+            applicationProfile: { 
                 select: {
                     id: true,
                     jambRegNo: true,
-                    email: true, // Original applicant email
-                    phone: true, // Original applicant phone
-                    bioData: {  // <--- Include bioData with nationality
+                    email: true, 
+                    phone: true, 
+                    bioData: {  
                         select: {
-                            nationality: true, // Include nationality
+                            nationality: true, 
+                            firstName: true, lastName: true, gender: true, dateOfBirth: true
                         }
                     },
                     contactInfo: true,
@@ -103,7 +98,7 @@ const studentFullSelection = {
                                 select: {
                                     jambRegNo: true, name: true, email: true, programName: true,
                                     entryMode: true, jambScore: true, gender: true,
-                                    jambYear: true, // Added jambYear for more info
+                                    jambYear: true, 
                                     jambSeason: { select: { id: true, name: true } }
                                 }
                             }
@@ -114,21 +109,19 @@ const studentFullSelection = {
         }
     },
 };
+
 const registrationStudentSelection = {
-    id: true, // <-- THIS IS THE CRITICAL FK (studentCourseRegistrationId)
+    id: true, 
     studentId: true,
     courseId: true,
     semesterId: true,
     seasonId: true,
-    // Include the student's details
-  student: {
+    student: {
         select: studentFullSelection 
     },
     course: { select: { id: true, code: true, title: true, creditUnit: true } },
-    // Add other fields if needed, like level, semester, season details for display
 };
 
-// Make sure these are properly imported and defined if used in the existing functions
 const studentSelfEditableStudentFields = ['password', 'profileImg'];
 const studentSelfEditableDetailsFields = ['dob', 'gender', 'address', 'phone', 'guardianName', 'guardianPhone'];
 const adminEditableStudentFields = [
@@ -139,6 +132,22 @@ const adminEditableStudentFields = [
     'graduationSeasonId', 'graduationSemesterId'
 ];
 
+// --- NEW HELPER: Get program-specific abbreviation for RegNo ---
+const getDegreeTypeAbbreviation = (degreeType) => {
+    switch (degreeType) {
+        case DegreeType.ND: return 'ND';
+        case DegreeType.NCE: return 'NCE';
+        case DegreeType.HND: return 'HND';
+        case DegreeType.POSTGRADUATE_DIPLOMA: return 'PGD';
+        case DegreeType.MASTERS: return 'M'; 
+        case DegreeType.PHD: return 'PHD';
+        case DegreeType.CERTIFICATE: return 'CRT';
+        case DegreeType.DIPLOMA: return 'DIP';
+        case DegreeType.UNDERGRADUATE: return ''; // No specific abbreviation for UG in RegNo
+        default: return ''; 
+    }
+};
+
 const getEntryModeAbbreviation = (entryMode) => {
     switch (entryMode) {
         case EntryMode.UTME: return 'U';
@@ -146,10 +155,11 @@ const getEntryModeAbbreviation = (entryMode) => {
         case EntryMode.TRANSFER: return 'T';
         default:
             console.warn(`[StudentService] Invalid entry mode for abbreviation: ${entryMode}`);
-            return 'X'; // Fallback or throw error depending on strictness
+            return 'X'; 
     }
 };
 
+// --- MODIFIED createStudent function (single creation) ---
 export const createStudent = async (studentData) => {
     console.log("[createStudent Service] Called with data:", studentData);
     try {
@@ -159,13 +169,13 @@ export const createStudent = async (studentData) => {
         }
 
         const {
-            applicationProfileId, // NEW: Expect applicationProfileId in studentData
+            applicationProfileId, 
             jambRegNo, name, email: studentEmail, entryMode,
             yearOfAdmission, admissionSeasonId, admissionSemesterId,
             departmentId, programId, password: providedPassword, profileImg,
             isActive, isGraduated,
             dob, gender, address, phone, guardianName, guardianPhone,
-            entryLevelId: entryLevelIdInput
+            entryLevelId: entryLevelIdInput 
         } = studentData;
 
         // --- Password Handling ---
@@ -174,21 +184,28 @@ export const createStudent = async (studentData) => {
             passwordToHash = String(providedPassword).trim();
             console.log(`[createStudent DEBUG] Using provided password.`);
         } else if (config.studentDefaultPassword) {
-            console.log(`[createStudent DEBUG] No password provided, using STUDENT_DEFAULT_PASSWORD: "${config.studentDefaultPassword}"`);
+            console.log(`[createStudent DEBUG] No password provided, using STUDENT_DEFAULT_PASSWORD.`);
             passwordToHash = config.studentDefaultPassword;
         } else {
             throw new AppError('Password is required for student, and no default student password is configured.', 400);
         }
         const hashedPassword = await hashPassword(passwordToHash);
-        console.log(`[createStudent DEBUG] Password to be hashed: "${passwordToHash}"`);
+        console.log(`[createStudent DEBUG] Password to be hashed: "${passwordToHash ? '******' : 'N/A'}"`);
 
         // --- Core Validations ---
-        if (!name || !studentEmail || !entryMode || yearOfAdmission === undefined ||
-            admissionSeasonId === undefined || admissionSemesterId === undefined ||
-            departmentId === undefined || programId === undefined ||
-            !applicationProfileId) { // NEW: Validate applicationProfileId
-            throw new AppError('Required student fields (name, email, entryMode, admission year/season/semester, department, program, applicationProfileId) are missing.', 400);
-        }
+        let errors = []; // Use a local array for collecting errors
+        if (!name) errors.push('Name is missing.');
+        if (!studentEmail) errors.push('Email is missing.');
+        if (!entryMode) errors.push('Entry Mode is missing.');
+        if (yearOfAdmission === undefined) errors.push('Year of Admission is missing.');
+        if (admissionSeasonId === undefined) errors.push('Admission Season ID is missing.');
+        if (admissionSemesterId === undefined) errors.push('Admission Semester ID is missing.');
+        if (departmentId === undefined) errors.push('Department ID is missing.');
+        if (programId === undefined) errors.push('Program ID is missing.');
+        if (!applicationProfileId) errors.push('Missing applicationProfileId.');
+        
+        if (errors.length > 0) throw new AppError(errors.join('; '), 400);
+
         if (!Object.values(EntryMode).includes(entryMode)) throw new AppError(`Invalid entry mode: ${entryMode}.`, 400);
         if (gender && gender !== null && gender !== "" && !Object.values(Gender).includes(gender)) throw new AppError(`Invalid gender: ${gender}.`, 400);
 
@@ -197,60 +214,81 @@ export const createStudent = async (studentData) => {
         const pAdmissionSeasonId = parseInt(String(admissionSeasonId), 10);
         const pAdmissionSemesterId = parseInt(String(admissionSemesterId), 10);
         const pYearOfAdmission = parseInt(String(yearOfAdmission), 10);
-        const pApplicationProfileId = parseInt(String(applicationProfileId), 10); // NEW: Parse applicationProfileId
+        const pApplicationProfileId = parseInt(String(applicationProfileId), 10);
 
-        if (isNaN(pDepartmentId) || isNaN(pProgramId) || isNaN(pAdmissionSeasonId) || isNaN(pAdmissionSemesterId) || isNaN(pYearOfAdmission) || isNaN(pApplicationProfileId)) { // NEW: Include applicationProfileId
+        if (isNaN(pDepartmentId) || isNaN(pProgramId) || isNaN(pAdmissionSeasonId) || isNaN(pAdmissionSemesterId) || isNaN(pYearOfAdmission) || isNaN(pApplicationProfileId)) {
             throw new AppError('Invalid ID format for department, program, season, semester, year of admission, or application profile ID.', 400);
         }
 
         // --- Existence Checks ---
-        // Fetch program details here to get its degreeType
-        const [departmentExists, programRecord, adSeasonExists, adSemesterExists, admissionOfferExists] = await Promise.all([ // NEW: Check for admission offer
+        const [departmentRecord, programRecord, adSeasonExists, adSemesterExists, admissionOfferExists] = await Promise.all([
             prisma.department.findUnique({ where: { id: pDepartmentId } }),
-            prisma.program.findUnique({ where: { id: pProgramId, departmentId: pDepartmentId } }), // Fetch program here
+            prisma.program.findUnique({ where: { id: pProgramId, departmentId: pDepartmentId } }),
             prisma.season.findUnique({ where: { id: pAdmissionSeasonId } }),
             prisma.semester.findUnique({ where: { id: pAdmissionSemesterId, seasonId: pAdmissionSeasonId } }),
-            prisma.admissionOffer.findUnique({ where: { applicationProfileId: pApplicationProfileId } }) // NEW: Check for existing admission offer
+            prisma.admissionOffer.findUnique({ where: { applicationProfileId: pApplicationProfileId } })
         ]);
-        if (!departmentExists) throw new AppError(`Department ID ${pDepartmentId} not found.`, 404);
+        if (!departmentRecord) throw new AppError(`Department ID ${pDepartmentId} not found.`, 404);
         if (!programRecord) throw new AppError(`Program ID ${pProgramId} not found or not in department ${pDepartmentId}.`, 404);
         if (!adSeasonExists) throw new AppError(`Admission Season ID ${pAdmissionSeasonId} not found.`, 404);
         if (!adSemesterExists) throw new AppError(`Admission Semester ID ${pAdmissionSemesterId} (for season ${pAdmissionSeasonId}) not found.`, 404);
-        if (!admissionOfferExists) throw new AppError(`Admission Offer for Application Profile ID ${pApplicationProfileId} not found. A student can only be created from an existing offer.`, 404); // NEW: Error if no offer
+        if (!admissionOfferExists) throw new AppError(`Admission Offer for Application Profile ID ${pApplicationProfileId} not found. A student can only be created from an existing offer.`, 404);
 
-        const programDegreeType = programRecord.degreeType; // Extract degreeType
+        const programDegreeType = programRecord.degreeType;
 
         // --- Determine Entry Level ID ---
-        let determinedEntryLevelId;
+        let finalEntryLevelId;
         if (entryLevelIdInput !== undefined && entryLevelIdInput !== null && String(entryLevelIdInput).trim() !== '') {
-            determinedEntryLevelId = parseInt(String(entryLevelIdInput), 10);
-            if (isNaN(determinedEntryLevelId)) throw new AppError('Invalid entryLevelId provided.', 400);
-            const entryLevelRecord = await prisma.level.findUnique({ where: { id: determinedEntryLevelId } });
-            if (!entryLevelRecord) throw new AppError(`Provided Entry Level ID ${determinedEntryLevelId} not found.`, 404);
-            // Additionally check if the provided entryLevelId's degreeType matches the program's degreeType
+            finalEntryLevelId = parseInt(String(entryLevelIdInput), 10);
+            if (isNaN(finalEntryLevelId)) throw new AppError('Invalid entryLevelId provided.', 400);
+            const entryLevelRecord = await prisma.level.findUnique({ where: { id: finalEntryLevelId } });
+            if (!entryLevelRecord) throw new AppError(`Provided Entry Level ID ${finalEntryLevelId} not found.`, 404);
             if (entryLevelRecord.degreeType !== programDegreeType) {
-                throw new AppError(`Provided Entry Level ID ${determinedEntryLevelId} (DegreeType: ${entryLevelRecord.degreeType}) is not compatible with the Program's DegreeType: ${programDegreeType}.`, 400);
+                throw new AppError(`Provided Entry Level ID ${finalEntryLevelId} (DegreeType: ${entryLevelRecord.degreeType}) is not compatible with the Program's DegreeType: ${programDegreeType}.`, 400);
+            }
+        } else {
+            let targetLevelIdentifier;
+            let levelSearchCriteria = {};
+
+            switch (programDegreeType) {
+                case DegreeType.UNDERGRADUATE:
+                    targetLevelIdentifier = (entryMode === EntryMode.DIRECT_ENTRY) ? "200 Level" : "100 Level";
+                    levelSearchCriteria = { 
+                        unique_level_name_per_degree_type: { name: targetLevelIdentifier, degreeType: programDegreeType } 
+                    };
+                    break;
+                
+                case DegreeType.ND:
+                case DegreeType.NCE:
+                case DegreeType.HND:
+                case DegreeType.POSTGRADUATE_DIPLOMA:
+                case DegreeType.MASTERS:
+                case DegreeType.PHD:
+                case DegreeType.CERTIFICATE:
+                case DegreeType.DIPLOMA:
+                    targetLevelIdentifier = 1; // Order of the level (first year)
+                    levelSearchCriteria = { 
+                        unique_level_order_per_degree_type: { order: targetLevelIdentifier, degreeType: programDegreeType } 
+                    };
+                    break;
+                
+                default:
+                    if (entryMode === EntryMode.TRANSFER) {
+                        throw new AppError('For TRANSFER entry mode, an explicit entryLevelId is required (not provided).', 400);
+                    }
+                    throw new AppError(`Cannot determine default entry level for program degree type '${programDegreeType}'. Please ensure levels are configured or provide entryLevelId.`, 400);
             }
 
-        } else {
-            let entryLevelName;
-            if (entryMode === EntryMode.UTME) entryLevelName = "100 Level";
-            else if (entryMode === EntryMode.DIRECT_ENTRY) entryLevelName = "200 Level";
-            else if (entryMode === EntryMode.TRANSFER) throw new AppError('For TRANSFER entry mode, an explicit entryLevelId is required.', 400);
-            else throw new AppError('Cannot determine entry level for the given entry mode.', 400);
-
-            // FIX: Use compound unique input for findUnique
             const entryLevelRecord = await prisma.level.findUnique({ 
-                where: { 
-                    unique_level_name_per_degree_type: { // Use the compound unique key name
-                        name: entryLevelName, 
-                        degreeType: programDegreeType 
-                    }
-                } 
+                where: levelSearchCriteria
             });
-            if (!entryLevelRecord) throw new AppError(`Default entry level '${entryLevelName}' for mode '${entryMode}' and degree type '${programDegreeType}' not found. Please configure levels.`, 500);
-            determinedEntryLevelId = entryLevelRecord.id;
+
+            if (!entryLevelRecord) {
+                throw new AppError(`Database setup error: Default entry level '${targetLevelIdentifier}' for degree type '${programDegreeType}' not found. Please configure levels in Admin Panel.`, 500);
+            }
+            finalEntryLevelId = entryLevelRecord.id;
         }
+
 
         // --- Uniqueness Checks (Email, JambRegNo, Phone in details) ---
         const trimmedEmail = String(studentEmail).trim();
@@ -274,71 +312,92 @@ export const createStudent = async (studentData) => {
                 profileImg: profileImg ? String(profileImg).trim() : null,
                 yearOfAdmission: pYearOfAdmission, admissionSeasonId: pAdmissionSeasonId,
                 admissionSemesterId: pAdmissionSemesterId, departmentId: pDepartmentId, programId: pProgramId,
-                entryLevelId: determinedEntryLevelId, currentLevelId: determinedEntryLevelId,
+                entryLevelId: finalEntryLevelId, currentLevelId: finalEntryLevelId,
                 currentSeasonId: pAdmissionSeasonId, currentSemesterId: pAdmissionSemesterId,
                 password: hashedPassword,
                 isActive: isActive === undefined ? true : Boolean(isActive),
                 isGraduated: isGraduated === undefined ? false : Boolean(isGraduated),
-                // regNo is NOT set here initially
             };
 
             let studentDetailsCreatePayload;
             if (dob || gender || address || phone || guardianName || guardianPhone) {
-                // Assuming `gender` can be explicitly `null` if that's intended by the schema.
-                // Otherwise, it might be required if other details are provided.
-                if (gender === undefined || gender === "") { // If gender is truly optional and not provided or empty string
-                   // No check needed, Prisma will use default/null based on schema
-                } else if (!Object.values(Gender).includes(gender)) {
-                    throw new AppError('Gender is required and must be a valid enum (MALE/FEMALE) if providing other student details.', 400);
+                if ((gender === undefined || gender === null || gender === "") && (dob || address || phone || guardianName || guardianPhone)) {
+                   errors.push('Gender is required if providing other student details.'); 
+                } else if (gender && !Object.values(Gender).includes(gender)) {
+                    errors.push(`Invalid gender: ${gender}.`);
                 }
 
                 studentDetailsCreatePayload = {
                     dob: dob ? new Date(dob) : null,
-                    gender: gender || null, // Ensure `null` is used for empty string or undefined
+                    gender: gender || null,
                     address: address ? String(address).trim() : null,
                     phone: trimmedPhone,
                     guardianName: guardianName ? String(guardianName).trim() : null,
                     guardianPhone: guardianPhone ? String(guardianPhone).trim() : null,
                 };
             }
-
+            if (errors.length > 0) { 
+                throw new AppError(errors.join('; '), 400);
+            }
+            
             const createdStudent = await tx.student.create({
                 data: {
                     ...studentCreateDataBase,
                     ...(studentDetailsCreatePayload && { studentDetails: { create: studentDetailsCreatePayload } })
                 },
-                select: { id: true, yearOfAdmission: true, entryMode: true, departmentId: true } // Select fields needed for regNo generation
+                select: { id: true, yearOfAdmission: true, entryMode: true, departmentId: true, programId: true } 
             });
-            console.log("[createStudent DEBUG] Step 1 complete. Student created with DB ID:", createdStudent.id);
 
-            // --- Step 2: Generate Registration Number ---
+            // --- Step 2: Generate Registration Number (MODIFIED LOGIC) ---
             const yearAbbr = String(createdStudent.yearOfAdmission).slice(-2);
             const entryModeAbbr = getEntryModeAbbreviation(createdStudent.entryMode);
-            const sequencePart = createdStudent.id.toString().padStart(5, '0'); // Pad ID to 5 digits
-            const finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${createdStudent.departmentId}`;
-            console.log("[createStudent DEBUG] Step 2: Generated finalRegNo:", finalRegNo);
+            const sequencePart = createdStudent.id.toString().padStart(5, '0');
+            
+            // Get department abbreviation (first 3 letters of name)
+            const currentDepartmentRecord = departmentRecord; 
+            const departmentIdentifier = String(currentDepartmentRecord.id); // Use the numerical department ID
+            
+            // Get degree type abbreviation for prefix
+            const currentProgramRecord = programRecord;
+            const degreeTypeAbbr = getDegreeTypeAbbreviation(currentProgramRecord.degreeType); 
+            
+            let finalRegNo;
+            if (degreeTypeAbbr) {
+                // For ND, NCE, HND, PGD, M, PHD, CERTIFICATE, DIPLOMA - concat abbreviation
+                // Format: YY/SEQ_MODE/DEPT_ID/DEGREE_TYPE_ABBR (e.g., 25/00001D/1/ND)
+                finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}/${degreeTypeAbbr}`;
+            } else {
+                // For Undergraduate - existing format
+                // Format: YY/SEQ_MODE/DEPT_ID (e.g., 25/00002U/1)
+                finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}`;
+            }
+            
+            const existingRegNoCheck = await tx.student.findUnique({
+                where: { regNo: finalRegNo },
+                select: { id: true }
+            });
+            if (existingRegNoCheck) {
+                throw new AppError(`Generated registration number '${finalRegNo}' already exists. Please try again or manually assign.`, 409);
+            }
 
-            // --- Step 3: Update Student Record with Generated RegNo ---
-            console.log("[createStudent DEBUG] Step 3: Updating student record with finalRegNo.");
             const studentWithRegNo = await tx.student.update({
                 where: { id: createdStudent.id },
                 data: { regNo: finalRegNo },
-                select: studentPublicSelection // Select all public fields for the final return
+                select: studentPublicSelection
             });
-            console.log("[createStudent DEBUG] Step 3 complete.");
-            
-            // --- Step 4: Update AdmissionOffer with Generated RegNo and Created Student ID ---
-            console.log("[createStudent DEBUG] Step 4: Updating AdmissionOffer.");
+
+            // --- Step 3: Update AdmissionOffer with Generated RegNo and Created Student ID ---
             await tx.admissionOffer.update({
-                where: { applicationProfileId: pApplicationProfileId }, // Use the applicationProfileId to find the offer
+                where: { applicationProfileId: pApplicationProfileId },
                 data: {
-                    generatedStudentRegNo: finalRegNo, // Set the generated registration number
-                    createdStudentId: studentWithRegNo.id, // Link the newly created student's ID
+                    generatedStudentRegNo: finalRegNo,
+                    createdStudentId: createdStudent.id,
+                    offeredLevelId: finalEntryLevelId, 
+                    offeredProgramId: pProgramId,      
                 }
             });
-            console.log("[createStudent DEBUG] Step 4 complete. AdmissionOffer updated for Application Profile ID:", pApplicationProfileId);
 
-            return studentWithRegNo; // Return the fully updated student object
+            return studentWithRegNo;
         });
 
         console.log(`[STUDENT_CREATE] Student '${newStudent.name}' (RegNo: ${newStudent.regNo}) created successfully and Admission Offer updated.`);
@@ -360,29 +419,27 @@ export const createStudent = async (studentData) => {
     }
 };
 
+// --- REMAINDER OF STUDENT SERVICE (Getters, Updaters, Deleters) ---
+
 export const getStudentById = async (id, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
         const studentIdNum = parseInt(String(id), 10);
         if (isNaN(studentIdNum)) throw new AppError('Invalid student ID format.', 400);
 
-        // Fetch student using studentFullSelection instead of studentPublicSelection
         const student = await prisma.student.findUnique({
             where: { id: studentIdNum },
-            select: studentFullSelection // Use the full selection here
+            select: studentFullSelection
         });
 
         if (!student) throw new AppError('Student not found.', 404);
 
-        // Authorization check
-        // Keep existing authorization logic for getStudentById as it applies to both public and full views
         if (requestingUser) {
             if (requestingUser.type === 'student' && requestingUser.id !== studentIdNum) {
                 throw new AppError('You are not authorized to view this student profile.', 403);
             }
         }
 
-        // Logic for profileImg fallback (from student model or applicant document)
         let finalProfileImg = student.profileImg;
         let avatarLetter = student.name ? student.name.charAt(0).toUpperCase() : 'S';
 
@@ -415,12 +472,12 @@ export const getAllStudents = async (query, requestingUser) => {
         const {
             departmentId: queryDeptId,
             programId,
-            currentLevelId, // Correctly destructured from query
+            currentLevelId,
             entryLevelId,
-            admissionSeasonId, // Correctly destructured from query
-            admissionSemesterId, // Correctly destructured from query
+            admissionSeasonId,
+            admissionSemesterId,
             yearOfAdmission,
-            status: statusQuery, // Use a distinct name for the incoming status query parameter
+            status: statusQuery,
             search,
             name, regNo, jambRegNo, email,
             page: queryPage = "1", limit: queryLimit = "20"
@@ -428,7 +485,6 @@ export const getAllStudents = async (query, requestingUser) => {
 
         const where = {};
 
-        // Authorization and Department Filter
         if (requestingUser.type === 'admin') {
             if (queryDeptId && String(queryDeptId).trim()) {
                 const pDeptId = parseInt(String(queryDeptId), 10);
@@ -437,7 +493,6 @@ export const getAllStudents = async (query, requestingUser) => {
         } else if (requestingUser.type === 'lecturer' && requestingUser.role === LecturerRole.HOD) {
             if (!requestingUser.departmentId) throw new AppError('HOD department info missing.', 500);
             where.departmentId = requestingUser.departmentId;
-            // If HOD tries to query outside their department, return empty
             if (queryDeptId && String(queryDeptId).trim() && parseInt(String(queryDeptId), 10) !== requestingUser.departmentId) {
                  return { students: [], totalPages: 0, currentPage: parseInt(queryPage,10), limit: parseInt(queryLimit,10), totalStudents: 0 };
             }
@@ -445,45 +500,36 @@ export const getAllStudents = async (query, requestingUser) => {
             throw new AppError("Not authorized to view this student list.", 403);
         }
 
-        // --- Apply Filters from Frontend Query ---
-        
-        // Program Filter
         if (programId && String(programId).trim()) {
             const pId = parseInt(String(programId), 10);
             if (!isNaN(pId)) where.programId = pId;
         }
 
-        // Current Level Filter
         if (currentLevelId && String(currentLevelId).trim()) {
             const pId = parseInt(String(currentLevelId), 10);
             if (!isNaN(pId)) where.currentLevelId = pId;
         }
 
-        // Entry Level Filter
         if (entryLevelId && String(entryLevelId).trim()) {
             const pId = parseInt(String(entryLevelId), 10);
             if (!isNaN(pId)) where.entryLevelId = pId;
         }
 
-        // Admission Season Filter - Now correctly handled by frontend sending `admissionSeasonId`
         if (admissionSeasonId && String(admissionSeasonId).trim()) {
             const pId = parseInt(String(admissionSeasonId), 10);
             if (!isNaN(pId)) where.admissionSeasonId = pId;
         }
 
-        // Admission Semester Filter - Now correctly handled by frontend sending `admissionSemesterId`
         if (admissionSemesterId && String(admissionSemesterId).trim()) {
             const pId = parseInt(String(admissionSemesterId), 10);
             if (!isNaN(pId)) where.admissionSemesterId = pId;
         }
 
-        // Year of Admission Filter
         if (yearOfAdmission && String(yearOfAdmission).trim()) {
             const pVal = parseInt(String(yearOfAdmission), 10);
             if (!isNaN(pVal)) where.yearOfAdmission = pVal;
         }
 
-        // Status Filter: Map frontend 'status' string to isActive/isGraduated booleans
         if (statusQuery && String(statusQuery).trim() !== '') {
             const lowerCaseStatus = String(statusQuery).toLowerCase();
             if (lowerCaseStatus === 'active') {
@@ -494,21 +540,19 @@ export const getAllStudents = async (query, requestingUser) => {
                 where.isGraduated = false;
             } else if (lowerCaseStatus === 'graduated') {
                 where.isGraduated = true;
-                where.isActive = false; // A graduated student is no longer active
+                where.isActive = false;
             }
         }
 
-    const trimmedSearch = search ? String(search).trim() : null;
+        const trimmedSearch = search ? String(search).trim() : null;
         if (trimmedSearch) {
             where.OR = [
-                // REMOVE mode: 'insensitive' from here and all following string filters
                 { name: { contains: trimmedSearch } },
                 { regNo: { contains: trimmedSearch } },
                 { email: { contains: trimmedSearch } },
                 { jambRegNo: { contains: trimmedSearch } },
             ];
         } else {
-            // If no generic search term, apply individual field filters if they exist
             if (name && String(name).trim()) where.name = { contains: String(name).trim() };
             if (regNo && String(regNo).trim()) where.regNo = { equals: String(regNo).trim() };
             if (jambRegNo && String(jambRegNo).trim()) where.jambRegNo = { equals: String(jambRegNo).trim() };
@@ -521,11 +565,10 @@ export const getAllStudents = async (query, requestingUser) => {
         if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) limitNum = 20;
         const skip = (pageNum - 1) * limitNum;
 
-        // Perform the query
         const students = await prisma.student.findMany({
             where,
             select: studentPublicSelection,
-            orderBy: { name: 'asc' }, // Or any other default order
+            orderBy: { name: 'asc' },
             skip,
             take: limitNum,
         });
@@ -546,17 +589,16 @@ export const updateStudent = async (id, updateData, requestingUser) => {
         const studentIdToUpdate = parseInt(String(id), 10);
         if (isNaN(studentIdToUpdate)) throw new AppError('Invalid student ID format.', 400);
 
-        // Include program to get degreeType
         const studentToUpdate = await prisma.student.findUnique({
             where: { id: studentIdToUpdate },
             include: { 
                 studentDetails: true,
-                program: { select: { degreeType: true } } // Fetch program's degreeType
+                program: { select: { degreeType: true } }
             }
         });
         if (!studentToUpdate) throw new AppError('Student not found for update.', 404);
 
-        const programDegreeType = studentToUpdate.program.degreeType; // Get the degreeType from the student's current program
+        const programDegreeType = studentToUpdate.program.degreeType; 
 
         const studentDataForDb = {};
         const studentDetailsDataForDb = {};
@@ -565,7 +607,7 @@ export const updateStudent = async (id, updateData, requestingUser) => {
             for (const key of adminEditableStudentFields) {
                 if (updateData.hasOwnProperty(key)) {
                     const value = updateData[key];
-                    if (key === 'regNo') { continue; } // Admins cannot directly change system-generated regNo
+                    if (key === 'regNo') { continue; } 
 
                     if (key === 'password' && value && String(value).trim()) {
                         studentDataForDb.password = await hashPassword(String(value).trim());
@@ -587,12 +629,11 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                         if (!updateData.hasOwnProperty('entryLevelId')) {
                             let entryLevelName = (studentDataForDb.entryMode === EntryMode.UTME) ? "100 Level" : (studentDataForDb.entryMode === EntryMode.DIRECT_ENTRY) ? "200 Level" : null;
                             if(entryLevelName) {
-                                // FIX: Use compound unique input for findUnique
                                 const entryLevelRec = await prisma.level.findUnique({
                                     where: { 
-                                        unique_level_name_per_degree_type: { // Use the compound unique key name
+                                        unique_level_name_per_degree_type: { 
                                             name: entryLevelName,
-                                            degreeType: programDegreeType // Use the program's degreeType
+                                            degreeType: programDegreeType 
                                         }
                                     }
                                 });
@@ -609,8 +650,8 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                         if (studentDataForDb[key] !== null && isNaN(studentDataForDb[key])) throw new AppError(`Invalid ID for ${key}.`, 400);
                     } else if (key === 'isActive' || key === 'isGraduated') {
                         studentDataForDb[key] = Boolean(value);
-                        if (key === 'isGraduated') { // Special handling for graduation fields
-                            if (Boolean(value) === true) { // If marking as graduated
+                        if (key === 'isGraduated') { 
+                            if (Boolean(value) === true) { 
                                 studentDataForDb.isActive = updateData.hasOwnProperty('isActive') ? Boolean(updateData.isActive) : false;
                                 if (!updateData.graduationSeasonId || !updateData.graduationSemesterId) throw new AppError('Graduation Season & Semester ID required when graduating.', 400);
                                 const gradSeasonId = parseInt(String(updateData.graduationSeasonId), 10);
@@ -618,7 +659,7 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                                 if (isNaN(gradSeasonId) || isNaN(gradSemesterId)) throw new AppError('Invalid graduation season/semester ID.', 400);
                                 studentDataForDb.graduationSeasonId = gradSeasonId;
                                 studentDataForDb.graduationSemesterId = gradSemesterId;
-                            } else { // If un-graduating
+                            } else { 
                                 studentDataForDb.graduationSeasonId = null;
                                 studentDataForDb.graduationSemesterId = null;
                             }
@@ -717,7 +758,7 @@ export const deleteStudent = async (id) => {
         console.error("[STUDENT_SERVICE_ERROR] DeleteStudent:", error.message, error.stack);
         throw new AppError('Could not delete student profile.', 500);
     }
-};
+}
 
 export const getMyCourseStudentsList = async (requestingLecturer, query) => {
     try {
@@ -781,19 +822,13 @@ export const getMyCourseStudentsList = async (requestingLecturer, query) => {
         ]);
 
         // 4. Map Output to Frontend Format
-        // --- CHANGE STARTS HERE ---
         const students = registrations.map(reg => ({
-            // Spread ALL student properties fetched by studentFullSelection
-            // This includes studentDetails, admissionOfferDetails, program, levels, etc.
             ...reg.student, 
-            
-            // Attach the registration info required by frontend logic
             studentCourseRegistration: {
                 id: reg.id, 
                 score: reg.score 
             }
         }));
-        // --- CHANGE ENDS HERE ---
 
         return {
             students: students,
@@ -831,7 +866,7 @@ export const getDepartmentStudents = async (requestingUser, query) => {
             isActive, 
             name, 
             regNo,
-            search, // <--- Added 'search' to handle the general search bar
+            search,
             page: queryPage = "1", 
             limit: queryLimit = "20"
         } = query;
@@ -842,29 +877,22 @@ export const getDepartmentStudents = async (requestingUser, query) => {
         };
 
         // --- FILTER LOGIC ---
-
-        // Filter by Program
         if (programId && String(programId).trim()) {
             const pId = parseInt(String(programId), 10);
             if (!isNaN(pId)) where.programId = pId;
         }
         
-        // Filter by Level (Fixed: ensures it parses the ID correctly)
         if (currentLevelId && String(currentLevelId).trim() && String(currentLevelId) !== 'all') {
             const levelId = parseInt(String(currentLevelId), 10);
             if (!isNaN(levelId)) where.currentLevelId = levelId;
         }
 
-        // Filter by Active Status (Current vs Graduated)
-        // Frontend sends boolean or string "true"/"false"
         if (isActive !== undefined && isActive !== "all" && isActive !== "") {
             const isActiveBool = String(isActive) === 'true';
             where.isActive = isActiveBool;
         }
 
         // --- SEARCH LOGIC ---
-        
-        // Priority 1: General Search (Matches Name OR RegNo)
         if (search && String(search).trim()) {
             const searchStr = String(search).trim();
             where.OR = [
@@ -872,7 +900,6 @@ export const getDepartmentStudents = async (requestingUser, query) => {
                 { regNo: { contains: searchStr, mode: 'insensitive' } }
             ];
         } 
-        // Priority 2: Specific Column Search (Fallback if general search isn't used)
         else {
             if (name && String(name).trim()) {
                 where.name = { contains: String(name).trim(), mode: 'insensitive' };
@@ -887,7 +914,7 @@ export const getDepartmentStudents = async (requestingUser, query) => {
         let limitNum = parseInt(queryLimit, 10);
         
         if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
-        if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) limitNum = 20; // Cap limit at 100
+        if (isNaN(limitNum) || limitNum < 1 || limitNum > 100) limitNum = 20;
         
         const skip = (pageNum - 1) * limitNum;
 
@@ -895,8 +922,8 @@ export const getDepartmentStudents = async (requestingUser, query) => {
         const [students, totalItems] = await prisma.$transaction([
             prisma.student.findMany({
                 where,
-                select: studentPublicSelection, // Ensure this object is defined in your imports
-                orderBy: { name: 'asc' }, // Sort alphabetically by default
+                select: studentPublicSelection,
+                orderBy: { name: 'asc' },
                 skip,
                 take: limitNum,
             }),
@@ -909,8 +936,8 @@ export const getDepartmentStudents = async (requestingUser, query) => {
             totalPages: Math.ceil(totalItems / limitNum),
             currentPage: pageNum,
             limit: limitNum,
-            totalItems, // Matched with frontend expectation
-            totalStudents: totalItems // Legacy support if needed
+            totalItems,
+            totalStudents: totalItems
         };
 
     } catch (error) {
@@ -943,7 +970,6 @@ export const getStudentsForAssignedCourse = async (requestingLecturer, query) =>
         }
 
         // --- 2. Authorization Check ---
-        // Verify that this lecturer is actually assigned to this course for this period.
         const staffAssignment = await prisma.staffCourse.findFirst({
             where: {
                 lecturerId: requestingLecturer.id,
@@ -958,13 +984,12 @@ export const getStudentsForAssignedCourse = async (requestingLecturer, query) =>
         }
 
         // --- 3. Data Fetching ---
-        // If authorization passes, find all students registered for this course.
         const whereClause = {
             courseId: pCourseId,
             semesterId: pSemesterId,
             seasonId: pSeasonId,
             student: {
-                isActive: true, // It's good practice to only fetch active students
+                isActive: true, 
             }
         };
 
@@ -979,9 +1004,8 @@ export const getStudentsForAssignedCourse = async (requestingLecturer, query) =>
             prisma.studentCourseRegistration.findMany({
                 where: whereClause,
                 select: {
-                    // We only need the student data, so we select it specifically
                     student: {
-                        select: studentPublicSelection // Use the existing detailed selection
+                        select: studentPublicSelection
                     }
                 },
                 orderBy: {
@@ -995,7 +1019,6 @@ export const getStudentsForAssignedCourse = async (requestingLecturer, query) =>
             prisma.studentCourseRegistration.count({ where: whereClause })
         ]);
 
-        // Extract the student objects from the registration results
         const students = registrations.map(reg => reg.student);
 
         return {
@@ -1008,12 +1031,12 @@ export const getStudentsForAssignedCourse = async (requestingLecturer, query) =>
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("[STUDENT_SERVICE_ERROR] getStudentsForAssignedCourse:", error.message, error.stack);
+        console.error("[STUDENT_SERVICE_ERROR] GetStudentsForAssignedCourse:", error.message, error.stack);
         throw new AppError("Could not retrieve the list of students for your assigned course.", 500);
     }
 };
 
-// NEW SERVICE FUNCTION: Batch create students and update admission offers
+// --- NEW SERVICE FUNCTION: Batch create students and update admission offers ---
 export const batchCreateStudents = async (studentDataArray, requestingUser) => {
     if (!prisma) throw new AppError('Prisma client unavailable', 500);
     if (!Array.isArray(studentDataArray) || studentDataArray.length === 0) {
@@ -1025,7 +1048,7 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
 
     // Pre-fetch all levels, departments, programs, seasons, semesters for efficiency and validation
     const [allLevels, allDepartments, allPrograms, allSeasons, allSemesters] = await Promise.all([
-        prisma.level.findMany({ select: { id: true, name: true, value: true, degreeType: true } }), // Select degreeType for levels
+        prisma.level.findMany({ select: { id: true, name: true, value: true, degreeType: true, order: true } }), // Select degreeType, order
         prisma.department.findMany({ select: { id: true, name: true } }),
         prisma.program.findMany({ select: { id: true, name: true, departmentId: true, degreeType: true } }), // Select degreeType for programs
         prisma.season.findMany({ select: { id: true, name: true } }),
@@ -1033,13 +1056,12 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
     ]);
 
     // Create maps for quick lookups
-    // For levels, create a map that includes degreeType in the key for unique lookup
-    const levelMapById = new Map(allLevels.map(level => [level.id, level])); // Store full level object by ID
-    // Changed to reflect the `unique_level_name_per_degree_type` compound key for lookup
-    const levelMapByCompoundKey = new Map(allLevels.map(level => [`${level.name}-${level.degreeType}`, level.id])); 
+    const levelMapById = new Map(allLevels.map(level => [level.id, level]));
+    const levelMapByCompoundNameAndDegree = new Map(allLevels.map(level => [`${level.name}-${level.degreeType}`, level.id]));
+    const levelMapByCompoundOrderAndDegree = new Map(allLevels.map(level => [`${level.order}-${level.degreeType}`, level.id]));
 
-    const departmentMapById = new Map(allDepartments.map(dept => [dept.id, dept]));
-    const programMapById = new Map(allPrograms.map(prog => [prog.id, prog])); // Store full program object by ID
+    const departmentMapById = new Map(allDepartments.map(dept => [dept.id, dept])); // Store full department object
+    const programMapById = new Map(allPrograms.map(prog => [prog.id, prog])); // Store full program object
     const seasonMapById = new Map(allSeasons.map(season => [season.id, season]));
     const semesterMapById = new Map(allSemesters.map(semester => [semester.id, semester]));
 
@@ -1057,22 +1079,19 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
     // Loop through each student record to create them individually within a transaction
     for (const [index, studentData] of studentDataArray.entries()) {
         try {
-            // Use a transaction for each student to ensure atomicity (student, regNo update, offer update)
             const studentCreationResult = await prisma.$transaction(async (tx) => {
                 const {
-                    applicationProfileId, // Required to link to AdmissionOffer
+                    applicationProfileId,
                     jambRegNo, name, email: studentEmail, entryMode,
                     yearOfAdmission, admissionSeasonId, admissionSemesterId,
                     departmentId, programId, password: providedPassword, profileImg,
                     isActive, isGraduated,
                     dob, gender, address, phone, guardianName, guardianPhone,
-                    entryLevelId: entryLevelIdInput // Optional: If provided, use it
+                    entryLevelId: entryLevelIdInput 
                 } = studentData;
 
-                let rowErrors = []; // Collect errors specific to this student's data
+                let rowErrors = [];
 
-                // --- Input Validation & Coercion ---
-                // Trim and normalize string fields
                 const sName = String(name || '').trim();
                 const sStudentEmail = String(studentEmail || '').trim();
                 const sEntryMode = String(entryMode || '').trim();
@@ -1082,23 +1101,19 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                 const sGuardianName = guardianName ? String(guardianName).trim() : null;
                 const sGuardianPhone = guardianPhone ? String(guardianPhone).trim() : null;
                 const sProfileImg = profileImg ? String(profileImg).trim() : null;
-                const sDeGrade = studentData.deGrade ? String(studentData.deGrade).trim() : null; // Assuming deGrade might come in studentData
 
-                // Parse and validate numeric IDs
                 const pYearOfAdmission = parseInt(String(yearOfAdmission), 10);
                 const pAdmissionSeasonId = parseInt(String(admissionSeasonId), 10);
                 const pAdmissionSemesterId = parseInt(String(admissionSemesterId), 10);
                 const pDepartmentId = parseInt(String(departmentId), 10);
                 const pProgramId = parseInt(String(programId), 10);
                 
-                // Date of Birth
                 let pDob = dob ? new Date(dob) : null;
                 if (pDob && isNaN(pDob.getTime())) {
                     rowErrors.push('Invalid Date of Birth format.');
                     pDob = null;
                 }
 
-                // --- Core Required Fields Check ---
                 if (!applicationProfileId) rowErrors.push('Missing applicationProfileId.');
                 if (!sName) rowErrors.push('Name is missing.');
                 if (!sStudentEmail) rowErrors.push('Email is missing.');
@@ -1109,51 +1124,82 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                 if (isNaN(pDepartmentId)) rowErrors.push('Department ID is missing or invalid.');
                 if (isNaN(pProgramId)) rowErrors.push('Program ID is missing or invalid.');
 
-                // --- Enum Validations ---
                 if (!Object.values(EntryMode).includes(sEntryMode)) rowErrors.push(`Invalid Entry Mode: ${sEntryMode}.`);
                 if (gender && !Object.values(Gender).includes(gender)) rowErrors.push(`Invalid Gender: ${gender}.`);
                 
-                // --- Uniqueness Checks (against existing DB records & records in previous batch iterations) ---
                 if (sStudentEmail && existingEmails.has(sStudentEmail)) rowErrors.push(`Email '${sStudentEmail}' already exists.`);
                 if (sJambRegNo && existingJambRegNos.has(sJambRegNo)) rowErrors.push(`JAMB RegNo '${sJambRegNo}' already exists.`);
                 if (sPhone && existingPhones.has(sPhone)) rowErrors.push(`Phone number '${sPhone}' already exists.`);
 
-                // --- Existence Checks (IDs refer to actual records in DB) ---
-                if (!departmentMapById.has(pDepartmentId)) rowErrors.push(`Department ID ${pDepartmentId} not found.`);
-                const programRecord = programMapById.get(pProgramId); // Get program record here
+                const departmentRecord = departmentMapById.get(pDepartmentId);
+                if (!departmentRecord) rowErrors.push(`Department ID ${pDepartmentId} not found.`);
+                const programRecord = programMapById.get(pProgramId);
                 if (!programRecord || programRecord.departmentId !== pDepartmentId) rowErrors.push(`Program ID ${pProgramId} not found or not in department ${pDepartmentId}.`);
                 if (!seasonMapById.has(pAdmissionSeasonId)) rowErrors.push(`Admission Season ID ${pAdmissionSeasonId} not found.`);
                 const semesterRecord = semesterMapById.get(pAdmissionSemesterId);
                 if (!semesterRecord || semesterRecord.seasonId !== pAdmissionSeasonId) rowErrors.push(`Admission Semester ID ${pAdmissionSemesterId} (for season ${pAdmissionSeasonId}) not found.`);
                 
-                const programDegreeType = programRecord?.degreeType; // Get the program's degree type
+                const programDegreeType = programRecord?.degreeType;
 
                 // --- Determine Entry Level ID ---
-                let determinedEntryLevelId;
+                let finalEntryLevelId;
                 if (entryLevelIdInput !== undefined && entryLevelIdInput !== null && String(entryLevelIdInput).trim() !== '') {
-                    determinedEntryLevelId = parseInt(String(entryLevelIdInput), 10);
-                    const levelRecord = levelMapById.get(determinedEntryLevelId); // Get full level record by ID
-                    if (isNaN(determinedEntryLevelId) || !levelRecord) {
-                        rowErrors.push(`Provided Entry Level ID ${determinedEntryLevelId} is invalid or not found.`);
+                    finalEntryLevelId = parseInt(String(entryLevelIdInput), 10);
+                    const levelRecord = levelMapById.get(finalEntryLevelId);
+                    if (isNaN(finalEntryLevelId) || !levelRecord) {
+                        rowErrors.push(`Provided Entry Level ID ${finalEntryLevelId} is invalid or not found.`);
                     } else if (levelRecord.degreeType !== programDegreeType) {
-                         rowErrors.push(`Provided Entry Level ID ${determinedEntryLevelId} (DegreeType: ${levelRecord.degreeType}) is not compatible with the Program's DegreeType: ${programDegreeType}.`);
+                         rowErrors.push(`Provided Entry Level ID ${finalEntryLevelId} (DegreeType: ${levelRecord.degreeType}) is not compatible with the Program's DegreeType: ${programDegreeType}.`);
                     }
                 } else {
-                    let defaultEntryLevelName;
-                    if (sEntryMode === EntryMode.UTME) defaultEntryLevelName = "100 Level";
-                    else if (sEntryMode === EntryMode.DIRECT_ENTRY) defaultEntryLevelName = "200 Level";
-                    else if (sEntryMode === EntryMode.TRANSFER) rowErrors.push('For TRANSFER entry mode, an explicit entryLevelId is required.');
-                    else rowErrors.push('Cannot determine entry level for the given entry mode.');
+                    let targetLevelIdentifier; 
+                    let levelSearchCriteria = {}; 
                     
-                    if (defaultEntryLevelName && programDegreeType) { // Ensure programDegreeType is also available
-                        // FIX: Use compound key for lookup
-                        determinedEntryLevelId = levelMapByCompoundKey.get(`${defaultEntryLevelName}-${programDegreeType}`);
-                        if (!determinedEntryLevelId) rowErrors.push(`Default entry level '${defaultEntryLevelName}' for mode '${sEntryMode}' and degree type '${programDegreeType}' not found. Please configure levels.`);
-                    } else if (defaultEntryLevelName && !programDegreeType) {
-                        rowErrors.push(`Program Degree Type missing to determine default entry level for '${defaultEntryLevelName}'.`);
+                    switch (programDegreeType) {
+                        case DegreeType.UNDERGRADUATE:
+                            targetLevelIdentifier = (sEntryMode === EntryMode.DIRECT_ENTRY) ? "200 Level" : "100 Level";
+                            levelSearchCriteria = { 
+                                unique_level_name_per_degree_type: { name: targetLevelIdentifier, degreeType: programDegreeType } 
+                            };
+                            break;
+                        
+                        case DegreeType.ND:
+                        case DegreeType.NCE:
+                        case DegreeType.HND:
+                        case DegreeType.POSTGRADUATE_DIPLOMA:
+                        case DegreeType.MASTERS:
+                        case DegreeType.PHD:
+                        case DegreeType.CERTIFICATE:
+                        case DegreeType.DIPLOMA:
+                            targetLevelIdentifier = 1; // Order of the level
+                            levelSearchCriteria = { 
+                                unique_level_order_per_degree_type: { order: targetLevelIdentifier, degreeType: programDegreeType } 
+                            };
+                            break;
+                        
+                        default:
+                            if (sEntryMode === EntryMode.TRANSFER) {
+                                rowErrors.push('For TRANSFER entry mode, an explicit entryLevelId is required.');
+                            } else {
+                                rowErrors.push(`Cannot determine entry level for program degree type '${programDegreeType}'.`);
+                            }
+                            break;
+                    }
+
+                    if (Object.keys(levelSearchCriteria).length > 0) {
+                        const entryLevelRecordId = await tx.level.findUnique({
+                            where: levelSearchCriteria,
+                            select: { id: true }
+                        });
+                        if (!entryLevelRecordId) {
+                            rowErrors.push(`Default entry level '${targetLevelIdentifier}' for degree type '${programDegreeType}' not found. Please configure levels in Admin Panel.`);
+                        } else {
+                            finalEntryLevelId = entryLevelRecordId.id;
+                        }
                     }
                 }
-                if (!determinedEntryLevelId) rowErrors.push('Entry Level could not be determined.');
+                if (!finalEntryLevelId) rowErrors.push('Entry Level could not be determined.');
+
 
                 // --- Password Handling ---
                 let passwordToHash;
@@ -1172,7 +1218,7 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                 }
 
                 if (rowErrors.length > 0) {
-                    throw new AppError(rowErrors.join(' '), 400); 
+                    throw new AppError(rowErrors.join('; '), 400); 
                 }
 
                 const studentCreateDataBase = {
@@ -1186,8 +1232,8 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                     admissionSemesterId: pAdmissionSemesterId,
                     departmentId: pDepartmentId,
                     programId: pProgramId,
-                    entryLevelId: determinedEntryLevelId,
-                    currentLevelId: determinedEntryLevelId,
+                    entryLevelId: finalEntryLevelId,
+                    currentLevelId: finalEntryLevelId,
                     currentSeasonId: pAdmissionSeasonId,
                     currentSemesterId: pAdmissionSemesterId,
                     password: hashedPassword,
@@ -1197,17 +1243,23 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
 
                 let studentDetailsCreatePayload;
                 if (pDob || gender || sAddress || sPhone || sGuardianName || sGuardianPhone) {
-                    if (!gender && gender !== null && gender !== undefined) { // If gender isn't explicitly null, it's required for details creation
-                        rowErrors.push('Gender is required if providing other student details unless explicitly set to null.');
+                    if ((gender === undefined || gender === null || gender === "") && (pDob || sAddress || sPhone || sGuardianName || sGuardianPhone)) {
+                       rowErrors.push('Gender is required if providing other student details.');
+                    } else if (gender && !Object.values(Gender).includes(gender)) {
+                        rowErrors.push(`Invalid gender: ${gender}.`);
                     }
+
                     studentDetailsCreatePayload = {
                         dob: pDob,
-                        gender: gender || undefined,
+                        gender: gender || null,
                         address: sAddress,
                         phone: sPhone,
                         guardianName: sGuardianName,
                         guardianPhone: sGuardianPhone,
                     };
+                }
+                if (rowErrors.length > 0) { 
+                    throw new AppError(rowErrors.join('; '), 400);
                 }
                 
                 const createdStudent = await tx.student.create({
@@ -1215,23 +1267,45 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                         ...studentCreateDataBase,
                         ...(studentDetailsCreatePayload && { studentDetails: { create: studentDetailsCreatePayload } })
                     },
-                    select: { id: true, yearOfAdmission: true, entryMode: true, departmentId: true, email: true, jambRegNo: true }
+                    select: { id: true, yearOfAdmission: true, entryMode: true, departmentId: true, programId: true } 
                 });
 
                 existingEmails.add(createdStudent.email);
                 if (createdStudent.jambRegNo) existingJambRegNos.add(createdStudent.jambRegNo);
 
+                // --- Step 2: Generate Registration Number (MODIFIED LOGIC) ---
                 const yearAbbr = String(createdStudent.yearOfAdmission).slice(-2);
                 const entryModeAbbr = getEntryModeAbbreviation(createdStudent.entryMode);
                 const sequencePart = createdStudent.id.toString().padStart(5, '0');
-                const finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${createdStudent.departmentId}`;
+                
+                // Use the numerical department ID (as per initial undergraduate format)
+                const departmentIdentifier = createdStudent.departmentId; 
+                
+                const currentProgramRecord = programRecord; // Use the already fetched full program record
+                const degreeTypeAbbr = getDegreeTypeAbbreviation(currentProgramRecord.degreeType); 
+                
+                let finalRegNo;
+                if (degreeTypeAbbr) {
+                    // For ND, NCE, HND, PGD, M, PHD, CERTIFICATE, DIPLOMA - concat abbreviation
+                    // Format: YY/SEQ_MODE/DEPT_ID/DEGREE_TYPE_ABBR (e.g., 25/00001D/1/ND)
+                    finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}/${degreeTypeAbbr}`;
+                } else {
+                    // For Undergraduate - existing format
+                    // Format: YY/SEQ_MODE/DEPT_ID (e.g., 25/00002U/1)
+                    finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}`;
+                }
+                
+                if (existingRegNos.has(finalRegNo)) {
+                    throw new AppError(`Generated registration number '${finalRegNo}' already exists. Please try again or manually assign.`, 409);
+                }
+                existingRegNos.add(finalRegNo);
+
 
                 const studentWithRegNo = await tx.student.update({
                     where: { id: createdStudent.id },
                     data: { regNo: finalRegNo },
-                    select: { id: true, regNo: true }
+                    select: studentPublicSelection
                 });
-                existingRegNos.add(studentWithRegNo.regNo);
 
                 const admissionOffer = await tx.admissionOffer.findUnique({
                     where: { applicationProfileId: applicationProfileId },
@@ -1244,14 +1318,15 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                         data: {
                             generatedStudentRegNo: finalRegNo,
                             createdStudentId: createdStudent.id,
+                            offeredLevelId: finalEntryLevelId, 
+                            offeredProgramId: pProgramId,      
                         }
                     });
                 } else {
                     console.warn(`[BatchCreateStudents] Student created (ID: ${createdStudent.id}, RegNo: ${finalRegNo}) but no AdmissionOffer found for applicationProfileId: ${applicationProfileId}.`);
                 }
 
-                return { student: studentWithRegNo, message: 'Student created and offer updated successfully.' };
-
+                return studentWithRegNo;
             });
             successfulCreations.push(studentCreationResult);
         } catch (error) {

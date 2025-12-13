@@ -1,5 +1,3 @@
-// src/services/applicantProfile.service.js
-
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
 import { hashPassword } from '../utils/password.utils.js';
@@ -10,14 +8,16 @@ import {
     OLevelGrade,
     TertiaryQualificationType,
     DocumentType,
-    DegreeType // NEW: Import DegreeType
+    DegreeType, // Ensure DegreeType is imported
+    EntryMode // Ensure EntryMode is imported (for jambApplicant.entryMode)
 } from '../generated/prisma/index.js';
 
 
-// MODIFIED: profileFullSelection to include degreeType, jambRequired, and onlineScreeningRequired
+// MODIFIED: profileFullSelection remains as is (it already has programCode)
 const profileFullSelection = {
+    // ... (This section remains unchanged as it already includes bioData: true)
     id: true,
-    jambRegNo: true, // This can now be null
+    jambRegNo: true,
     email: true,
     phone: true,
     applicationStatus: true,
@@ -30,15 +30,15 @@ const profileFullSelection = {
         select: {
             id: true,
             lastLogin: true,
-            jambRegNo: true, // Include the screening list's JAMB RegNo
-            email: true, // Include the screening list's email
+            jambRegNo: true,
+            email: true,
             jambApplicant: {
                  select: {
                     jambRegNo: true,
                     name: true,
                     email:true,
                     programName: true,
-                    entryMode: true, // This is entryMode from JAMB
+                    entryMode: true,
                     jambScore: true,
                     gender: true,
                     jambSeason: {
@@ -51,14 +51,14 @@ const profileFullSelection = {
             }
         }
     },
-    targetProgram: { // This is the program the applicant applied for
+    targetProgram: {
         select: {
             id: true,
             name: true,
             programCode: true,
-            degreeType: true, // NEW: Include degreeType here
-            jambRequired: true, // NEW: Include jambRequired here
-            onlineScreeningRequired: true, // NEW: Include onlineScreeningRequired here
+            degreeType: true,
+            jambRequired: true,
+            onlineScreeningRequired: true,
             department: {
                 select: {
                     id: true,
@@ -73,7 +73,7 @@ const profileFullSelection = {
             }
         }
     },
-    bioData: true,
+    bioData: true, // This is already true here for full selection
     contactInfo: true,
     nextOfKin: true,
     guardianInfo: true,
@@ -96,7 +96,6 @@ const profileFullSelection = {
         },
         orderBy: { documentType: 'asc' }
     },
-    // IMPORTANT: AdmissionOffer selection fixed to include correct relations
     admissionOffer: {
         select: {
             id: true,
@@ -150,10 +149,10 @@ const profileFullSelection = {
     }
 };
 
-// MODIFIED: profileSummarySelection to include degreeType, jambRequired, and onlineScreeningRequired
+// --- CRITICAL MODIFICATION: profileSummarySelection to include bioData ---
 const profileSummarySelection = {
     id: true,
-    jambRegNo: true, // Can be null
+    jambRegNo: true,
     email: true,
     applicationStatus: true,
     hasPaidScreeningFee: true,
@@ -173,15 +172,34 @@ const profileSummarySelection = {
             }
         }
     },
-    bioData: { // Keep this for name
+    // ADD THIS BLOCK TO FETCH FIRST AND LAST NAMES
+    bioData: {
         select: {
             firstName: true,
             lastName: true,
-            nationality: true,
+            middleName: true, // You might want this too, though not used in applicantName directly
         }
     },
     targetProgram: {
-        select: { name: true, degreeType: true, jambRequired: true, onlineScreeningRequired: true } // NEW: Include degreeType, jambRequired, onlineScreeningRequired
+        select: { 
+            name: true, 
+            programCode: true, 
+            degreeType: true, 
+            jambRequired: true, 
+            onlineScreeningRequired: true,
+            department: { // Ensure department and faculty are selected for filtering
+                select: {
+                    id: true,
+                    name: true,
+                    faculty: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    }
+                }
+            }
+        }
     },
     uploadedDocuments: {
         where: {
@@ -197,8 +215,6 @@ const profileSummarySelection = {
 };
 
 
-
-// Make sure fetchFullProfile is still used correctly:
 async function fetchFullProfile(applicationProfileId) {
     const id = parseInt(applicationProfileId, 10);
     if (isNaN(id)) throw new AppError('Invalid applicationProfileId provided.', 400);
@@ -210,7 +226,6 @@ async function fetchFullProfile(applicationProfileId) {
     
     if (!rawProfile) throw new AppError('Application profile not found.', 404);
 
-    // Dynamic name from JAMB or BioData
     const jambApplicantName = rawProfile.onlineScreeningList?.jambApplicant?.name;
     const bioDataName = rawProfile.bioData ? `${rawProfile.bioData.firstName} ${rawProfile.bioData.lastName}` : null;
 
@@ -223,18 +238,18 @@ async function fetchFullProfile(applicationProfileId) {
     return transformedProfile;
 }
 
-// --- EXPORTED SERVICE FUNCTIONS ---
-
 export const getMyApplicationProfile = async (applicationProfileId) => {
     return fetchFullProfile(applicationProfileId);
 };
 
-// NEW: createApplicantProfileDirect function for non-JAMB applicants
-export const createApplicantProfileDirect = async (email, password, targetProgramId) => {
+// ... (rest of the service functions: createApplicantProfileDirect, getAllApplicationProfiles, updateMyApplicationProfile, etc.)
+// Make sure to use 'profileSummarySelection' in 'getAllApplicationProfiles' which it already does.
+
+export const createApplicantProfileDirect = async (email, password, targetProgramId, jambRegNo = null, firstName = null, lastName = null) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
         if (!email || !password || !targetProgramId) {
-            throw new AppError('Email, password, and target program are required for direct application.', 400);
+            throw new AppError('Email, password, and desired program are required.', 400);
         }
 
         const trimmedEmail = String(email).trim();
@@ -242,7 +257,7 @@ export const createApplicantProfileDirect = async (email, password, targetProgra
         if (isNaN(pTargetProgramId)) throw new AppError('Invalid Target Program ID format.', 400);
 
         const targetProgram = await prisma.program.findUnique({
-            where: { id: pTargetProgramId },
+            where: { id: pTProgramId },
             select: { id: true, name: true, degreeType: true, jambRequired: true }
         });
 
@@ -250,16 +265,14 @@ export const createApplicantProfileDirect = async (email, password, targetProgra
             throw new AppError(`Target Program with ID ${targetProgramId} not found.`, 404);
         }
 
-        // Only allow direct application for programs that do NOT require JAMB
-        if (targetProgram.jambRequired) {
-            throw new AppError(`Program '${targetProgram.name}' requires a JAMB registration. Please use the JAMB application flow.`, 400);
+        if (targetProgram.jambRequired && !jambRegNo) {
+             throw new AppError(`Program '${targetProgram.name}' requires a JAMB registration number, but none was provided.`, 400);
         }
+
 
         const hashedPassword = await hashPassword(password);
 
-        // Transaction to ensure both screening account and application profile are created
         const newProfile = await prisma.$transaction(async (tx) => {
-            // 1. Check if an OnlineScreeningList or ApplicationProfile already exists with this email
             const existingScreeningAccount = await tx.onlineScreeningList.findUnique({ where: { email: trimmedEmail } });
             if (existingScreeningAccount) {
                 throw new AppError(`An online screening account with email '${trimmedEmail}' already exists.`, 409);
@@ -269,32 +282,43 @@ export const createApplicantProfileDirect = async (email, password, targetProgra
                 throw new AppError(`An application profile with email '${trimmedEmail}' already exists.`, 409);
             }
 
-
-            // 1. Create OnlineScreeningList (using email as identifier)
             const onlineScreeningAccount = await tx.onlineScreeningList.create({
                 data: {
                     email: trimmedEmail,
                     password: hashedPassword,
                     isActive: true,
-                    // jambRegNo will be null here
                 },
                 select: { id: true, email: true }
             });
 
-            // 2. Create ApplicationProfile, linking to the new OnlineScreeningList
             const applicationProfile = await tx.applicationProfile.create({
                 data: {
                     email: trimmedEmail,
                     onlineScreeningListId: onlineScreeningAccount.id,
                     targetProgramId: targetProgram.id,
                     applicationStatus: ApplicationStatus.PENDING_SUBMISSION,
-                    // jambRegNo will be null here
+                    jambRegNo: jambRegNo // Pass jambRegNo if provided
                 },
                 select: {
                     id: true, email: true, applicationStatus: true, targetProgramId: true,
                     onlineScreeningListId: true, jambRegNo: true
                 }
             });
+
+            // NEW: Create ApplicantBioData if firstName or lastName are provided
+            if (firstName || lastName) {
+                await tx.applicantBioData.create({
+                    data: {
+                        applicationProfileId: applicationProfile.id,
+                        firstName: firstName,
+                        lastName: lastName,
+                        // You might want to default gender or other fields here,
+                        // or make them optional in bioData for initial creation.
+                        // For simplicity, defaulting to 'OTHER' for gender if not provided
+                        gender: Gender.OTHER // Default or set to null if your schema allows
+                    }
+                });
+            }
 
             return applicationProfile;
         });
@@ -305,6 +329,7 @@ export const createApplicantProfileDirect = async (email, password, targetProgra
         if (error.code === 'P2002') {
              const target = error.meta?.target;
              if (target?.includes('email')) throw new AppError('Email already in use for a screening account or application profile.', 409);
+             if (target?.includes('jambRegNo')) throw new AppError('JAMB Registration Number already in use for an application profile.', 409);
              throw new AppError('Failed to create profile due to a conflict.', 409);
         }
         console.error("Error creating direct applicant profile:", error.message, error.stack);
@@ -312,18 +337,9 @@ export const createApplicantProfileDirect = async (email, password, targetProgra
     }
 };
 
-// NOTE: The `createApplicantProfile` function in your provided code was problematic.
-// It was attempting to perform a login-like check and also create an OnlineScreeningList within it,
-// which is a responsibility handled by `onlineScreening.service.js` or the new `createApplicantProfileDirect`.
-// I am removing this ambiguous function, assuming new applications will go through
-// either `onlineScreening.service.createOnlineScreeningAccount` (for JAMB-linked)
-// or `applicantProfile.service.createApplicantProfileDirect` (for non-JAMB-linked).
-// If you still need a `createApplicantProfile` for other purposes, it would need a clear definition.
-
-
-// MODIFIED: getAllApplicationProfiles to include more robust searching and filtering
 export const getAllApplicationProfiles = async (query) => {
-    const { page = "1", limit = "10", search, programId, status, entryMode, seasonId } = query;
+    // 1. Destructure new filter parameters
+    const { page = "1", limit = "10", search, programId, status, entryMode, seasonId, departmentId, facultyId, degreeType } = query;
     const pageNum = parseInt(page, 10);
     const limitNum = parseInt(limit, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -333,20 +349,57 @@ export const getAllApplicationProfiles = async (query) => {
     if (search) {
         filters.push({
             OR: [
-                { jambRegNo: { contains: search } }, // Check nullable jambRegNo
-                { email: { contains: search } }, // Check email (primary for non-jamb)
-                // Search jambApplicant name via onlineScreeningList
-                { onlineScreeningList: { jambApplicant: { name: { contains: search } } } },
-                // Search bioData name directly
-                { bioData: { OR: [{ firstName: { contains: search } }, { lastName: { contains: search } }] } }
+                { jambRegNo: { contains: search} },
+                { email: { contains: search } },
+                { onlineScreeningList: { jambApplicant: { name: { contains: search,  } } } },
+                // Make sure bioData is correctly queried here if it's nested
+                { bioData: { OR: [{ firstName: { contains: search } }, { lastName: { contains: search} }] } }
             ]
         });
     }
     if (status && status !== 'all') { filters.push({ applicationStatus: status }); }
     if (programId && programId !== 'all') { filters.push({ targetProgramId: parseInt(programId, 10) }); }
     
-    // Filtering by entryMode or seasonId, consider it comes from jambApplicant
-    // This will only filter profiles that actually have a linked JAMB applicant.
+    // NEW: Filter by degreeType
+    if (degreeType && degreeType !== 'all') {
+        // Ensure the degreeType exists in your Prisma enum
+        if (!Object.values(DegreeType).includes(degreeType)) {
+             throw new AppError(`Invalid degree type: ${degreeType}.`, 400);
+        }
+        filters.push({
+            targetProgram: {
+                degreeType: degreeType
+            }
+        });
+    }
+
+    // NEW: Filter by departmentId
+    if (departmentId && departmentId !== 'all') {
+        const dId = parseInt(departmentId, 10);
+        if (!isNaN(dId)) {
+            filters.push({
+                targetProgram: {
+                    departmentId: dId
+                }
+            });
+        }
+    }
+
+    // NEW: Filter by facultyId
+    if (facultyId && facultyId !== 'all') {
+        const fId = parseInt(facultyId, 10);
+        if (!isNaN(fId)) {
+            filters.push({
+                targetProgram: {
+                    department: {
+                        facultyId: fId
+                    }
+                }
+            });
+        }
+    }
+
+
     const jambApplicantFilters = [];
     if (entryMode && entryMode !== 'all') { jambApplicantFilters.push({ entryMode: entryMode }); }
     if (seasonId && seasonId !== 'all') {
@@ -362,7 +415,7 @@ export const getAllApplicationProfiles = async (query) => {
     const [profiles, totalProfiles] = await prisma.$transaction([
         prisma.applicationProfile.findMany({
             where,
-            select: profileSummarySelection,
+            select: profileSummarySelection, // Uses the modified selection
             skip,
             take: limitNum,
             orderBy: { createdAt: 'desc' },
@@ -378,7 +431,6 @@ export const getAllApplicationProfiles = async (query) => {
     };
 };
 
-// MODIFIED: updateMyApplicationProfile to handle targetProgramId validation and password handling
 export const updateMyApplicationProfile = async (applicationProfileId, updateData) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
@@ -399,7 +451,7 @@ export const updateMyApplicationProfile = async (applicationProfileId, updateDat
         }
 
         const {
-            email, phone, targetProgramId, password, // 'password' is now handled on OnlineScreeningList
+            email, phone, targetProgramId, password, 
             bioData, contactInfo, nextOfKin, guardianInfo
         } = updateData;
 
@@ -413,7 +465,6 @@ export const updateMyApplicationProfile = async (applicationProfileId, updateDat
             const emailInUse = await prisma.applicationProfile.findFirst({where: {email: email, id: {not: id}}});
             if(emailInUse) throw new AppError('Email already in use.', 409);
             profileUpdates.email = email;
-            // Also update the linked onlineScreeningList email if it matches the old email
             const onlineScreening = await prisma.onlineScreeningList.findUnique({where: {id: existingProfile.onlineScreeningListId}});
             if(onlineScreening && onlineScreening.email === existingProfile.email) {
                 await prisma.onlineScreeningList.update({
@@ -436,7 +487,6 @@ export const updateMyApplicationProfile = async (applicationProfileId, updateDat
                 newTargetProgram = await prisma.program.findUnique({where: {id: pTProgramId}});
                 if (!newTargetProgram) throw new AppError(`Target Program ID ${pTProgramId} not found.`, 404);
 
-                // Validation: If new program requires JAMB, and applicant has no JAMB RegNo
                 if (newTargetProgram.jambRequired && !existingProfile.jambRegNo) {
                     throw new AppError(`Cannot switch to program '${newTargetProgram.name}' (ID: ${pTProgramId}) as it requires a JAMB Registration Number, which you do not have.`, 400);
                 }
@@ -444,9 +494,6 @@ export const updateMyApplicationProfile = async (applicationProfileId, updateDat
             profileUpdates.targetProgramId = pTProgramId;
         }
         if (password) {
-            // Note: ApplicationProfile itself doesn't have a password. 
-            // It's the OnlineScreeningList that holds the password.
-            // If the intent is to change the screening account password, that needs to be done via onlineScreeningService.
             console.warn("Attempted to update password via application profile. Passwords are on OnlineScreeningList. Ignoring.");
         }
 
@@ -542,7 +589,6 @@ export const saveOrUpdateApplicationStep = async (applicationProfileId, step, da
                 const { bioData, contactInfo, phone, email } = data;
                 
                 const profileUpdates = {};
-                // Handle potential email/phone updates at profile level (which also link to onlineScreeningList and ensure uniqueness)
                 if (phone && phone !== existingProfile.phone) {
                     const phoneInUse = await tx.applicationProfile.findFirst({where: {phone: phone, id: {not: applicationProfileId}}});
                     if(phoneInUse) throw new AppError('Phone number already in use by another applicant.', 409);
@@ -552,7 +598,6 @@ export const saveOrUpdateApplicationStep = async (applicationProfileId, step, da
                     const emailInUse = await tx.applicationProfile.findFirst({where: {email: email, id: {not: applicationProfileId}}});
                     if(emailInUse) throw new AppError('Email already in use by another applicant.', 409);
                     profileUpdates.email = email;
-                    // Also update the linked onlineScreeningList email if it matches the old email
                     const onlineScreening = await tx.onlineScreeningList.findUnique({where: {id: existingProfile.onlineScreeningListId}});
                     if(onlineScreening && onlineScreening.email === existingProfile.email) {
                         await tx.onlineScreeningList.update({
@@ -573,7 +618,7 @@ export const saveOrUpdateApplicationStep = async (applicationProfileId, step, da
                     if (bioData.dateOfBirth) bioData.dateOfBirth = new Date(bioData.dateOfBirth);
                     await tx.applicantBioData.upsert({
                         where: { applicationProfileId },
-                        create: { ...bioData, applicationProfileId },
+                        create: { applicationProfileId: applicationProfileId, ...bioData },
                         update: bioData,
                     });
                 }
@@ -581,7 +626,7 @@ export const saveOrUpdateApplicationStep = async (applicationProfileId, step, da
                 if (contactInfo) {
                     await tx.applicantContactInfo.upsert({
                         where: { applicationProfileId },
-                        create: { ...contactInfo, applicationProfileId },
+                        create: { applicationProfileId: applicationProfileId, ...contactInfo },
                         update: contactInfo,
                     });
                 }
@@ -593,14 +638,14 @@ export const saveOrUpdateApplicationStep = async (applicationProfileId, step, da
                 if (nextOfKin) {
                     await tx.applicantNextOfKin.upsert({
                         where: { applicationProfileId },
-                        create: { ...nextOfKin, applicationProfileId },
+                        create: { applicationProfileId: applicationProfileId, ...nextOfKin },
                         update: nextOfKin,
                     });
                 }
                 if (guardianInfo) {
                     await tx.applicantGuardianInfo.upsert({
                         where: { applicationProfileId },
-                        create: { ...guardianInfo, applicationProfileId },
+                        create: { applicationProfileId: applicationProfileId, ...guardianInfo },
                         update: guardianInfo,
                     });
                 }
@@ -612,7 +657,6 @@ export const saveOrUpdateApplicationStep = async (applicationProfileId, step, da
                     throw new AppError('O-Level results data is missing or not an array.', 400);
                 }
                 
-                // Delete existing O-Level results before creating new ones for this sitting
                 await tx.applicantOLevelResult.deleteMany({ where: { applicationProfileId } });
 
                 for (const result of oLevelResults) {
@@ -640,7 +684,6 @@ export const saveOrUpdateApplicationStep = async (applicationProfileId, step, da
                     throw new AppError('Higher qualifications data must be an array.', 400);
                 }
                 
-                // Delete existing tertiary qualifications before creating new ones
                 await tx.applicantTertiaryQualification.deleteMany({ where: { applicationProfileId } });
                 
                 for (const qual of tertiaryQualifications) {
@@ -656,7 +699,6 @@ export const saveOrUpdateApplicationStep = async (applicationProfileId, step, da
                 break;
             
             case 'documents':
-                // Document uploads are handled by saveOrUpdateSingleDocument, not directly here.
                 console.log(`Step 'documents' processed. No data to save in this step.`);
                 break;
                 
@@ -690,9 +732,9 @@ export const saveOrUpdateSingleDocument = async (applicationProfileId, documentD
                 fileName,
                 fileType,
                 fileSize,
-                status: DocumentUploadStatus.UPLOADED, // Reset status to UPLOADED on update
-                rejectionReason: null, // Clear rejection reason on new upload
-                verifiedBy: null, // Clear verification status
+                status: DocumentUploadStatus.UPLOADED,
+                rejectionReason: null,
+                verifiedBy: null,
                 verifiedAt: null,
             }
         });
@@ -714,7 +756,7 @@ export const saveOrUpdateSingleDocument = async (applicationProfileId, documentD
     return getMyApplicationProfile(applicationProfileId);
 };
 
-// MODIFIED: submitApplicationProfile to conditionally check for JAMB document and tertiary documents based on program type
+// --- UPDATED submitApplicationProfile FUNCTION ---
 export const submitApplicationProfile = async (applicationProfileId) => {
     const id = parseInt(applicationProfileId, 10);
     
@@ -725,8 +767,22 @@ export const submitApplicationProfile = async (applicationProfileId) => {
             contactInfo: true, 
             oLevelResults: { include: { subjects: true } },
             uploadedDocuments: true,
-            targetProgram: { select: { jambRequired: true, degreeType: true } }, // Fetch target program details
-            tertiaryQualifications: true // Needed for postgraduate/DE validation
+            targetProgram: { 
+                select: { 
+                    jambRequired: true, 
+                    degreeType: true 
+                } 
+            },
+            tertiaryQualifications: true,
+            onlineScreeningList: {
+                select: {
+                    jambApplicant: { // To get the JAMB EntryMode
+                        select: {
+                            entryMode: true
+                        }
+                    }
+                }
+            }
         }
     });
 
@@ -737,79 +793,164 @@ export const submitApplicationProfile = async (applicationProfileId) => {
         throw new AppError(`Application cannot be submitted. Current status: '${profile.applicationStatus}'`, 400);
     }
 
-    if (!profile.targetProgram) {
+    const isJambApplicant = profile.jambRegNo !== null; // Check if jambRegNo is present
+    const isProgramSelectionDeferredForJambApplicant = isJambApplicant && !profile.targetProgram;
+
+    if (!profile.targetProgram && !isProgramSelectionDeferredForJambApplicant) {
         throw new AppError('Please select a target program before submitting your application.', 400);
     }
     
     const userDocs = profile.uploadedDocuments.map(d => d.documentType);
-    let requiredDocs = [
-        DocumentType.PROFILE_PHOTO, 
-        DocumentType.BIRTH_CERTIFICATE,
-    ];
+    const targetDegreeType = profile.targetProgram?.degreeType; // This can now be null if selection is deferred
+    const jambEntryMode = profile.onlineScreeningList?.jambApplicant?.entryMode; // EntryMode from JAMB if available
+    const programRequiresJamb = profile.targetProgram?.jambRequired; // Only check if targetProgram exists
 
-    // O-Level certificate is generally required for all non-postgraduate degrees.
-    // If the institution allows two sittings, ensure logic supports either 1st or 2nd.
-    const hasOLevelCert = userDocs.includes(DocumentType.OLEVEL_CERTIFICATE_FIRST_SITTING) || userDocs.includes(DocumentType.OLEVEL_CERTIFICATE_SECOND_SITTING);
-    if (!hasOLevelCert && ![DegreeType.POSTGRADUATE_DIPLOMA, DegreeType.MASTERS, DegreeType.PHD].includes(profile.targetProgram.degreeType)) {
-        requiredDocs.push(DocumentType.OLEVEL_CERTIFICATE_FIRST_SITTING); // Or handle 2nd sitting specifically if needed
-    }
-
-
-    // Conditional document requirements based on program type
-    if (profile.targetProgram.jambRequired) {
-        requiredDocs.push(DocumentType.JAMB_RESULT_SLIP);
-    }
-
-    const isPostgraduate = [
-        DegreeType.POSTGRADUATE_DIPLOMA, DegreeType.MASTERS, DegreeType.PHD
-    ].includes(profile.targetProgram.degreeType);
-
-    const isDirectEntryEquivalent = [
-        DegreeType.HND, DegreeType.ND, DegreeType.NCE, DegreeType.DIPLOMA, DegreeType.CERTIFICATE
-    ].includes(profile.targetProgram.degreeType) && !profile.targetProgram.jambRequired; // Assuming non-JAMB HND/ND/NCE/Diploma/Cert is like DE
-
-    if (isPostgraduate || isDirectEntryEquivalent) {
-        requiredDocs.push(DocumentType.TERTIARY_CERTIFICATE); // e.g., ND cert for HND, BSc for Masters
-        requiredDocs.push(DocumentType.TERTIARY_TRANSCRIPT); // For academic record verification
-
-        if (!profile.tertiaryQualifications || profile.tertiaryQualifications.length === 0) {
-            throw new AppError('Tertiary (Higher) Qualifications are required for your chosen program. Please add them in the "Higher Qualification" step.', 400);
-        }
-    }
-
-    // Always require Certificate of Origin for all programs unless explicitly waived
-    requiredDocs.push(DocumentType.CERTIFICATE_OF_ORIGIN);
-
-
-    // Validate presence of all required documents
-    for (const docType of requiredDocs) {
-        if (!userDocs.includes(docType)) {
-            const friendlyName = docType.replace(/_/g, ' ');
-            // Capitalize each word for a friendlier error message
-            throw new AppError(`${friendlyName.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} is a required document for your chosen program. Please upload it.`, 400);
-        }
-    }
-
-    // Basic data integrity checks (can be made more specific)
+    // --- Basic Data Integrity Checks ---
     if (!profile.bioData) throw new AppError('Bio-data is incomplete. Please fill out all required personal information.', 400);
     if (!profile.contactInfo) throw new AppError('Contact information is incomplete. Please fill out all required contact details.', 400);
     
-    // For non-postgraduate, O-Levels are generally expected
-    if (!isPostgraduate && profile.oLevelResults.length === 0) {
-        throw new AppError('O-Level results are required for this program. Please add at least one sitting.', 400);
+    // --- Universal Document Requirements ---
+    const universalRequiredDocs = [
+        DocumentType.PROFILE_PHOTO, 
+        DocumentType.BIRTH_CERTIFICATE,
+        DocumentType.CERTIFICATE_OF_ORIGIN,
+    ];
+    for (const docType of universalRequiredDocs) {
+        if (!userDocs.includes(docType)) {
+            const friendlyName = String(docType).replace(/_/g, ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            throw new AppError(`${friendlyName} is a required document. Please upload it.`, 400);
+        }
+    }
+
+    // --- O-Level Document Requirement (Universal) ---
+    const hasOLevelCert = userDocs.includes(DocumentType.OLEVEL_CERTIFICATE_FIRST_SITTING) || 
+                           userDocs.includes(DocumentType.OLEVEL_CERTIFICATE_SECOND_SITTING);
+    if (!hasOLevelCert) {
+        throw new AppError('O-Level Certificate (First or Second Sitting) is a required document for all applicants. Please upload it.', 400);
+    }
+
+    // --- JAMB Result Slip Requirement ---
+    // Rule: Undergraduate/HND applicants (JAMB-sourced) need JAMB slip.
+    if (isJambApplicant && (targetDegreeType === DegreeType.UNDERGRADUATE || targetDegreeType === DegreeType.HND || isProgramSelectionDeferredForJambApplicant)) {
+        if (!userDocs.includes(DocumentType.JAMB_RESULT_SLIP)) {
+            throw new AppError('As a JAMB applicant for an Undergraduate or HND program, your JAMB Result Slip is required. Please upload it.', 400);
+        }
+    }
+    // For other degree types (PGD, Masters, PhD, ND, NCE, Certificate, Diploma) or non-JAMB applicants, JAMB slip is not required.
+
+
+    // --- Tertiary (Higher) Qualification & Document Requirements ---
+    let requiredTertiaryQualsCount = 0; // Number of tertiary qualification records required
+    let requireTertiaryCertDoc = false;
+    let requireTertiaryTranscriptDoc = false;
+
+    const currentTertiaryQualsCount = profile.tertiaryQualifications?.length || 0;
+
+    // Only apply tertiary qualification rules if a target program IS selected.
+    // If program selection is deferred for JAMB applicant, skip these complex checks for now,
+    // as their actual tertiary requirements depend on the program they are eventually assigned.
+    if (!isProgramSelectionDeferredForJambApplicant && targetDegreeType) { // Only proceed if program selected
+        switch (targetDegreeType) {
+            case DegreeType.UNDERGRADUATE:
+            case DegreeType.HND:
+                // Rule: UG/HND (JAMB DE) needs 1 tertiary qual (ND or NCE for UG, ND for HND)
+                if (isJambApplicant && jambEntryMode === EntryMode.DIRECT_ENTRY) {
+                    requiredTertiaryQualsCount = 1;
+                    requireTertiaryCertDoc = true;
+                    // Transcript NOT required for UG/HND Direct Entry (as per your rule)
+                }
+                // Rule: For non-JAMB direct entry to UG/HND (if your system allows this path, e.g. for HND direct entry without JAMB)
+                // Assuming such applicants still need 1 tertiary qual.
+                else if (!isJambApplicant && (targetDegreeType === DegreeType.UNDERGRADUATE || targetDegreeType === DegreeType.HND)) {
+                     requiredTertiaryQualsCount = 1;
+                     requireTertiaryCertDoc = true;
+                }
+                // UTME does not require tertiary qualifications (default 0)
+                break;
+
+            case DegreeType.POSTGRADUATE_DIPLOMA:
+                // Rule: PGD requires 1 qualification (HND or BSc)
+                requiredTertiaryQualsCount = 1;
+                requireTertiaryCertDoc = true;
+                // Transcript NOT required for PGD (as per your rule)
+                break;
+
+            case DegreeType.MASTERS:
+                // Rule: Masters requires 1 qualification (BSc or PGD)
+                requiredTertiaryQualsCount = 1;
+                requireTertiaryCertDoc = true;
+
+                // Conditional Transcript for Masters: if no PGD among existing qualifications
+                const hasPGD = profile.tertiaryQualifications?.some(
+                    (q) => q.qualificationObtained === TertiaryQualificationType.PGD
+                );
+                if (!hasPGD) {
+                    requireTertiaryTranscriptDoc = true; // If no PGD, then transcript is needed (assuming from Bachelor's)
+                }
+                break;
+
+            case DegreeType.PHD:
+                // Rule: PhD requires 2 qualifications (Master's and BSc)
+                requiredTertiaryQualsCount = 2;
+                requireTertiaryCertDoc = true;
+                requireTertiaryTranscriptDoc = true;
+                break;
+                
+            case DegreeType.PROFESSIONAL_DOCTORATE: // Assumed this from "Assoc Pro"
+                // Rule: Professional Doctorate requires 3 qualifications
+                requiredTertiaryQualsCount = 3;
+                requireTertiaryCertDoc = true;
+                requireTertiaryTranscriptDoc = true;
+                break;
+
+            case DegreeType.ND:
+            case DegreeType.NCE:
+            case DegreeType.CERTIFICATE:
+            case DegreeType.DIPLOMA:
+                // Rule: These programs do not require higher qualifications (data or documents)
+                break;
+
+            default:
+                // Handle any other/new degree types. Default to no tertiary requirements.
+                break;
+        }
+    } else if (isProgramSelectionDeferredForJambApplicant) {
+        // If program is not selected for JAMB applicants, do NOT enforce any tertiary quals/docs for submission.
+        // These will be checked after program assignment.
+        requiredTertiaryQualsCount = 0;
+        requireTertiaryCertDoc = false;
+        requireTertiaryTranscriptDoc = false;
     }
 
 
+    // Validate Tertiary Qualification Data (records entered in the "Higher Qualification" step)
+    if (requiredTertiaryQualsCount > 0) {
+        if (currentTertiaryQualsCount < requiredTertiaryQualsCount) {
+            throw new AppError(
+                `Tertiary (Higher) Qualifications are required for your chosen program. You need to provide at least ${requiredTertiaryQualsCount} qualification(s) in the "Higher Qualification" step.`,
+                400
+            );
+        }
+    }
+
+    // Validate Tertiary Qualification Documents
+    if (requireTertiaryCertDoc && !userDocs.includes(DocumentType.TERTIARY_CERTIFICATE)) {
+        throw new AppError('TERTIARY CERTIFICATE is a required document for your chosen program. Please upload it.', 400);
+    }
+    if (requireTertiaryTranscriptDoc && !userDocs.includes(DocumentType.TERTIARY_TRANSCRIPT)) {
+        throw new AppError('TERTIARY TRANSCRIPT is a required document for your chosen program. Please upload it.', 400);
+    }
+
+    // If all checks pass, update application status to SUBMITTED
     const updatedProfile = await prisma.applicationProfile.update({
         where: { id },
         data: { applicationStatus: ApplicationStatus.SUBMITTED },
-        select: profileFullSelection 
+        select: profileFullSelection
     });
 
     return updatedProfile;
 };
 
-// MODIFIED: updateProfileAndAddToScreening to use nullable jambRegNo correctly
 export const updateProfileAndAddToScreening = async (applicationProfileId, payload) => {
     const { targetProgramId, remarks } = payload;
 
@@ -837,16 +978,14 @@ export const updateProfileAndAddToScreening = async (applicationProfileId, paylo
             update: {}, // If exists, do nothing or update timestamps/updater
             create: {
                 applicationProfileId: applicationProfileId,
-                jambRegNo: profile.jambRegNo, // This now safely uses the nullable jambRegNo from ApplicationProfile
-                status: ApplicationStatus.UNDER_REVIEW,
-                remarks: 'Added to screening list by admin.',
+                jambRegNo: profile.jambRegNo,
+                status: 'UNDER_REVIEW',
             }
         });
 
         return profile;
     });
 
-    // Re-fetch the full profile after the transaction to ensure consistency
     const fullUpdatedProfile = await prisma.applicationProfile.findUnique({
         where: { id: applicationProfileId },
         select: profileFullSelection,

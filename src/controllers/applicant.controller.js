@@ -1,17 +1,16 @@
-// src/controllers/applicant.controller.js
 import * as ApplicationProfileService from '../services/applicationProfile.service.js';
-import * as authService from '../services/auth.service.js'; // NEW: Import auth service for login
-import prisma from '../config/prisma.js'; // NEW: Import prisma for direct DB queries in controller for validation
+import * as authService from '../services/auth.service.js';
+import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
-import { DegreeType } from '../generated/prisma/index.js'; // Import DegreeType enum
+import { DegreeType } from '../generated/prisma/index.js';
 
 // Controller for ND/NCE self-registration
 export const registerNdNceApplicant = async (req, res, next) => {
     try {
-        const { email, password, targetProgramId } = req.body;
+        const { email, password, targetProgramId, jambRegNo, firstName, lastName } = req.body; // ADD firstName, lastName
 
-        if (!email || !password || !targetProgramId) {
-            return next(new AppError('Email, password, and desired program are required.', 400));
+        if (!email || !password || !targetProgramId || !firstName || !lastName) { // firstName and lastName now required for this portal
+            return next(new AppError('Email, password, first name, last name, and desired program are required.', 400));
         }
 
         const programIdNum = parseInt(targetProgramId, 10);
@@ -19,7 +18,6 @@ export const registerNdNceApplicant = async (req, res, next) => {
             return next(new AppError('Invalid program ID format.', 400));
         }
 
-        // Fetch the program to perform specific validation before calling the service
         const programDetails = await prisma.program.findUnique({
             where: { id: programIdNum },
             select: { name: true, degreeType: true, jambRequired: true, onlineScreeningRequired: true }
@@ -31,7 +29,6 @@ export const registerNdNceApplicant = async (req, res, next) => {
         if (programDetails.jambRequired) {
             return next(new AppError(`Program '${programDetails.name}' requires a JAMB registration. Please use the appropriate JAMB application portal.`, 400));
         }
-        // Include HND here as it can also be a direct entry option with online screening
         if (![DegreeType.ND, DegreeType.NCE, DegreeType.HND].includes(programDetails.degreeType)) {
             return next(new AppError(`Selected program '${programDetails.name}' is not an ND, NCE, or HND program suitable for this registration path.`, 400));
         }
@@ -40,7 +37,7 @@ export const registerNdNceApplicant = async (req, res, next) => {
         }
 
         const newApplicantProfile = await ApplicationProfileService.createApplicantProfileDirect(
-            email, password, targetProgramId
+            email, password, targetProgramId, jambRegNo, firstName, lastName // PASS firstName, lastName
         );
 
         res.status(201).json({
@@ -53,13 +50,13 @@ export const registerNdNceApplicant = async (req, res, next) => {
     }
 };
 
-// Controller for Postgraduate/Certificate self-registration
+// MODIFIED: Controller for Postgraduate/Certificate self-registration (NO online screening)
 export const registerPostgraduateCertificateApplicant = async (req, res, next) => {
     try {
-        const { email, password, targetProgramId } = req.body;
+        const { email, password, targetProgramId, jambRegNo, firstName, lastName } = req.body; // ADD firstName, lastName
 
-        if (!email || !password || !targetProgramId) {
-            return next(new AppError('Email, password, and desired program are required.', 400));
+        if (!email || !password || !targetProgramId || !firstName || !lastName) { // firstName and lastName now required for this portal
+            return next(new AppError('Email, password, first name, last name, and desired program are required.', 400));
         }
 
         const programIdNum = parseInt(targetProgramId, 10);
@@ -82,11 +79,11 @@ export const registerPostgraduateCertificateApplicant = async (req, res, next) =
             return next(new AppError(`Selected program '${programDetails.name}' is not a Postgraduate, Certificate, or Diploma program suitable for this registration path.`, 400));
         }
         if (programDetails.onlineScreeningRequired) {
-            return next(new AppError(`Selected program '${programDetails.name}' requires online screening. Please use the ND/NCE or Undergraduate direct entry portal.`, 400));
+            return next(new AppError(`Selected program '${programDetails.name}' requires online screening. Please use the ND/NCE or Undergraduate direct entry portal, or the dedicated Postgraduate Online Screening portal.`, 400));
         }
 
         const newApplicantProfile = await ApplicationProfileService.createApplicantProfileDirect(
-            email, password, targetProgramId
+            email, password, targetProgramId, jambRegNo, firstName, lastName // PASS firstName, lastName
         );
 
         res.status(201).json({
@@ -98,6 +95,54 @@ export const registerPostgraduateCertificateApplicant = async (req, res, next) =
         next(error);
     }
 };
+
+
+// MODIFIED: Controller for Postgraduate/Master's/PhD/Certificate/Diploma self-registration WITH online screening
+export const registerPostgraduateWithOnlineScreeningApplicant = async (req, res, next) => {
+    try {
+        const { email, password, targetProgramId, jambRegNo, firstName, lastName } = req.body; // ADD firstName, lastName
+
+        if (!email || !password || !targetProgramId || !firstName || !lastName) { // firstName and lastName now required for this portal
+            return next(new AppError('Email, password, first name, last name, and desired program are required.', 400));
+        }
+
+        const programIdNum = parseInt(targetProgramId, 10);
+        if (isNaN(programIdNum)) {
+            return next(new AppError('Invalid program ID format.', 400));
+        }
+
+        const programDetails = await prisma.program.findUnique({
+            where: { id: programIdNum },
+            select: { name: true, degreeType: true, jambRequired: true, onlineScreeningRequired: true }
+        });
+
+        if (!programDetails) {
+            return next(new AppError('Selected program not found.', 404));
+        }
+        if (programDetails.jambRequired) {
+            return next(new AppError(`Program '${programDetails.name}' requires a JAMB registration. Please use the appropriate JAMB application portal.`, 400));
+        }
+        if (![DegreeType.POSTGRADUATE_DIPLOMA, DegreeType.MASTERS, DegreeType.PHD, DegreeType.CERTIFICATE, DegreeType.DIPLOMA].includes(programDetails.degreeType)) {
+            return next(new AppError(`Selected program '${programDetails.name}' is not a Postgraduate, Certificate, or Diploma program suitable for this online screening registration path.`, 400));
+        }
+        if (!programDetails.onlineScreeningRequired) {
+            return next(new AppError(`Selected program '${programDetails.name}' does not require online screening. Please use the standard Postgraduate/Other Direct Entry portal.`, 400));
+        }
+
+        const newApplicantProfile = await ApplicationProfileService.createApplicantProfileDirect(
+            email, password, targetProgramId, jambRegNo, firstName, lastName // PASS firstName, lastName
+        );
+
+        res.status(201).json({
+            status: 'success',
+            message: 'Postgraduate application account with online screening created successfully. Please log in to complete your profile and screening.',
+            data: { applicantProfileId: newApplicantProfile.id, email: newApplicantProfile.email }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 
 // Controller for applicant login (wraps authService.loginApplicantScreening)
 export const loginApplicantScreening = async (req, res, next) => {
@@ -140,3 +185,10 @@ export const submitApplication = async (req, res, next) => {
         next(error);
     }
 };
+
+/*
+   The `createApplicantProfileDirect` function from the service is imported implicitly via ApplicationProfileService.
+   The original context had a duplicate definition of createApplicantProfileDirect;
+   it should reside within ApplicationProfileService (as shown in the provided service file)
+   and imported/used by controllers via `ApplicationProfileService.createApplicantProfileDirect`.
+*/

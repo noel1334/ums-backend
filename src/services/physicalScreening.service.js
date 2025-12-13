@@ -1,8 +1,7 @@
-// src/services/physicalScreening.service.js
 import prisma from '../config/prisma.js';
 import config from '../config/index.js';
 import AppError from '../utils/AppError.js';
-import { ApplicationStatus, EntryMode } from '../generated/prisma/index.js';
+import { ApplicationStatus, EntryMode, DegreeType } from '../generated/prisma/index.js';
 import { sendEmail } from '../utils/email.js'; 
 
 const physicalScreeningSelection = {
@@ -20,14 +19,42 @@ const physicalScreeningSelection = {
             id: true,
             jambRegNo: true,
             email: true,
+            phone: true,
             targetProgramId: true, 
-            targetProgram: {
-                select: { name: true }
+            bioData: { // Fetch bioData for applicant name fallback
+                select: {
+                    firstName: true,
+                    lastName: true,
+                    gender: true,
+                    dateOfBirth: true,
+                    nationality: true
+                }
+            },
+            targetProgram: { // Ensure targetProgram includes department, faculty, and degreeType for filtering
+                select: { 
+                    id: true,
+                    name: true,
+                    programCode: true,
+                    degree: true,
+                    degreeType: true, // IMPORTANT: Include degreeType
+                    department: {
+                        select: {
+                            id: true,
+                            name: true,
+                            faculty: {
+                                select: {
+                                    id: true,
+                                    name: true
+                                }
+                            }
+                        }
+                    }
+                }
             },
             onlineScreeningList: {
                 select: {
-                    jambApplicant: {
-                        select: { name: true, entryMode: true }
+                    jambApplicant: { // Correctly nested under 'select' for the relation
+                        select: { name: true, entryMode: true, jambSeason: { select: { name: true } } }
                     }
                 }
             },
@@ -37,7 +64,7 @@ const physicalScreeningSelection = {
                 },
                 select: {
                     fileUrl: true,
-                    documentType: true // <--- ADD THIS LINE HERE!
+                    documentType: true
                 },
                 take: 1
             }
@@ -63,12 +90,14 @@ export const getAllPhysicalScreeningRecords = async (query) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
         
-        // --- THIS IS THE FIX ---
         const {
             search,
             status,
             programId,
-            seasonId, // Correctly receive seasonId
+            seasonId,
+            departmentId, // NEW: departmentId filter
+            facultyId,    // NEW: facultyId filter
+            degreeType,   // NEW: degreeType filter
             page = "1",
             limit = "10"
         } = query;
@@ -76,12 +105,13 @@ export const getAllPhysicalScreeningRecords = async (query) => {
         const where = {};
         const filters = [];
 
-        // Add search logic for name and JAMB number
         if (search) {
             filters.push({
                 OR: [
-                    { jambRegNo: { contains: search } },
-                    { applicationProfile: { onlineScreeningList: { jambApplicant: { name: { contains: search } } } } }
+                    { jambRegNo: { contains: search } }, // Removed mode: 'insensitive' based on previous issue
+                    // Search bioData names too
+                    { applicationProfile: { bioData: { OR: [{ firstName: { contains: search } }, { lastName: { contains: search } }] } } }, // Removed mode: 'insensitive'
+                    { applicationProfile: { onlineScreeningList: { jambApplicant: { name: { contains: search } } } } } // Removed mode: 'insensitive'
                 ]
             });
         }
@@ -90,18 +120,43 @@ export const getAllPhysicalScreeningRecords = async (query) => {
             filters.push({ status: status });
         }
         
-        // Add filtering for program and season on the nested ApplicationProfile
         const applicationProfileWhere = {};
+        // Initialize targetProgram filter if it will be used
+        let targetProgramFilter = {};
+
         if (programId && programId !== 'all') {
-            applicationProfileWhere.targetProgramId = parseInt(programId, 10);
+            targetProgramFilter.id = parseInt(programId, 10);
         }
         if (seasonId && seasonId !== 'all') {
-            // Filter by the season associated with the applicant
             applicationProfileWhere.onlineScreeningList = {
                 jambApplicant: {
                     jambSeasonId: parseInt(seasonId, 10)
                 }
             };
+        }
+
+        // NEW Filters: Department, Faculty, DegreeType (all via applicationProfile.targetProgram)
+        if (departmentId && departmentId !== 'all') {
+            targetProgramFilter.departmentId = parseInt(departmentId, 10);
+        }
+
+        if (facultyId && facultyId !== 'all') {
+            targetProgramFilter.department = {
+                facultyId: parseInt(facultyId, 10)
+            };
+        }
+
+        if (degreeType && degreeType !== 'all') {
+            // Validate degreeType against your Prisma enum if necessary (or rely on Prisma's own validation)
+            if (!Object.values(DegreeType).includes(degreeType)) {
+                throw new AppError(`Invalid degree type: ${degreeType}.`, 400);
+            }
+            targetProgramFilter.degreeType = degreeType;
+        }
+
+        // If any targetProgram filters were set, add them to applicationProfileWhere
+        if (Object.keys(targetProgramFilter).length > 0) {
+            applicationProfileWhere.targetProgram = targetProgramFilter;
         }
 
         if (Object.keys(applicationProfileWhere).length > 0) {
@@ -119,7 +174,7 @@ export const getAllPhysicalScreeningRecords = async (query) => {
         const [records, totalRecords] = await prisma.$transaction([
             prisma.physicalScreeningList.findMany({
                 where,
-                select: physicalScreeningSelection, // Your existing selection object
+                select: physicalScreeningSelection,
                 orderBy: { createdAt: 'desc' },
                 skip,
                 take: limitNum
@@ -165,13 +220,11 @@ export const getPhysicalScreeningByApplicationProfileId = async (applicationProf
         const profileId = parseInt(applicationProfileId, 10);
         if (isNaN(profileId)) throw new AppError('Invalid Application Profile ID format.', 400);
 
-        const record = await prisma.physicalScreeningList.findUnique({ // It's unique per profileId
+        const record = await prisma.physicalScreeningList.findUnique({
             where: { applicationProfileId: profileId },
             select: physicalScreeningSelection
         });
-        // It's okay if not found, might mean screening hasn't happened. Client should handle.
-        // if (!record) throw new AppError('Physical screening record not found for this application profile.', 404);
-        return record; // Can be null
+        return record;
     } catch (error) {
         if (error instanceof AppError) throw error;
         console.error("[PHYSICAL_SCREENING_SERVICE] GetByAppProfileId:", error.message, error.stack);
@@ -193,9 +246,7 @@ export const updatePhysicalScreeningRecord = async (id, updateData, updaterUserI
         throw new AppError('Physical screening record not found for update.', 404);
     }
     
-    // Use a transaction to update both the screening record and the application profile
     const updatedRecord = await prisma.$transaction(async (tx) => {
-        // 1. Update the PhysicalScreeningList itself
         const screeningUpdates = {};
         if (status) screeningUpdates.status = status;
         if (remarks !== undefined) screeningUpdates.remarks = remarks;
@@ -206,7 +257,6 @@ export const updatePhysicalScreeningRecord = async (id, updateData, updaterUserI
             select: physicalScreeningSelection
         });
 
-        // 2. If a targetProgramId is provided, update the related ApplicationProfile
         if (targetProgramId) {
             await tx.applicationProfile.update({
                 where: { id: existingRecord.applicationProfileId },
@@ -214,7 +264,6 @@ export const updatePhysicalScreeningRecord = async (id, updateData, updaterUserI
             });
         }
         
-        // 3. If screening status changes, update the ApplicationProfile status too
         if (status && (status === ApplicationStatus.SCREENING_PASSED || status === ApplicationStatus.SCREENING_FAILED)) {
              await tx.applicationProfile.update({
                  where: { id: existingRecord.applicationProfileId },
@@ -222,7 +271,6 @@ export const updatePhysicalScreeningRecord = async (id, updateData, updaterUserI
              });
         }
         
-        // Re-fetch the record within the transaction to ensure all data is consistent
         return tx.physicalScreeningList.findUnique({
             where: { id: recordId },
             select: physicalScreeningSelection,
@@ -243,7 +291,6 @@ export const deletePhysicalScreeningRecord = async (id) => {
         });
         if (!existingRecord) throw new AppError('Physical screening record not found for deletion.', 404);
 
-        // Business Rule: Cannot delete if an admission offer has been made based on this screening
         if (existingRecord.admissionOffer) {
             throw new AppError('Cannot delete screening record. An admission offer is linked to it.', 400);
         }
@@ -252,7 +299,6 @@ export const deletePhysicalScreeningRecord = async (id) => {
         return { message: `Physical screening record for applicant ${existingRecord.jambRegNo} deleted successfully.` };
     } catch (error) {
         if (error instanceof AppError) throw error;
-        // P2003 could happen if AdmissionOffer has ON DELETE RESTRICT on physicalScreeningId
         if (error.code === 'P2003') {
             throw new AppError('Cannot delete this record as it is referenced by an admission offer.', 400);
         }
@@ -271,10 +317,9 @@ export const addSingleProfileToScreening = async (applicationProfileId) => {
         throw new AppError(`Application Profile with ID ${applicationProfileId} not found.`, 404);
     }
     
-    // Use upsert to create if not exists, and do nothing if it exists.
     const screeningRecord = await prisma.physicalScreeningList.upsert({
         where: { applicationProfileId },
-        update: {}, // Do nothing if it already exists
+        update: {},
         create: {
             applicationProfileId: profile.id,
             jambRegNo: profile.jambRegNo,
@@ -285,7 +330,6 @@ export const addSingleProfileToScreening = async (applicationProfileId) => {
     return screeningRecord;
 };
 
-// --- ADD THIS FUNCTION FOR BATCH CREATION ---
 export const addBatchProfilesToScreening = async (applicationProfileIds) => {
     if (!applicationProfileIds || !Array.isArray(applicationProfileIds) || applicationProfileIds.length === 0) {
         throw new AppError('An array of applicationProfileIds is required.', 400);
@@ -309,7 +353,7 @@ export const addBatchProfilesToScreening = async (applicationProfileIds) => {
     }));
     const result = await prisma.physicalScreeningList.createMany({
         data: screeningDataToCreate,
-        skipDuplicates: true, // This is the key!
+        skipDuplicates: true,
     });
 
     return { createdCount: result.count };
@@ -320,7 +364,6 @@ export const batchDeletePhysicalScreeningRecords = async (recordIds) => {
         throw new AppError('An array of screening record IDs is required.', 400);
     }
     
-    // Optional: Add a business rule check.
     const recordsWithOffersCount = await prisma.physicalScreeningList.count({
         where: {
             id: { in: recordIds },
@@ -332,7 +375,6 @@ export const batchDeletePhysicalScreeningRecords = async (recordIds) => {
         throw new AppError(`Cannot delete. ${recordsWithOffersCount} of the selected records are linked to an admission offer.`, 400);
     }
 
-    // Proceed with deletion
     const deleteResult = await prisma.physicalScreeningList.deleteMany({
         where: {
             id: { in: recordIds },
@@ -347,13 +389,11 @@ export const batchDeletePhysicalScreeningRecords = async (recordIds) => {
 
 
 export const batchUpdateScreeningRecords = async (payload) => {
-    // --- Destructure the correct fields from the payload ---
-    const { recordIds, screeningDate, screeningStartDate, screeningEndDate } = payload;
+    const { recordIds, screeningDate, screeningStartDate, screeningEndDate, screeningVenue, remarks } = payload;
     
     if (!recordIds || !Array.isArray(recordIds) || recordIds.length === 0) {
         throw new AppError('An array of screening record IDs is required.', 400);
     }
-    // --- Update validation ---
     if (!screeningDate || !screeningStartDate || !screeningEndDate) {
         throw new AppError('Screening date, start date, and end date are all required.', 400);
     }
@@ -363,6 +403,8 @@ export const batchUpdateScreeningRecords = async (payload) => {
         screeningStartDate: new Date(screeningStartDate),
         screeningEndDate: new Date(screeningEndDate),
     };
+    if (screeningVenue !== undefined) dataToUpdate.screeningVenue = screeningVenue;
+    if (remarks !== undefined) dataToUpdate.remarks = remarks;
 
     const updateResult = await prisma.physicalScreeningList.updateMany({
         where: {
@@ -392,9 +434,17 @@ export const batchEmailScreeningRecords = async (payload) => {
             applicationProfile: {
                 select: {
                     email: true,
-                    targetProgram: { select: { name: true } },
+                    // CRITICAL FIX: Ensure 'onlineScreeningList' is correctly selected
                     onlineScreeningList: {
-                        select: { jambApplicant: { select: { name: true, entryMode: true } } }
+                        select: { // <--- Added 'select' here for the relation
+                            jambApplicant: {
+                                select: { name: true, entryMode: true }
+                            }
+                        }
+                    },
+                    targetProgram: { select: { name: true } },
+                    bioData: { // NEW: Select bioData for robust name fallback
+                        select: { firstName: true, lastName: true }
                     }
                 }
             }
@@ -407,16 +457,22 @@ export const batchEmailScreeningRecords = async (payload) => {
         const formatDate = (date) => date ? new Date(date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : 'To Be Announced';
         const formatTime = (date) => date ? new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'N/A';
         
-        const applicantData = rec.applicationProfile.onlineScreeningList?.jambApplicant;
+        const applicantBioData = rec.applicationProfile.bioData;
+        const applicantJambData = rec.applicationProfile.onlineScreeningList?.jambApplicant;
+
+        // MODIFIED: Robust applicant_name derivation
+        const applicant_name = (applicantBioData?.firstName && applicantBioData?.lastName)
+            ? `${applicantBioData.firstName} ${applicantBioData.lastName}`.trim()
+            : applicantJambData?.name || 'Applicant'; // Fallback to 'Applicant'
 
         return {
             email: rec.applicationProfile.email,
-            applicant_name: applicantData?.name ?? 'Applicant',
+            applicant_name: applicant_name, // Use the robust name
             program_name: rec.applicationProfile.targetProgram?.name ?? 'your chosen course',
             screening_date: formatDate(rec.screeningDate),
             screening_start_time: formatTime(rec.screeningStartDate),
             screening_end_time: formatTime(rec.screeningEndDate),
-            entryMode: applicantData?.entryMode 
+            entryMode: applicantJambData?.entryMode // Use applicantJambData
         };
     }).filter(app => app !== null);
 
@@ -426,7 +482,6 @@ export const batchEmailScreeningRecords = async (payload) => {
     
     for (const applicant of applicantsToEmail) {
         let extraCredentialText = '';
-        // This line will now work because EntryMode is imported
         if (applicant.entryMode === EntryMode.DIRECT_ENTRY) {
             extraCredentialText = `8. Original and photocopy of your Higher National Diploma (HND), National Diploma (ND), or other A'Level certificate.`;
         }
@@ -454,4 +509,3 @@ export const batchEmailScreeningRecords = async (payload) => {
     
     return { message: `Email invitations have been dispatched to ${applicantsToEmail.length} candidates.` };
 };
-

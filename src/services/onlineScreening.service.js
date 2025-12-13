@@ -4,7 +4,7 @@ import { hashPassword } from '../utils/password.utils.js';
 import config from '../config/index.js';
 import { ApplicationStatus, DegreeType } from '../generated/prisma/index.js';
 
-// MODIFIED: screeningListSelection to include onlineScreeningRequired
+// MODIFIED: screeningListSelection to include department and faculty details
 const screeningListSelection = {
     id: true,
     jambRegNo: true, // Can be null now
@@ -27,12 +27,38 @@ const screeningListSelection = {
             id: true,
             applicationStatus: true,
             hasPaidScreeningFee: true,
-            targetProgram: { // NEW: Include target program to check degreeType, jambRequired, and onlineScreeningRequired
-                select: { id: true, name: true, degreeType: true, jambRequired: true, onlineScreeningRequired: true }
+            targetProgram: { // Include target program and its nested department/faculty for filtering
+                select: { 
+                    id: true, 
+                    name: true, 
+                    degreeType: true, 
+                    jambRequired: true, 
+                    onlineScreeningRequired: true,
+                    department: { 
+                        select: {
+                            id: true,
+                            name: true,
+                            faculty: {
+                                select: {
+                                    id: true,
+                                    name: true
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            bioData: { // Include bioData for applicant name fallback
+                select: {
+                    firstName: true,
+                    lastName: true,
+                    middleName: true
+                }
             }
         }
     }
 };
+
 
 // MODIFIED: createOnlineScreeningAccount to handle both JAMB and non-JAMB applicants
 export const createOnlineScreeningAccount = async (screeningData, creatorUser) => {
@@ -392,27 +418,101 @@ export const getOnlineScreeningAccountById = async (id) => {
     }
 };
 
-// MODIFIED: getAllOnlineScreeningAccounts to search by email as well
+// MODIFIED: getAllOnlineScreeningAccounts to include new filters (programId, departmentId, facultyId, degreeType)
 export const getAllOnlineScreeningAccounts = async (query) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
-        const { jambRegNo, email, isActive, page = "1", limit = "10" } = query;
+        const { 
+            jambRegNo, 
+            email, 
+            isActive, 
+            page = "1", 
+            limit = "10", 
+            search, // For general search term across multiple fields
+            programId, 
+            entryMode, // This is for jambApplicant's entryMode
+            departmentId, 
+            facultyId, 
+            degreeType 
+        } = query;
         const where = {};
+        const filters = []; // Using an array for AND conditions for better readability and flexibility
 
-        // Search by JAMB RegNo OR Email
-        const searchFilters = [];
-        if (jambRegNo && String(jambRegNo).trim()) {
-            searchFilters.push({ jambRegNo: { contains: String(jambRegNo).trim() } });
-        }
-        if (email && String(email).trim()) {
-            searchFilters.push({ email: { contains: String(email).trim() } });
+        // General Search (combining jambRegNo, email, jambApplicant.name, bioData.firstName/lastName)
+        if (search) {
+            filters.push({
+                OR: [
+                    { jambRegNo: { contains: search } }, // Removed mode: 'insensitive' based on previous issue
+                    { email: { contains: search } }, // Removed mode: 'insensitive'
+                    { jambApplicant: { name: { contains: search } } }, // Removed mode: 'insensitive'
+                    { applicationProfile: { bioData: { OR: [
+                        { firstName: { contains: search } }, // Removed mode: 'insensitive'
+                        { lastName: { contains: search } }  // Removed mode: 'insensitive'
+                    ]}}}
+                ]
+            });
         }
 
-        if (searchFilters.length > 0) {
-            where.OR = searchFilters;
+        // Existing Filters
+        if (isActive !== undefined && isActive !== "") {
+            filters.push({ isActive: isActive === 'true' });
         }
 
-        if (isActive !== undefined && isActive !== "") where.isActive = isActive === 'true';
+        // Filter by Entry Mode (for JAMB applicants)
+        if (entryMode && entryMode !== 'all') {
+            filters.push({ jambApplicant: { entryMode: entryMode } });
+        }
+
+        // NEW Filters: Program, Department, Faculty, DegreeType (all via applicationProfile.targetProgram)
+        if (programId && programId !== 'all') {
+            filters.push({
+                applicationProfile: {
+                    targetProgramId: parseInt(programId, 10)
+                }
+            });
+        }
+
+        if (departmentId && departmentId !== 'all') {
+            filters.push({
+                applicationProfile: {
+                    targetProgram: {
+                        departmentId: parseInt(departmentId, 10)
+                    }
+                }
+            });
+        }
+
+        if (facultyId && facultyId !== 'all') {
+            filters.push({
+                applicationProfile: {
+                    targetProgram: {
+                        department: {
+                            facultyId: parseInt(facultyId, 10)
+                        }
+                    }
+                }
+            });
+        }
+
+        if (degreeType && degreeType !== 'all') {
+            // Validate degreeType against your Prisma enum if necessary (or rely on Prisma's own validation)
+            if (!Object.values(DegreeType).includes(degreeType)) {
+                throw new AppError(`Invalid degree type: ${degreeType}.`, 400);
+            }
+            filters.push({
+                applicationProfile: {
+                    targetProgram: {
+                        degreeType: degreeType
+                    }
+                }
+            });
+        }
+
+        // Apply all collected filters
+        if (filters.length > 0) {
+            where.AND = filters;
+        }
+
 
         let pageNum = parseInt(page, 10); let limitNum = parseInt(limit, 10);
         if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
@@ -420,7 +520,8 @@ export const getAllOnlineScreeningAccounts = async (query) => {
         const skip = (pageNum - 1) * limitNum;
 
         const accounts = await prisma.onlineScreeningList.findMany({
-            where, select: screeningListSelection,
+            where, 
+            select: screeningListSelection,
             orderBy: { createdAt: 'desc' },
             skip, take: limitNum
         });

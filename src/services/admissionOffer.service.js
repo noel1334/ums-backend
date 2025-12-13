@@ -1,6 +1,6 @@
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
-import { ApplicationStatus, EntryMode, DocumentType, DegreeType } from '../generated/prisma/index.js'; // Import DegreeType
+import { ApplicationStatus, EntryMode, DocumentType, DegreeType } from '../generated/prisma/index.js';
 import { sendEmail } from '../utils/email.js';
 import config from '../config/index.js';
 
@@ -31,7 +31,7 @@ const offerSelection = {
             jambRegNo: true,
             email: true,
             phone: true,
-            bioData: {
+            bioData: { // Include bioData for applicant name
                 select: {
                     firstName: true,
                     lastName: true,
@@ -67,19 +67,24 @@ const offerSelection = {
             name: true,
             programCode: true,
             degree: true,
-            degreeType: true, // IMPORTANT: Ensure degreeType is selected here
+            degreeType: true, // Already here, good for filtering
             duration: true,
             modeOfStudy: true,
             department: {
                 select: {
                     id: true,
-                    name: true,
-                    facultyId: true
+                    name: true, // IMPORTANT: Ensure name is selected for filtering/display
+                    faculty: { // IMPORTANT: Ensure faculty is selected for filtering/cascading
+                        select: {
+                            id: true,
+                            name: true // IMPORTANT: Ensure name is selected for filtering/display
+                        }
+                    }
                 }
             }
         }
     },
-    offeredLevel: { select: { id: true, name: true, value: true, degreeType: true } }, // IMPORTANT: Select value and degreeType for offeredLevel
+    offeredLevel: { select: { id: true, name: true, value: true, degreeType: true, order: true } },
     admissionSeason: { select: { id: true, name: true } },
     admissionSemester: { select: { id: true, name: true, type: true } },
     createdStudent: { select: { id: true, regNo: true, name: true } }
@@ -104,7 +109,7 @@ export const getProgramAdmissionStats = async (seasonId) => {
             applicationProfile: {
                 select: {
                     onlineScreeningList: {
-                        select: {
+                        select: { // Correct nesting
                             jambApplicant: {
                                 select: { entryMode: true }
                             }
@@ -120,8 +125,6 @@ export const getProgramAdmissionStats = async (seasonId) => {
     offers.forEach(offer => {
         const programId = offer.offeredProgram.id;
         const programName = offer.offeredProgram.name;
-        // The entryMode should ideally be derived from applicationProfile.entryMode if available,
-        // or a more robust logic in applicationProfile.service.js, but using jambApplicant.entryMode for now.
         const entryMode = offer.applicationProfile.onlineScreeningList?.jambApplicant?.entryMode;
 
         if (!statsMap.has(programId)) {
@@ -141,10 +144,6 @@ export const getProgramAdmissionStats = async (seasonId) => {
         } else if (entryMode === EntryMode.DIRECT_ENTRY) {
             stats.deAdmitted++;
         } else if (!entryMode && offer.applicationProfile.jambRegNo === null) {
-            // This is a direct entry applicant without a JAMB record.
-            // If you have a specific way to categorize them (e.g., 'PG_DIRECT'), use that.
-            // For now, let's count them towards DE for general purposes, or create a new category.
-            // Assuming for simplicity, non-JAMB entry falls under a broader 'DE' umbrella for stats.
              stats.deAdmitted++;
         }
     });
@@ -172,10 +171,9 @@ export const createAdmissionOffer = async (offerData) => {
         const pAdmissionSemesterId = parseInt(admissionSemesterId, 10);
         const pAcceptanceFeeListId = acceptanceFeeListId ? parseInt(acceptanceFeeListId, 10) : null;
 
-        // Fetch Program details to get its degreeType before validating level
         const program = await prisma.program.findUnique({
             where: { id: pOfferedProgramId },
-            select: { id: true, name: true, degreeType: true } // Select degreeType
+            select: { id: true, name: true, degreeType: true }
         });
         if (!program) throw new AppError(`Offered Program ID ${pOfferedProgramId} not found.`, 404);
 
@@ -185,10 +183,8 @@ export const createAdmissionOffer = async (offerData) => {
             // FIX: Query level using both ID and the program's degreeType
             prisma.level.findUnique({
                 where: {
-                    // Assuming offeredLevelId is the ID of the Level record.
-                    // If it's the 'value' (e.g., 100), you would use `value_degreeType: { value: pOfferedLevelId, degreeType: program.degreeType }`
                     id: pOfferedLevelId,
-                    degreeType: program.degreeType // Ensure the level matches the program's degree type
+                    degreeType: program.degreeType
                 }
             }),
             prisma.season.findUnique({ where: { id: pAdmissionSeasonId } }),
@@ -211,7 +207,6 @@ export const createAdmissionOffer = async (offerData) => {
             throw new AppError('An admission offer already exists for this applicant. Use update if changes are needed.', 409);
         }
 
-        // Get physicalScreeningId if available, for linkage
         const physicalScreeningRecord = await prisma.physicalScreeningList.findUnique({
             where: { applicationProfileId: pAppProfileId },
             select: { id: true }
@@ -271,13 +266,13 @@ export const createBatchAdmissionOffers = async (applicationProfileIds, offerDet
             applicationStatus: ApplicationStatus.SCREENING_PASSED,
         },
         include: {
-            targetProgram: { // IMPORTANT: Include target program to get degreeType
+            targetProgram: {
                 select: { id: true, degreeType: true }
             },
             onlineScreeningList: {
                 include: { jambApplicant: { select: { entryMode: true } } }
             },
-            admissionOffer: true, // Check if an offer already exists
+            admissionOffer: true,
             physicalScreening: {
                 select: {
                     id: true
@@ -293,50 +288,51 @@ export const createBatchAdmissionOffers = async (applicationProfileIds, offerDet
     }
 
     // 3. Pre-fetch ALL relevant levels to avoid N+1 queries inside the loop.
-    // We need 100 and 200 levels for every possible DegreeType that a program might have.
-    // However, for batch processing, we can simplify this if the levels are consistent.
-    // Assuming 100 and 200 levels are configured for 'UNDERGRADUATE' and potentially 'ND', 'NCE', 'HND'.
     const allLevels = await prisma.level.findMany({
-        where: {
-            OR: [
-                { value: 100 },
-                { value: 200 },
-            ]
-        },
-        select: { id: true, value: true, degreeType: true }
+        select: { id: true, name: true, value: true, degreeType: true, order: true }
     });
 
-    // Create a map for quick lookup: `(value, degreeType) -> Level.id`
+    // Create a more robust map for quick lookup: (identifier, degreeType) -> Level.id
     const levelMap = new Map();
     allLevels.forEach(level => {
-        levelMap.set(`${level.value}-${level.degreeType}`, level.id);
+        levelMap.set(`${level.name}-${level.degreeType}`, level.id);
+        levelMap.set(`${level.order}-${level.degreeType}`, level.id);
     });
 
     // 4. Prepare the data for creating multiple admission offers
     const offersToCreate = eligibleCandidates.map(candidate => {
         const programDegreeType = candidate.targetProgram.degreeType;
-        const entryMode = candidate.onlineScreeningList.jambApplicant?.entryMode; // Can be null for direct entry
+        const entryMode = candidate.onlineScreeningList.jambApplicant?.entryMode;
 
-        let offeredLevelValue;
-        if (entryMode === EntryMode.DIRECT_ENTRY || programDegreeType === DegreeType.HND) { // HND is often direct entry to 200
-            offeredLevelValue = 200;
-        } else if (entryMode === EntryMode.UTME || programDegreeType === DegreeType.UNDERGRADUATE || programDegreeType === DegreeType.ND || programDegreeType === DegreeType.NCE) {
-            offeredLevelValue = 100;
-        } else {
-            // For Postgraduate, Certificate, Diploma, it might not be 100/200 level entry.
-            // You might need a default level or a more specific rule for these.
-            // For now, let's assume they start at a default Level 100 or 200 if not explicitly defined.
-            // A more robust solution might require a 'defaultEntryLevelId' on the Program model for PG.
-            // For this fix, let's ensure it doesn't break for PG.
-            offeredLevelValue = 100; // Fallback, consider making this configurable per program type
-            console.warn(`No specific entry level rule for DegreeType ${programDegreeType} with entry mode ${entryMode}. Defaulting to level 100.`);
+        let offeredLevelIdentifier;
+        let levelLookupKey;
+
+        switch (programDegreeType) {
+            case DegreeType.UNDERGRADUATE:
+                offeredLevelIdentifier = (entryMode === EntryMode.DIRECT_ENTRY) ? "200 Level" : "100 Level";
+                levelLookupKey = `${offeredLevelIdentifier}-${programDegreeType}`;
+                break;
+            
+            case DegreeType.ND:
+            case DegreeType.NCE:
+            case DegreeType.HND:
+            case DegreeType.POSTGRADUATE_DIPLOMA:
+            case DegreeType.MASTERS:
+            case DegreeType.PHD:
+            case DegreeType.CERTIFICATE:
+            case DegreeType.DIPLOMA:
+                offeredLevelIdentifier = 1; // Order of the level
+                levelLookupKey = `${offeredLevelIdentifier}-${programDegreeType}`;
+                break;
+            
+            default:
+                throw new AppError(`Database setup error: Unhandled DegreeType '${programDegreeType}' for entry level determination.`, 500);
         }
 
-        const offeredLevelId = levelMap.get(`${offeredLevelValue}-${programDegreeType}`);
+        const offeredLevelId = levelMap.get(levelLookupKey);
 
         if (!offeredLevelId) {
-            // This indicates a missing Level configuration (e.g., 100 Level for 'ND' is not in DB)
-            throw new AppError(`Database setup error: Entry Level ${offeredLevelValue} for DegreeType ${programDegreeType} not found. Ensure all required Levels are configured.`, 500);
+            throw new AppError(`Database setup error: Entry Level '${offeredLevelIdentifier}' for DegreeType '${programDegreeType}' not found. Ensure all required Levels are configured.`, 500);
         }
         
         if (!candidate.targetProgramId) {
@@ -347,7 +343,7 @@ export const createBatchAdmissionOffers = async (applicationProfileIds, offerDet
             applicationProfileId: candidate.id,
             physicalScreeningId: candidate.physicalScreening?.id || null,
             offeredProgramId: candidate.targetProgramId,
-            offeredLevelId: offeredLevelId, // Use the correct level ID
+            offeredLevelId: offeredLevelId,
             admissionSeasonId,
             admissionSemesterId,
             acceptanceDeadline: new Date(acceptanceDeadline),
@@ -391,6 +387,9 @@ export const getAllAdmissionOffers = async (query) => {
             entryMode,
             isAccepted,
             search,
+            departmentId, // NEW: departmentId filter
+            facultyId,    // NEW: facultyId filter
+            degreeType,   // NEW: degreeType filter
             page = "1",
             limit = "10"
         } = query;
@@ -401,10 +400,10 @@ export const getAllAdmissionOffers = async (query) => {
         if (search) {
             filters.push({
                 OR: [
-                    { applicationProfile: { jambRegNo: { contains: search } } },
+                    { applicationProfile: { jambRegNo: { contains: search } } }, // Removed mode: 'insensitive'
                     // Also search by name if target program is set, or if biodata exists
-                    { applicationProfile: { onlineScreeningList: { jambApplicant: { name: { contains: search } } } } },
-                    { applicationProfile: { bioData: { OR: [{ firstName: { contains: search } }, { lastName: { contains: search } }] } } },
+                    { applicationProfile: { bioData: { OR: [{ firstName: { contains: search } }, { lastName: { contains: search } }] } } }, // NEW: Search by bioData name
+                    { applicationProfile: { onlineScreeningList: { jambApplicant: { name: { contains: search } } } } } // Removed mode: 'insensitive'
                 ]
             });
         }
@@ -413,16 +412,42 @@ export const getAllAdmissionOffers = async (query) => {
             filters.push({ admissionSeasonId: parseInt(admissionSeasonId, 10) });
         }
 
+        // Initialize offeredProgram filter object
+        let offeredProgramFilter = {};
+
         if (offeredProgramId && offeredProgramId !== 'all') {
-            filters.push({ offeredProgramId: parseInt(offeredProgramId, 10) });
+            offeredProgramFilter.id = parseInt(offeredProgramId, 10);
         }
 
+        // NEW Filters: Department, Faculty, DegreeType (all via offeredProgram)
+        if (departmentId && departmentId !== 'all') {
+            offeredProgramFilter.departmentId = parseInt(departmentId, 10);
+        }
+
+        if (facultyId && facultyId !== 'all') {
+            offeredProgramFilter.department = {
+                facultyId: parseInt(facultyId, 10)
+            };
+        }
+
+        if (degreeType && degreeType !== 'all') {
+            if (!Object.values(DegreeType).includes(degreeType)) {
+                throw new AppError(`Invalid degree type: ${degreeType}.`, 400);
+            }
+            offeredProgramFilter.degreeType = degreeType;
+        }
+
+        // If any offeredProgram filters were set, add them to the main filters
+        if (Object.keys(offeredProgramFilter).length > 0) {
+            filters.push({ offeredProgram: offeredProgramFilter });
+        }
+        
         if (entryMode && entryMode !== 'all') {
             filters.push({
                 applicationProfile: {
                     onlineScreeningList: {
                         jambApplicant: {
-                            entryMode: entryMode
+                            entryMode: entryMode // Now directly filter by EntryMode
                         }
                     }
                 }
@@ -621,8 +646,15 @@ export const batchEmailNotificationAdmission = async (payload) => {
             applicationProfile: {
                 select: {
                     email: true,
+                    bioData: { // NEW: Select bioData for robust name fallback
+                        select: { firstName: true, lastName: true }
+                    },
                     onlineScreeningList: {
-                        select: { jambApplicant: { select: { name: true } } }
+                        select: { // <--- CRITICAL FIX: Added 'select' here for the relation
+                            jambApplicant: {
+                                select: { name: true } // Corrected nesting
+                            }
+                        }
                     }
                 }
             }
@@ -630,17 +662,23 @@ export const batchEmailNotificationAdmission = async (payload) => {
     });
 
     const emailsToSend = offers.map(offer => {
-        const applicant = offer.applicationProfile.onlineScreeningList?.jambApplicant;
+        const applicantBioData = offer.applicationProfile.bioData;
+        const applicantJambData = offer.applicationProfile.onlineScreeningList?.jambApplicant;
         const program = offer.offeredProgram;
         const level = offer.offeredLevel;
         const season = offer.admissionSeason;
         const semester = offer.admissionSemester;
 
-        if (!applicant || !applicant.name || !offer.applicationProfile.email) return null;
+        if (!offer.applicationProfile.email) return null; // Must have an email
+
+        // MODIFIED: Robust applicant_name derivation
+        const applicant_name = (applicantBioData?.firstName && applicantBioData?.lastName)
+            ? `${applicantBioData.firstName} ${applicantBioData.lastName}`.trim()
+            : applicantJambData?.name || 'Applicant'; // Fallback to 'Applicant'
 
         return {
             to: offer.applicationProfile.email,
-            applicant_name: applicant.name,
+            applicant_name: applicant_name, // Use the robust name
             program_name: program.name,
             degree_type: program.degreeType.replace(/_/g, ' '),
             program_duration: `${program.duration} years`,
@@ -659,8 +697,8 @@ export const batchEmailNotificationAdmission = async (payload) => {
         let personalizedMessage = message;
         for (const key in emailData) {
             if (Object.prototype.hasOwnProperty.call(emailData, key) && key !== 'to') {
-                const placeholder = `{${key}}`;
-                personalizedMessage = personalizedMessage.replace(new RegExp(placeholder, 'g'), emailData[key]);
+                const placeholder = new RegExp(`{${key}}`, 'g');
+                personalizedMessage = personalizedMessage.replace(placeholder, emailData[key]);
             }
         }
 
@@ -746,6 +784,7 @@ export const batchEmailAdmissionNotifications = async (payload) => {
         throw new AppError('An array of Admission Offer IDs is required.', 400);
     }
     
+    // MODIFIED: Corrected select structure and added bioData
     const offers = await prisma.admissionOffer.findMany({
         where: {
             id: { in: offerIds },
@@ -756,48 +795,51 @@ export const batchEmailAdmissionNotifications = async (payload) => {
         },
         select: {
             id: true,
-            generatedStudentRegNo: true,
-            createdStudentId: true,
+            offeredProgram: { select: { name: true, degreeType: true, duration: true } },
+            offeredLevel: { select: { name: true } },
+            admissionSeason: { select: { name: true } },
+            admissionSemester: { select: { name: true, type: true } },
             applicationProfile: {
                 select: {
                     email: true,
-                    jambRegNo: true,
-                    bioData: { select: { firstName: true, lastName: true } },
+                    bioData: { select: { firstName: true, lastName: true } }, // NEW: Fetch bioData
                     onlineScreeningList: {
-                        select: { jambApplicant: { select: { name: true } } }
+                        select: { // <--- CRITICAL FIX: Added 'select' here for the relation
+                            jambApplicant: {
+                                select: { name: true } // Corrected nesting
+                            }
+                        }
                     }
                 }
-            },
-            createdStudent: {
-                select: { regNo: true }
             }
         }
     });
 
     const emailsToSend = offers.map(offer => {
-        const applicantFirstName = offer.applicationProfile.bioData?.firstName;
-        const applicantLastName = offer.applicationProfile.bioData?.lastName;
-        const applicantJambName = offer.applicationProfile.onlineScreeningList?.jambApplicant?.name;
-
-        const applicantName = (applicantFirstName && applicantLastName) 
-                            ? `${applicantFirstName} ${applicantLastName}`.trim()
-                            : applicantJambName || 'Applicant';
-
-        const regNo = offer.createdStudent?.regNo || offer.generatedStudentRegNo || 'N/A';
-        const jambNo = offer.applicationProfile.jambRegNo || 'N/A';
-        
-        const studentDefaultPassword = config.studentDefaultPassword || 'Contact Admissions Office';
-        const studentPortalLink = config.studentPortalUrl || 'http://your-student-portal-url.com';
+        const applicantBioData = offer.applicationProfile.bioData;
+        const applicantJambData = offer.applicationProfile.onlineScreeningList?.jambApplicant;
+        const program = offer.offeredProgram;
+        const level = offer.offeredLevel;
+        const season = offer.admissionSeason;
+        const semester = offer.admissionSemester;
 
         if (!offer.applicationProfile.email) return null;
 
+        // MODIFIED: Robust applicant_name derivation
+        const applicant_name = (applicantBioData?.firstName && applicantBioData?.lastName)
+            ? `${applicantBioData.firstName} ${applicantBioData.lastName}`.trim()
+            : applicantJambData?.name || 'Applicant'; // Fallback to 'Applicant'
+
         return {
             to: offer.applicationProfile.email,
-            applicant_name: applicantName,
-            reg_no: regNo,
-            jamb_no: jambNo,
-            default_password: studentDefaultPassword,
-            student_portal_link: studentPortalLink,
+            applicant_name: applicant_name, // Use the robust name
+            program_name: program.name,
+            degree_type: program.degreeType.replace(/_/g, ' '),
+            program_duration: `${program.duration} years`,
+            entry_level: level.name,
+            admission_season: season.name,
+            admission_semester: `${semester.name} (${semester.type.replace(/_/g, ' ')})`,
+            screening_portal_link: config.screeningPortalUrl
         };
     }).filter(e => e !== null);
 

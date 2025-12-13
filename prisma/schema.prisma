@@ -222,6 +222,7 @@ enum DocumentType {
   JAMB_RESULT_SLIP
   TERTIARY_TRANSCRIPT // For DE or transfer
   TERTIARY_CERTIFICATE // For DE or transfer
+  PRIMARY_CERTIFICATE
   // Add others as needed
 }
 
@@ -1247,8 +1248,8 @@ model ApplicantBioData {
   firstName            String
   middleName           String?
   lastName             String
-  dateOfBirth          DateTime
-  gender               Gender
+  dateOfBirth          DateTime?
+  gender               Gender?
   nationality          String             @default("Nigerian")
   placeOfBirth         String?
   maritalStatus        String?
