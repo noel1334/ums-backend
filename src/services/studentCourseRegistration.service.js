@@ -14,8 +14,8 @@ const registrationPublicSelection = {
             departmentId: true,
             programId: true,
             currentLevelId: true, // Needed for HOD context
-            department: { select: { name: true } }, // <-- ADD THIS
-            program: { select: { name: true } }, 
+            department: { select: { name: true } },
+            program: { select: { name: true } }, // Ensure program.id is selected if needed by other functions using this selection
         }
     },
     course: {
@@ -24,15 +24,25 @@ const registrationPublicSelection = {
             code: true,
             title: true,
             creditUnit: true,
-            courseType: true,
+            // courseType: true, // REMOVED: This will be dynamically added
             preferredSemesterType: true
         }
     },
-    semester: { select: { id: true, name: true, type: true, areStudentEditsLocked: true, semesterNumber: true, seasonId: true, isActive: true } }, // Added seasonId, semesterNumber, isActive
-    level: { select: { id: true, name: true, value: true } }, // Added value
+    semester: { select: {
+        id: true,
+        name: true,
+        type: true,
+        areStudentEditsLocked: true,
+        semesterNumber: true,
+        seasonId: true,
+        isActive: true
+    } },
+    level: { select: { id: true, name: true, value: true } },
     season: { select: { id: true, name: true } },
-    score: { select: { id: true, totalScore: true, grade: true } } // Added totalScore, grade
+    score: { select: { id: true, totalScore: true, grade: true } }
 };
+
+
 
 // Grades considered "passing" for prerequisite checks
 const passingGrades = [GradeLetter.A, GradeLetter.B, GradeLetter.C, GradeLetter.D, GradeLetter.E, GradeLetter.P]; // 'F' is failing, 'I' is Incomplete (usually not passing)
@@ -797,8 +807,8 @@ export const getAllStudentCourseRegistrations = async (query, requestingUser) =>
         if (search) {
             filters.push({
                 OR: [
-                    { student: { name: { contains: search, } } },
-                    { student: { regNo: { contains: search, } } },
+                    { student: { name: { contains: search, mode: 'insensitive' } } },
+                    { student: { regNo: { contains: search, mode: 'insensitive' } } },
                 ]
             });
         }
@@ -808,11 +818,48 @@ export const getAllStudentCourseRegistrations = async (query, requestingUser) =>
             where.AND = filters;
         }
 
-        // Execute the final query
+        // Execute the final query to get raw registrations
         const [items, totalItems] = await prisma.$transaction([
             prisma.studentCourseRegistration.findMany({
                 where,
-                select: registrationPublicSelection,
+                // Explicitly select the fields needed for the frontend and for the post-processing
+                select: {
+                    id: true, registeredAt: true, isScoreRecorded: true,
+                    student: {
+                        select: {
+                            id: true,
+                            regNo: true,
+                            name: true,
+                            departmentId: true,
+                            programId: true, // Crucial for ProgramCourse lookup
+                            currentLevelId: true,
+                            department: { select: { name: true } },
+                            program: { select: { id: true, name: true } },
+                        }
+                    },
+                    course: {
+                        select: {
+                            id: true,
+                            code: true,
+                            title: true,
+                            creditUnit: true,
+                            // DO NOT select courseType here directly from Course model
+                            preferredSemesterType: true
+                        }
+                    },
+                    semester: { select: {
+                        id: true,
+                        name: true,
+                        type: true,
+                        areStudentEditsLocked: true,
+                        semesterNumber: true,
+                        seasonId: true,
+                        isActive: true
+                    } },
+                    level: { select: { id: true, name: true, value: true } }, // Crucial for ProgramCourse lookup
+                    season: { select: { id: true, name: true } },
+                    score: { select: { id: true, totalScore: true, grade: true } }
+                },
                 orderBy: { course: { code: 'asc' } }, // Order by course code
                 skip,
                 take: limitNum
@@ -820,8 +867,37 @@ export const getAllStudentCourseRegistrations = async (query, requestingUser) =>
             prisma.studentCourseRegistration.count({ where })
         ]);
 
+        // Post-process to correctly determine if a course is CORE or ELECTIVE
+        const enhancedItems = await Promise.all(items.map(async (reg) => {
+            let courseType = 'CORE'; // Default to CORE
+
+            // Find the ProgramCourse entry that matches this registration
+            const programCourse = await prisma.programCourse.findFirst({
+                where: {
+                    programId: reg.student.program.id, // Student's program
+                    levelId: reg.level.id,             // Level the course was registered for
+                    courseId: reg.course.id,           // The specific course
+                },
+                select: {
+                    isElective: true,
+                },
+            });
+
+            if (programCourse?.isElective) {
+                courseType = 'ELECTIVE';
+            }
+
+            return {
+                ...reg,
+                course: {
+                    ...reg.course,
+                    courseType: courseType, // Add the dynamically determined courseType
+                },
+            };
+        }));
+
         return {
-            items,
+            items: enhancedItems, // Return the enhanced items with correct courseType
             totalPages: Math.ceil(totalItems / limitNum),
             currentPage: pageNum,
             totalItems
