@@ -298,6 +298,11 @@ export type AdmissionLetterSection = $Result.DefaultSelection<Prisma.$AdmissionL
  * 
  */
 export type RegistrationControl = $Result.DefaultSelection<Prisma.$RegistrationControlPayload>
+/**
+ * Model UniversitySetting
+ * 
+ */
+export type UniversitySetting = $Result.DefaultSelection<Prisma.$UniversitySettingPayload>
 
 /**
  * Enums
@@ -1406,6 +1411,16 @@ export class PrismaClient<
     * ```
     */
   get registrationControl(): Prisma.RegistrationControlDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.universitySetting`: Exposes CRUD operations for the **UniversitySetting** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more UniversitySettings
+    * const universitySettings = await prisma.universitySetting.findMany()
+    * ```
+    */
+  get universitySetting(): Prisma.UniversitySettingDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -1902,7 +1917,8 @@ export namespace Prisma {
     AdmissionOffer: 'AdmissionOffer',
     AdmissionLetterTemplate: 'AdmissionLetterTemplate',
     AdmissionLetterSection: 'AdmissionLetterSection',
-    RegistrationControl: 'RegistrationControl'
+    RegistrationControl: 'RegistrationControl',
+    UniversitySetting: 'UniversitySetting'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1921,7 +1937,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "admin" | "student" | "studentDetails" | "lecturer" | "iCTStaff" | "faculty" | "department" | "staffCourse" | "program" | "level" | "programCourseUnitRequirement" | "course" | "coursePrerequisite" | "programCourse" | "season" | "semester" | "studentCourseRegistration" | "score" | "result" | "schoolFeeList" | "schoolFee" | "paymentReceipt" | "hostel" | "hostelRoom" | "hostelFeeList" | "hostelBooking" | "notification" | "venue" | "exam" | "examSession" | "studentExamSessionAssignment" | "question" | "questionOption" | "examAttemptQuestion" | "examAttempt" | "studentAnswer" | "examFee" | "studentExamPayment" | "screeningFeeList" | "acceptanceFeeList" | "applicantPayment" | "jambApplicant" | "onlineScreeningList" | "applicationProfile" | "applicantBioData" | "applicantContactInfo" | "applicantNextOfKin" | "applicantGuardianInfo" | "applicantOLevelResult" | "applicantOLevelSubjectGrade" | "applicantTertiaryQualification" | "applicantDocument" | "physicalScreeningList" | "admissionOffer" | "admissionLetterTemplate" | "admissionLetterSection" | "registrationControl"
+      modelProps: "admin" | "student" | "studentDetails" | "lecturer" | "iCTStaff" | "faculty" | "department" | "staffCourse" | "program" | "level" | "programCourseUnitRequirement" | "course" | "coursePrerequisite" | "programCourse" | "season" | "semester" | "studentCourseRegistration" | "score" | "result" | "schoolFeeList" | "schoolFee" | "paymentReceipt" | "hostel" | "hostelRoom" | "hostelFeeList" | "hostelBooking" | "notification" | "venue" | "exam" | "examSession" | "studentExamSessionAssignment" | "question" | "questionOption" | "examAttemptQuestion" | "examAttempt" | "studentAnswer" | "examFee" | "studentExamPayment" | "screeningFeeList" | "acceptanceFeeList" | "applicantPayment" | "jambApplicant" | "onlineScreeningList" | "applicationProfile" | "applicantBioData" | "applicantContactInfo" | "applicantNextOfKin" | "applicantGuardianInfo" | "applicantOLevelResult" | "applicantOLevelSubjectGrade" | "applicantTertiaryQualification" | "applicantDocument" | "physicalScreeningList" | "admissionOffer" | "admissionLetterTemplate" | "admissionLetterSection" | "registrationControl" | "universitySetting"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -5687,6 +5703,72 @@ export namespace Prisma {
           }
         }
       }
+      UniversitySetting: {
+        payload: Prisma.$UniversitySettingPayload<ExtArgs>
+        fields: Prisma.UniversitySettingFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.UniversitySettingFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UniversitySettingPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.UniversitySettingFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UniversitySettingPayload>
+          }
+          findFirst: {
+            args: Prisma.UniversitySettingFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UniversitySettingPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.UniversitySettingFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UniversitySettingPayload>
+          }
+          findMany: {
+            args: Prisma.UniversitySettingFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UniversitySettingPayload>[]
+          }
+          create: {
+            args: Prisma.UniversitySettingCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UniversitySettingPayload>
+          }
+          createMany: {
+            args: Prisma.UniversitySettingCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          delete: {
+            args: Prisma.UniversitySettingDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UniversitySettingPayload>
+          }
+          update: {
+            args: Prisma.UniversitySettingUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UniversitySettingPayload>
+          }
+          deleteMany: {
+            args: Prisma.UniversitySettingDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.UniversitySettingUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          upsert: {
+            args: Prisma.UniversitySettingUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$UniversitySettingPayload>
+          }
+          aggregate: {
+            args: Prisma.UniversitySettingAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateUniversitySetting>
+          }
+          groupBy: {
+            args: Prisma.UniversitySettingGroupByArgs<ExtArgs>
+            result: $Utils.Optional<UniversitySettingGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.UniversitySettingCountArgs<ExtArgs>
+            result: $Utils.Optional<UniversitySettingCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -5828,6 +5910,7 @@ export namespace Prisma {
     admissionLetterTemplate?: AdmissionLetterTemplateOmit
     admissionLetterSection?: AdmissionLetterSectionOmit
     registrationControl?: RegistrationControlOmit
+    universitySetting?: UniversitySettingOmit
   }
 
   /* Types for Logging */
@@ -7567,6 +7650,7 @@ export namespace Prisma {
     createdAt: Date | null
     isPermittedToAddAdmin: boolean | null
     location: string | null
+    bio: string | null
     updatedAt: Date | null
   }
 
@@ -7581,6 +7665,7 @@ export namespace Prisma {
     createdAt: Date | null
     isPermittedToAddAdmin: boolean | null
     location: string | null
+    bio: string | null
     updatedAt: Date | null
   }
 
@@ -7595,6 +7680,7 @@ export namespace Prisma {
     createdAt: number
     isPermittedToAddAdmin: number
     location: number
+    bio: number
     updatedAt: number
     _all: number
   }
@@ -7619,6 +7705,7 @@ export namespace Prisma {
     createdAt?: true
     isPermittedToAddAdmin?: true
     location?: true
+    bio?: true
     updatedAt?: true
   }
 
@@ -7633,6 +7720,7 @@ export namespace Prisma {
     createdAt?: true
     isPermittedToAddAdmin?: true
     location?: true
+    bio?: true
     updatedAt?: true
   }
 
@@ -7647,6 +7735,7 @@ export namespace Prisma {
     createdAt?: true
     isPermittedToAddAdmin?: true
     location?: true
+    bio?: true
     updatedAt?: true
     _all?: true
   }
@@ -7748,6 +7837,7 @@ export namespace Prisma {
     createdAt: Date
     isPermittedToAddAdmin: boolean
     location: string | null
+    bio: string | null
     updatedAt: Date
     _count: AdminCountAggregateOutputType | null
     _avg: AdminAvgAggregateOutputType | null
@@ -7781,6 +7871,7 @@ export namespace Prisma {
     createdAt?: boolean
     isPermittedToAddAdmin?: boolean
     location?: boolean
+    bio?: boolean
     updatedAt?: boolean
     resultsApprovedForRelease?: boolean | Admin$resultsApprovedForReleaseArgs<ExtArgs>
     _count?: boolean | AdminCountOutputTypeDefaultArgs<ExtArgs>
@@ -7799,10 +7890,11 @@ export namespace Prisma {
     createdAt?: boolean
     isPermittedToAddAdmin?: boolean
     location?: boolean
+    bio?: boolean
     updatedAt?: boolean
   }
 
-  export type AdminOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "password" | "name" | "profileImg" | "phone" | "role" | "createdAt" | "isPermittedToAddAdmin" | "location" | "updatedAt", ExtArgs["result"]["admin"]>
+  export type AdminOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "email" | "password" | "name" | "profileImg" | "phone" | "role" | "createdAt" | "isPermittedToAddAdmin" | "location" | "bio" | "updatedAt", ExtArgs["result"]["admin"]>
   export type AdminInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     resultsApprovedForRelease?: boolean | Admin$resultsApprovedForReleaseArgs<ExtArgs>
     _count?: boolean | AdminCountOutputTypeDefaultArgs<ExtArgs>
@@ -7824,6 +7916,7 @@ export namespace Prisma {
       createdAt: Date
       isPermittedToAddAdmin: boolean
       location: string | null
+      bio: string | null
       updatedAt: Date
     }, ExtArgs["result"]["admin"]>
     composites: {}
@@ -8205,6 +8298,7 @@ export namespace Prisma {
     readonly createdAt: FieldRef<"Admin", 'DateTime'>
     readonly isPermittedToAddAdmin: FieldRef<"Admin", 'Boolean'>
     readonly location: FieldRef<"Admin", 'String'>
+    readonly bio: FieldRef<"Admin", 'String'>
     readonly updatedAt: FieldRef<"Admin", 'DateTime'>
   }
     
@@ -71193,6 +71287,955 @@ export namespace Prisma {
 
 
   /**
+   * Model UniversitySetting
+   */
+
+  export type AggregateUniversitySetting = {
+    _count: UniversitySettingCountAggregateOutputType | null
+    _avg: UniversitySettingAvgAggregateOutputType | null
+    _sum: UniversitySettingSumAggregateOutputType | null
+    _min: UniversitySettingMinAggregateOutputType | null
+    _max: UniversitySettingMaxAggregateOutputType | null
+  }
+
+  export type UniversitySettingAvgAggregateOutputType = {
+    id: number | null
+  }
+
+  export type UniversitySettingSumAggregateOutputType = {
+    id: number | null
+  }
+
+  export type UniversitySettingMinAggregateOutputType = {
+    id: number | null
+    name: string | null
+    acronym: string | null
+    address: string | null
+    email: string | null
+    phone: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type UniversitySettingMaxAggregateOutputType = {
+    id: number | null
+    name: string | null
+    acronym: string | null
+    address: string | null
+    email: string | null
+    phone: string | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type UniversitySettingCountAggregateOutputType = {
+    id: number
+    name: number
+    acronym: number
+    address: number
+    email: number
+    phone: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type UniversitySettingAvgAggregateInputType = {
+    id?: true
+  }
+
+  export type UniversitySettingSumAggregateInputType = {
+    id?: true
+  }
+
+  export type UniversitySettingMinAggregateInputType = {
+    id?: true
+    name?: true
+    acronym?: true
+    address?: true
+    email?: true
+    phone?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type UniversitySettingMaxAggregateInputType = {
+    id?: true
+    name?: true
+    acronym?: true
+    address?: true
+    email?: true
+    phone?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type UniversitySettingCountAggregateInputType = {
+    id?: true
+    name?: true
+    acronym?: true
+    address?: true
+    email?: true
+    phone?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type UniversitySettingAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which UniversitySetting to aggregate.
+     */
+    where?: UniversitySettingWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of UniversitySettings to fetch.
+     */
+    orderBy?: UniversitySettingOrderByWithRelationInput | UniversitySettingOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: UniversitySettingWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` UniversitySettings from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` UniversitySettings.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned UniversitySettings
+    **/
+    _count?: true | UniversitySettingCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: UniversitySettingAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: UniversitySettingSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: UniversitySettingMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: UniversitySettingMaxAggregateInputType
+  }
+
+  export type GetUniversitySettingAggregateType<T extends UniversitySettingAggregateArgs> = {
+        [P in keyof T & keyof AggregateUniversitySetting]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateUniversitySetting[P]>
+      : GetScalarType<T[P], AggregateUniversitySetting[P]>
+  }
+
+
+
+
+  export type UniversitySettingGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: UniversitySettingWhereInput
+    orderBy?: UniversitySettingOrderByWithAggregationInput | UniversitySettingOrderByWithAggregationInput[]
+    by: UniversitySettingScalarFieldEnum[] | UniversitySettingScalarFieldEnum
+    having?: UniversitySettingScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: UniversitySettingCountAggregateInputType | true
+    _avg?: UniversitySettingAvgAggregateInputType
+    _sum?: UniversitySettingSumAggregateInputType
+    _min?: UniversitySettingMinAggregateInputType
+    _max?: UniversitySettingMaxAggregateInputType
+  }
+
+  export type UniversitySettingGroupByOutputType = {
+    id: number
+    name: string
+    acronym: string | null
+    address: string | null
+    email: string | null
+    phone: string | null
+    createdAt: Date
+    updatedAt: Date
+    _count: UniversitySettingCountAggregateOutputType | null
+    _avg: UniversitySettingAvgAggregateOutputType | null
+    _sum: UniversitySettingSumAggregateOutputType | null
+    _min: UniversitySettingMinAggregateOutputType | null
+    _max: UniversitySettingMaxAggregateOutputType | null
+  }
+
+  type GetUniversitySettingGroupByPayload<T extends UniversitySettingGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<UniversitySettingGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof UniversitySettingGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], UniversitySettingGroupByOutputType[P]>
+            : GetScalarType<T[P], UniversitySettingGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type UniversitySettingSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    name?: boolean
+    acronym?: boolean
+    address?: boolean
+    email?: boolean
+    phone?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }, ExtArgs["result"]["universitySetting"]>
+
+
+
+  export type UniversitySettingSelectScalar = {
+    id?: boolean
+    name?: boolean
+    acronym?: boolean
+    address?: boolean
+    email?: boolean
+    phone?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type UniversitySettingOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "acronym" | "address" | "email" | "phone" | "createdAt" | "updatedAt", ExtArgs["result"]["universitySetting"]>
+
+  export type $UniversitySettingPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "UniversitySetting"
+    objects: {}
+    scalars: $Extensions.GetPayloadResult<{
+      id: number
+      name: string
+      acronym: string | null
+      address: string | null
+      email: string | null
+      phone: string | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["universitySetting"]>
+    composites: {}
+  }
+
+  type UniversitySettingGetPayload<S extends boolean | null | undefined | UniversitySettingDefaultArgs> = $Result.GetResult<Prisma.$UniversitySettingPayload, S>
+
+  type UniversitySettingCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<UniversitySettingFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: UniversitySettingCountAggregateInputType | true
+    }
+
+  export interface UniversitySettingDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['UniversitySetting'], meta: { name: 'UniversitySetting' } }
+    /**
+     * Find zero or one UniversitySetting that matches the filter.
+     * @param {UniversitySettingFindUniqueArgs} args - Arguments to find a UniversitySetting
+     * @example
+     * // Get one UniversitySetting
+     * const universitySetting = await prisma.universitySetting.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends UniversitySettingFindUniqueArgs>(args: SelectSubset<T, UniversitySettingFindUniqueArgs<ExtArgs>>): Prisma__UniversitySettingClient<$Result.GetResult<Prisma.$UniversitySettingPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one UniversitySetting that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {UniversitySettingFindUniqueOrThrowArgs} args - Arguments to find a UniversitySetting
+     * @example
+     * // Get one UniversitySetting
+     * const universitySetting = await prisma.universitySetting.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends UniversitySettingFindUniqueOrThrowArgs>(args: SelectSubset<T, UniversitySettingFindUniqueOrThrowArgs<ExtArgs>>): Prisma__UniversitySettingClient<$Result.GetResult<Prisma.$UniversitySettingPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first UniversitySetting that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UniversitySettingFindFirstArgs} args - Arguments to find a UniversitySetting
+     * @example
+     * // Get one UniversitySetting
+     * const universitySetting = await prisma.universitySetting.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends UniversitySettingFindFirstArgs>(args?: SelectSubset<T, UniversitySettingFindFirstArgs<ExtArgs>>): Prisma__UniversitySettingClient<$Result.GetResult<Prisma.$UniversitySettingPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first UniversitySetting that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UniversitySettingFindFirstOrThrowArgs} args - Arguments to find a UniversitySetting
+     * @example
+     * // Get one UniversitySetting
+     * const universitySetting = await prisma.universitySetting.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends UniversitySettingFindFirstOrThrowArgs>(args?: SelectSubset<T, UniversitySettingFindFirstOrThrowArgs<ExtArgs>>): Prisma__UniversitySettingClient<$Result.GetResult<Prisma.$UniversitySettingPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more UniversitySettings that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UniversitySettingFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all UniversitySettings
+     * const universitySettings = await prisma.universitySetting.findMany()
+     * 
+     * // Get first 10 UniversitySettings
+     * const universitySettings = await prisma.universitySetting.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const universitySettingWithIdOnly = await prisma.universitySetting.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends UniversitySettingFindManyArgs>(args?: SelectSubset<T, UniversitySettingFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$UniversitySettingPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a UniversitySetting.
+     * @param {UniversitySettingCreateArgs} args - Arguments to create a UniversitySetting.
+     * @example
+     * // Create one UniversitySetting
+     * const UniversitySetting = await prisma.universitySetting.create({
+     *   data: {
+     *     // ... data to create a UniversitySetting
+     *   }
+     * })
+     * 
+     */
+    create<T extends UniversitySettingCreateArgs>(args: SelectSubset<T, UniversitySettingCreateArgs<ExtArgs>>): Prisma__UniversitySettingClient<$Result.GetResult<Prisma.$UniversitySettingPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many UniversitySettings.
+     * @param {UniversitySettingCreateManyArgs} args - Arguments to create many UniversitySettings.
+     * @example
+     * // Create many UniversitySettings
+     * const universitySetting = await prisma.universitySetting.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends UniversitySettingCreateManyArgs>(args?: SelectSubset<T, UniversitySettingCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Delete a UniversitySetting.
+     * @param {UniversitySettingDeleteArgs} args - Arguments to delete one UniversitySetting.
+     * @example
+     * // Delete one UniversitySetting
+     * const UniversitySetting = await prisma.universitySetting.delete({
+     *   where: {
+     *     // ... filter to delete one UniversitySetting
+     *   }
+     * })
+     * 
+     */
+    delete<T extends UniversitySettingDeleteArgs>(args: SelectSubset<T, UniversitySettingDeleteArgs<ExtArgs>>): Prisma__UniversitySettingClient<$Result.GetResult<Prisma.$UniversitySettingPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one UniversitySetting.
+     * @param {UniversitySettingUpdateArgs} args - Arguments to update one UniversitySetting.
+     * @example
+     * // Update one UniversitySetting
+     * const universitySetting = await prisma.universitySetting.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends UniversitySettingUpdateArgs>(args: SelectSubset<T, UniversitySettingUpdateArgs<ExtArgs>>): Prisma__UniversitySettingClient<$Result.GetResult<Prisma.$UniversitySettingPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more UniversitySettings.
+     * @param {UniversitySettingDeleteManyArgs} args - Arguments to filter UniversitySettings to delete.
+     * @example
+     * // Delete a few UniversitySettings
+     * const { count } = await prisma.universitySetting.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends UniversitySettingDeleteManyArgs>(args?: SelectSubset<T, UniversitySettingDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more UniversitySettings.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UniversitySettingUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many UniversitySettings
+     * const universitySetting = await prisma.universitySetting.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends UniversitySettingUpdateManyArgs>(args: SelectSubset<T, UniversitySettingUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create or update one UniversitySetting.
+     * @param {UniversitySettingUpsertArgs} args - Arguments to update or create a UniversitySetting.
+     * @example
+     * // Update or create a UniversitySetting
+     * const universitySetting = await prisma.universitySetting.upsert({
+     *   create: {
+     *     // ... data to create a UniversitySetting
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the UniversitySetting we want to update
+     *   }
+     * })
+     */
+    upsert<T extends UniversitySettingUpsertArgs>(args: SelectSubset<T, UniversitySettingUpsertArgs<ExtArgs>>): Prisma__UniversitySettingClient<$Result.GetResult<Prisma.$UniversitySettingPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of UniversitySettings.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UniversitySettingCountArgs} args - Arguments to filter UniversitySettings to count.
+     * @example
+     * // Count the number of UniversitySettings
+     * const count = await prisma.universitySetting.count({
+     *   where: {
+     *     // ... the filter for the UniversitySettings we want to count
+     *   }
+     * })
+    **/
+    count<T extends UniversitySettingCountArgs>(
+      args?: Subset<T, UniversitySettingCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], UniversitySettingCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a UniversitySetting.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UniversitySettingAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends UniversitySettingAggregateArgs>(args: Subset<T, UniversitySettingAggregateArgs>): Prisma.PrismaPromise<GetUniversitySettingAggregateType<T>>
+
+    /**
+     * Group by UniversitySetting.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {UniversitySettingGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends UniversitySettingGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: UniversitySettingGroupByArgs['orderBy'] }
+        : { orderBy?: UniversitySettingGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, UniversitySettingGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetUniversitySettingGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the UniversitySetting model
+   */
+  readonly fields: UniversitySettingFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for UniversitySetting.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__UniversitySettingClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the UniversitySetting model
+   */
+  interface UniversitySettingFieldRefs {
+    readonly id: FieldRef<"UniversitySetting", 'Int'>
+    readonly name: FieldRef<"UniversitySetting", 'String'>
+    readonly acronym: FieldRef<"UniversitySetting", 'String'>
+    readonly address: FieldRef<"UniversitySetting", 'String'>
+    readonly email: FieldRef<"UniversitySetting", 'String'>
+    readonly phone: FieldRef<"UniversitySetting", 'String'>
+    readonly createdAt: FieldRef<"UniversitySetting", 'DateTime'>
+    readonly updatedAt: FieldRef<"UniversitySetting", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * UniversitySetting findUnique
+   */
+  export type UniversitySettingFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UniversitySetting
+     */
+    select?: UniversitySettingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UniversitySetting
+     */
+    omit?: UniversitySettingOmit<ExtArgs> | null
+    /**
+     * Filter, which UniversitySetting to fetch.
+     */
+    where: UniversitySettingWhereUniqueInput
+  }
+
+  /**
+   * UniversitySetting findUniqueOrThrow
+   */
+  export type UniversitySettingFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UniversitySetting
+     */
+    select?: UniversitySettingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UniversitySetting
+     */
+    omit?: UniversitySettingOmit<ExtArgs> | null
+    /**
+     * Filter, which UniversitySetting to fetch.
+     */
+    where: UniversitySettingWhereUniqueInput
+  }
+
+  /**
+   * UniversitySetting findFirst
+   */
+  export type UniversitySettingFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UniversitySetting
+     */
+    select?: UniversitySettingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UniversitySetting
+     */
+    omit?: UniversitySettingOmit<ExtArgs> | null
+    /**
+     * Filter, which UniversitySetting to fetch.
+     */
+    where?: UniversitySettingWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of UniversitySettings to fetch.
+     */
+    orderBy?: UniversitySettingOrderByWithRelationInput | UniversitySettingOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for UniversitySettings.
+     */
+    cursor?: UniversitySettingWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` UniversitySettings from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` UniversitySettings.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of UniversitySettings.
+     */
+    distinct?: UniversitySettingScalarFieldEnum | UniversitySettingScalarFieldEnum[]
+  }
+
+  /**
+   * UniversitySetting findFirstOrThrow
+   */
+  export type UniversitySettingFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UniversitySetting
+     */
+    select?: UniversitySettingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UniversitySetting
+     */
+    omit?: UniversitySettingOmit<ExtArgs> | null
+    /**
+     * Filter, which UniversitySetting to fetch.
+     */
+    where?: UniversitySettingWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of UniversitySettings to fetch.
+     */
+    orderBy?: UniversitySettingOrderByWithRelationInput | UniversitySettingOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for UniversitySettings.
+     */
+    cursor?: UniversitySettingWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` UniversitySettings from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` UniversitySettings.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of UniversitySettings.
+     */
+    distinct?: UniversitySettingScalarFieldEnum | UniversitySettingScalarFieldEnum[]
+  }
+
+  /**
+   * UniversitySetting findMany
+   */
+  export type UniversitySettingFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UniversitySetting
+     */
+    select?: UniversitySettingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UniversitySetting
+     */
+    omit?: UniversitySettingOmit<ExtArgs> | null
+    /**
+     * Filter, which UniversitySettings to fetch.
+     */
+    where?: UniversitySettingWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of UniversitySettings to fetch.
+     */
+    orderBy?: UniversitySettingOrderByWithRelationInput | UniversitySettingOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing UniversitySettings.
+     */
+    cursor?: UniversitySettingWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` UniversitySettings from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` UniversitySettings.
+     */
+    skip?: number
+    distinct?: UniversitySettingScalarFieldEnum | UniversitySettingScalarFieldEnum[]
+  }
+
+  /**
+   * UniversitySetting create
+   */
+  export type UniversitySettingCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UniversitySetting
+     */
+    select?: UniversitySettingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UniversitySetting
+     */
+    omit?: UniversitySettingOmit<ExtArgs> | null
+    /**
+     * The data needed to create a UniversitySetting.
+     */
+    data: XOR<UniversitySettingCreateInput, UniversitySettingUncheckedCreateInput>
+  }
+
+  /**
+   * UniversitySetting createMany
+   */
+  export type UniversitySettingCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many UniversitySettings.
+     */
+    data: UniversitySettingCreateManyInput | UniversitySettingCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * UniversitySetting update
+   */
+  export type UniversitySettingUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UniversitySetting
+     */
+    select?: UniversitySettingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UniversitySetting
+     */
+    omit?: UniversitySettingOmit<ExtArgs> | null
+    /**
+     * The data needed to update a UniversitySetting.
+     */
+    data: XOR<UniversitySettingUpdateInput, UniversitySettingUncheckedUpdateInput>
+    /**
+     * Choose, which UniversitySetting to update.
+     */
+    where: UniversitySettingWhereUniqueInput
+  }
+
+  /**
+   * UniversitySetting updateMany
+   */
+  export type UniversitySettingUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update UniversitySettings.
+     */
+    data: XOR<UniversitySettingUpdateManyMutationInput, UniversitySettingUncheckedUpdateManyInput>
+    /**
+     * Filter which UniversitySettings to update
+     */
+    where?: UniversitySettingWhereInput
+    /**
+     * Limit how many UniversitySettings to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * UniversitySetting upsert
+   */
+  export type UniversitySettingUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UniversitySetting
+     */
+    select?: UniversitySettingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UniversitySetting
+     */
+    omit?: UniversitySettingOmit<ExtArgs> | null
+    /**
+     * The filter to search for the UniversitySetting to update in case it exists.
+     */
+    where: UniversitySettingWhereUniqueInput
+    /**
+     * In case the UniversitySetting found by the `where` argument doesn't exist, create a new UniversitySetting with this data.
+     */
+    create: XOR<UniversitySettingCreateInput, UniversitySettingUncheckedCreateInput>
+    /**
+     * In case the UniversitySetting was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<UniversitySettingUpdateInput, UniversitySettingUncheckedUpdateInput>
+  }
+
+  /**
+   * UniversitySetting delete
+   */
+  export type UniversitySettingDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UniversitySetting
+     */
+    select?: UniversitySettingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UniversitySetting
+     */
+    omit?: UniversitySettingOmit<ExtArgs> | null
+    /**
+     * Filter which UniversitySetting to delete.
+     */
+    where: UniversitySettingWhereUniqueInput
+  }
+
+  /**
+   * UniversitySetting deleteMany
+   */
+  export type UniversitySettingDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which UniversitySettings to delete
+     */
+    where?: UniversitySettingWhereInput
+    /**
+     * Limit how many UniversitySettings to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * UniversitySetting without action
+   */
+  export type UniversitySettingDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the UniversitySetting
+     */
+    select?: UniversitySettingSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the UniversitySetting
+     */
+    omit?: UniversitySettingOmit<ExtArgs> | null
+  }
+
+
+  /**
    * Enums
    */
 
@@ -71217,6 +72260,7 @@ export namespace Prisma {
     createdAt: 'createdAt',
     isPermittedToAddAdmin: 'isPermittedToAddAdmin',
     location: 'location',
+    bio: 'bio',
     updatedAt: 'updatedAt'
   };
 
@@ -72168,6 +73212,20 @@ export namespace Prisma {
   export type RegistrationControlScalarFieldEnum = (typeof RegistrationControlScalarFieldEnum)[keyof typeof RegistrationControlScalarFieldEnum]
 
 
+  export const UniversitySettingScalarFieldEnum: {
+    id: 'id',
+    name: 'name',
+    acronym: 'acronym',
+    address: 'address',
+    email: 'email',
+    phone: 'phone',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type UniversitySettingScalarFieldEnum = (typeof UniversitySettingScalarFieldEnum)[keyof typeof UniversitySettingScalarFieldEnum]
+
+
   export const SortOrder: {
     asc: 'asc',
     desc: 'desc'
@@ -72199,7 +73257,8 @@ export namespace Prisma {
     profileImg: 'profileImg',
     phone: 'phone',
     role: 'role',
-    location: 'location'
+    location: 'location',
+    bio: 'bio'
   };
 
   export type AdminOrderByRelevanceFieldEnum = (typeof AdminOrderByRelevanceFieldEnum)[keyof typeof AdminOrderByRelevanceFieldEnum]
@@ -72653,6 +73712,17 @@ export namespace Prisma {
   export type RegistrationControlOrderByRelevanceFieldEnum = (typeof RegistrationControlOrderByRelevanceFieldEnum)[keyof typeof RegistrationControlOrderByRelevanceFieldEnum]
 
 
+  export const UniversitySettingOrderByRelevanceFieldEnum: {
+    name: 'name',
+    acronym: 'acronym',
+    address: 'address',
+    email: 'email',
+    phone: 'phone'
+  };
+
+  export type UniversitySettingOrderByRelevanceFieldEnum = (typeof UniversitySettingOrderByRelevanceFieldEnum)[keyof typeof UniversitySettingOrderByRelevanceFieldEnum]
+
+
   /**
    * Field references
    */
@@ -72899,6 +73969,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Admin"> | Date | string
     isPermittedToAddAdmin?: BoolFilter<"Admin"> | boolean
     location?: StringNullableFilter<"Admin"> | string | null
+    bio?: StringNullableFilter<"Admin"> | string | null
     updatedAt?: DateTimeFilter<"Admin"> | Date | string
     resultsApprovedForRelease?: ResultListRelationFilter
   }
@@ -72914,6 +73985,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     isPermittedToAddAdmin?: SortOrder
     location?: SortOrderInput | SortOrder
+    bio?: SortOrderInput | SortOrder
     updatedAt?: SortOrder
     resultsApprovedForRelease?: ResultOrderByRelationAggregateInput
     _relevance?: AdminOrderByRelevanceInput
@@ -72933,6 +74005,7 @@ export namespace Prisma {
     createdAt?: DateTimeFilter<"Admin"> | Date | string
     isPermittedToAddAdmin?: BoolFilter<"Admin"> | boolean
     location?: StringNullableFilter<"Admin"> | string | null
+    bio?: StringNullableFilter<"Admin"> | string | null
     updatedAt?: DateTimeFilter<"Admin"> | Date | string
     resultsApprovedForRelease?: ResultListRelationFilter
   }, "id" | "email" | "phone">
@@ -72948,6 +74021,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     isPermittedToAddAdmin?: SortOrder
     location?: SortOrderInput | SortOrder
+    bio?: SortOrderInput | SortOrder
     updatedAt?: SortOrder
     _count?: AdminCountOrderByAggregateInput
     _avg?: AdminAvgOrderByAggregateInput
@@ -72970,6 +74044,7 @@ export namespace Prisma {
     createdAt?: DateTimeWithAggregatesFilter<"Admin"> | Date | string
     isPermittedToAddAdmin?: BoolWithAggregatesFilter<"Admin"> | boolean
     location?: StringNullableWithAggregatesFilter<"Admin"> | string | null
+    bio?: StringNullableWithAggregatesFilter<"Admin"> | string | null
     updatedAt?: DateTimeWithAggregatesFilter<"Admin"> | Date | string
   }
 
@@ -78463,6 +79538,76 @@ export namespace Prisma {
     updatedAt?: DateTimeWithAggregatesFilter<"RegistrationControl"> | Date | string
   }
 
+  export type UniversitySettingWhereInput = {
+    AND?: UniversitySettingWhereInput | UniversitySettingWhereInput[]
+    OR?: UniversitySettingWhereInput[]
+    NOT?: UniversitySettingWhereInput | UniversitySettingWhereInput[]
+    id?: IntFilter<"UniversitySetting"> | number
+    name?: StringFilter<"UniversitySetting"> | string
+    acronym?: StringNullableFilter<"UniversitySetting"> | string | null
+    address?: StringNullableFilter<"UniversitySetting"> | string | null
+    email?: StringNullableFilter<"UniversitySetting"> | string | null
+    phone?: StringNullableFilter<"UniversitySetting"> | string | null
+    createdAt?: DateTimeFilter<"UniversitySetting"> | Date | string
+    updatedAt?: DateTimeFilter<"UniversitySetting"> | Date | string
+  }
+
+  export type UniversitySettingOrderByWithRelationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    acronym?: SortOrderInput | SortOrder
+    address?: SortOrderInput | SortOrder
+    email?: SortOrderInput | SortOrder
+    phone?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _relevance?: UniversitySettingOrderByRelevanceInput
+  }
+
+  export type UniversitySettingWhereUniqueInput = Prisma.AtLeast<{
+    id?: number
+    AND?: UniversitySettingWhereInput | UniversitySettingWhereInput[]
+    OR?: UniversitySettingWhereInput[]
+    NOT?: UniversitySettingWhereInput | UniversitySettingWhereInput[]
+    name?: StringFilter<"UniversitySetting"> | string
+    acronym?: StringNullableFilter<"UniversitySetting"> | string | null
+    address?: StringNullableFilter<"UniversitySetting"> | string | null
+    email?: StringNullableFilter<"UniversitySetting"> | string | null
+    phone?: StringNullableFilter<"UniversitySetting"> | string | null
+    createdAt?: DateTimeFilter<"UniversitySetting"> | Date | string
+    updatedAt?: DateTimeFilter<"UniversitySetting"> | Date | string
+  }, "id">
+
+  export type UniversitySettingOrderByWithAggregationInput = {
+    id?: SortOrder
+    name?: SortOrder
+    acronym?: SortOrderInput | SortOrder
+    address?: SortOrderInput | SortOrder
+    email?: SortOrderInput | SortOrder
+    phone?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: UniversitySettingCountOrderByAggregateInput
+    _avg?: UniversitySettingAvgOrderByAggregateInput
+    _max?: UniversitySettingMaxOrderByAggregateInput
+    _min?: UniversitySettingMinOrderByAggregateInput
+    _sum?: UniversitySettingSumOrderByAggregateInput
+  }
+
+  export type UniversitySettingScalarWhereWithAggregatesInput = {
+    AND?: UniversitySettingScalarWhereWithAggregatesInput | UniversitySettingScalarWhereWithAggregatesInput[]
+    OR?: UniversitySettingScalarWhereWithAggregatesInput[]
+    NOT?: UniversitySettingScalarWhereWithAggregatesInput | UniversitySettingScalarWhereWithAggregatesInput[]
+    id?: IntWithAggregatesFilter<"UniversitySetting"> | number
+    name?: StringWithAggregatesFilter<"UniversitySetting"> | string
+    acronym?: StringNullableWithAggregatesFilter<"UniversitySetting"> | string | null
+    address?: StringNullableWithAggregatesFilter<"UniversitySetting"> | string | null
+    email?: StringNullableWithAggregatesFilter<"UniversitySetting"> | string | null
+    phone?: StringNullableWithAggregatesFilter<"UniversitySetting"> | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"UniversitySetting"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"UniversitySetting"> | Date | string
+  }
+
   export type AdminCreateInput = {
     email: string
     password: string
@@ -78473,6 +79618,7 @@ export namespace Prisma {
     createdAt?: Date | string
     isPermittedToAddAdmin?: boolean
     location?: string | null
+    bio?: string | null
     updatedAt?: Date | string
     resultsApprovedForRelease?: ResultCreateNestedManyWithoutStudentReleaseApproverAdminInput
   }
@@ -78488,6 +79634,7 @@ export namespace Prisma {
     createdAt?: Date | string
     isPermittedToAddAdmin?: boolean
     location?: string | null
+    bio?: string | null
     updatedAt?: Date | string
     resultsApprovedForRelease?: ResultUncheckedCreateNestedManyWithoutStudentReleaseApproverAdminInput
   }
@@ -78502,6 +79649,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     isPermittedToAddAdmin?: BoolFieldUpdateOperationsInput | boolean
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    bio?: NullableStringFieldUpdateOperationsInput | string | null
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     resultsApprovedForRelease?: ResultUpdateManyWithoutStudentReleaseApproverAdminNestedInput
   }
@@ -78517,6 +79665,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     isPermittedToAddAdmin?: BoolFieldUpdateOperationsInput | boolean
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    bio?: NullableStringFieldUpdateOperationsInput | string | null
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     resultsApprovedForRelease?: ResultUncheckedUpdateManyWithoutStudentReleaseApproverAdminNestedInput
   }
@@ -78532,6 +79681,7 @@ export namespace Prisma {
     createdAt?: Date | string
     isPermittedToAddAdmin?: boolean
     location?: string | null
+    bio?: string | null
     updatedAt?: Date | string
   }
 
@@ -78545,6 +79695,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     isPermittedToAddAdmin?: BoolFieldUpdateOperationsInput | boolean
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    bio?: NullableStringFieldUpdateOperationsInput | string | null
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -78559,6 +79710,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     isPermittedToAddAdmin?: BoolFieldUpdateOperationsInput | boolean
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    bio?: NullableStringFieldUpdateOperationsInput | string | null
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -84202,6 +85354,80 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type UniversitySettingCreateInput = {
+    name: string
+    acronym?: string | null
+    address?: string | null
+    email?: string | null
+    phone?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type UniversitySettingUncheckedCreateInput = {
+    id?: number
+    name: string
+    acronym?: string | null
+    address?: string | null
+    email?: string | null
+    phone?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type UniversitySettingUpdateInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    acronym?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type UniversitySettingUncheckedUpdateInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    name?: StringFieldUpdateOperationsInput | string
+    acronym?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type UniversitySettingCreateManyInput = {
+    id?: number
+    name: string
+    acronym?: string | null
+    address?: string | null
+    email?: string | null
+    phone?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type UniversitySettingUpdateManyMutationInput = {
+    name?: StringFieldUpdateOperationsInput | string
+    acronym?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type UniversitySettingUncheckedUpdateManyInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    name?: StringFieldUpdateOperationsInput | string
+    acronym?: NullableStringFieldUpdateOperationsInput | string | null
+    address?: NullableStringFieldUpdateOperationsInput | string | null
+    email?: NullableStringFieldUpdateOperationsInput | string | null
+    phone?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type IntFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>
     in?: number[]
@@ -84291,6 +85517,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     isPermittedToAddAdmin?: SortOrder
     location?: SortOrder
+    bio?: SortOrder
     updatedAt?: SortOrder
   }
 
@@ -84309,6 +85536,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     isPermittedToAddAdmin?: SortOrder
     location?: SortOrder
+    bio?: SortOrder
     updatedAt?: SortOrder
   }
 
@@ -84323,6 +85551,7 @@ export namespace Prisma {
     createdAt?: SortOrder
     isPermittedToAddAdmin?: SortOrder
     location?: SortOrder
+    bio?: SortOrder
     updatedAt?: SortOrder
   }
 
@@ -89285,6 +90514,53 @@ export namespace Prisma {
   }
 
   export type RegistrationControlSumOrderByAggregateInput = {
+    id?: SortOrder
+  }
+
+  export type UniversitySettingOrderByRelevanceInput = {
+    fields: UniversitySettingOrderByRelevanceFieldEnum | UniversitySettingOrderByRelevanceFieldEnum[]
+    sort: SortOrder
+    search: string
+  }
+
+  export type UniversitySettingCountOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    acronym?: SortOrder
+    address?: SortOrder
+    email?: SortOrder
+    phone?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type UniversitySettingAvgOrderByAggregateInput = {
+    id?: SortOrder
+  }
+
+  export type UniversitySettingMaxOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    acronym?: SortOrder
+    address?: SortOrder
+    email?: SortOrder
+    phone?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type UniversitySettingMinOrderByAggregateInput = {
+    id?: SortOrder
+    name?: SortOrder
+    acronym?: SortOrder
+    address?: SortOrder
+    email?: SortOrder
+    phone?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type UniversitySettingSumOrderByAggregateInput = {
     id?: SortOrder
   }
 
@@ -106979,6 +108255,7 @@ export namespace Prisma {
     createdAt?: Date | string
     isPermittedToAddAdmin?: boolean
     location?: string | null
+    bio?: string | null
     updatedAt?: Date | string
   }
 
@@ -106993,6 +108270,7 @@ export namespace Prisma {
     createdAt?: Date | string
     isPermittedToAddAdmin?: boolean
     location?: string | null
+    bio?: string | null
     updatedAt?: Date | string
   }
 
@@ -107380,6 +108658,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     isPermittedToAddAdmin?: BoolFieldUpdateOperationsInput | boolean
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    bio?: NullableStringFieldUpdateOperationsInput | string | null
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -107394,6 +108673,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     isPermittedToAddAdmin?: BoolFieldUpdateOperationsInput | boolean
     location?: NullableStringFieldUpdateOperationsInput | string | null
+    bio?: NullableStringFieldUpdateOperationsInput | string | null
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 

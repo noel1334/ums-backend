@@ -131,6 +131,7 @@ exports.Prisma.AdminScalarFieldEnum = {
   createdAt: 'createdAt',
   isPermittedToAddAdmin: 'isPermittedToAddAdmin',
   location: 'location',
+  bio: 'bio',
   updatedAt: 'updatedAt'
 };
 
@@ -911,6 +912,17 @@ exports.Prisma.RegistrationControlScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.UniversitySettingScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  acronym: 'acronym',
+  address: 'address',
+  email: 'email',
+  phone: 'phone',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -933,7 +945,8 @@ exports.Prisma.AdminOrderByRelevanceFieldEnum = {
   profileImg: 'profileImg',
   phone: 'phone',
   role: 'role',
-  location: 'location'
+  location: 'location',
+  bio: 'bio'
 };
 
 exports.Prisma.StudentOrderByRelevanceFieldEnum = {
@@ -1233,6 +1246,14 @@ exports.Prisma.AdmissionLetterSectionOrderByRelevanceFieldEnum = {
 exports.Prisma.RegistrationControlOrderByRelevanceFieldEnum = {
   message: 'message'
 };
+
+exports.Prisma.UniversitySettingOrderByRelevanceFieldEnum = {
+  name: 'name',
+  acronym: 'acronym',
+  address: 'address',
+  email: 'email',
+  phone: 'phone'
+};
 exports.EntryMode = exports.$Enums.EntryMode = {
   UTME: 'UTME',
   DIRECT_ENTRY: 'DIRECT_ENTRY',
@@ -1523,7 +1544,8 @@ exports.Prisma.ModelName = {
   AdmissionOffer: 'AdmissionOffer',
   AdmissionLetterTemplate: 'AdmissionLetterTemplate',
   AdmissionLetterSection: 'AdmissionLetterSection',
-  RegistrationControl: 'RegistrationControl'
+  RegistrationControl: 'RegistrationControl',
+  UniversitySetting: 'UniversitySetting'
 };
 
 /**

@@ -47,6 +47,8 @@ import studentExamPaymentRoutes from './studentExamPayment.routes.js';
 import adminExamPaymentRoutes from './adminExamPayment.routes.js';
 import applicantRoutes from './applicant.routes.js'
 import registrationControlRoutes from './registrationControl.routes.js';
+import adminManagementRoutes from './adminManagement.routes.js';
+import universitySettingRoutes from './universitySetting.routes.js';
 
 const router = Router();
 const apiVersion = '/api/v1';
@@ -102,6 +104,8 @@ router.use(`${apiVersion}/student-exam-payments`, studentExamPaymentRoutes);
 router.use(`${apiVersion}/exam-payments`, adminExamPaymentRoutes);
 router.use(`${apiVersion}/applicants`, applicantRoutes); 
 router.use(`${apiVersion}/registration-control`, registrationControlRoutes); 
+router.use(`${apiVersion}/admin-management`, adminManagementRoutes);
+router.use(`${apiVersion}/university-settings`, universitySettingRoutes);
 
 
 
