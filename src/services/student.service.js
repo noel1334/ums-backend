@@ -46,6 +46,7 @@ const studentPublicSelection = {
 
 const studentFullSelection = {
     ...studentPublicSelection, 
+    medicalFitness: true, // <-- ADDED: Include the MedicalFitness relationship in details query
     admissionOfferDetails: {
         select: {
             id: true,
@@ -158,6 +159,7 @@ const getEntryModeAbbreviation = (entryMode) => {
             return 'X'; 
     }
 };
+const studentSelfEditableMedicalFields = ['bloodGroup', 'genotype', 'fileUrl'];
 
 // --- MODIFIED createStudent function (single creation) ---
 export const createStudent = async (studentData) => {
@@ -583,6 +585,12 @@ export const getAllStudents = async (query, requestingUser) => {
     }
 };
 
+
+/**
+ * Update an existing Student profile.
+ * Supports updating main details, extra profile parameters, medical records,
+ * and associated application profile sub-models (biodata, contact info, next of kin, guardian).
+ */
 export const updateStudent = async (id, updateData, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -593,6 +601,7 @@ export const updateStudent = async (id, updateData, requestingUser) => {
             where: { id: studentIdToUpdate },
             include: { 
                 studentDetails: true,
+                medicalFitness: true,
                 program: { select: { degreeType: true } }
             }
         });
@@ -602,12 +611,78 @@ export const updateStudent = async (id, updateData, requestingUser) => {
 
         const studentDataForDb = {};
         const studentDetailsDataForDb = {};
+        const medicalFitnessDataForDb = {};
+        
+        // Containers for sub-model updates
+        const bioDataUpdate = {};
+        const contactInfoUpdate = {};
+        const nextOfKinUpdate = {};
+        const guardianInfoUpdate = {};
 
-        if (requestingUser.type === 'admin') {
+        const isSelfUpdate = requestingUser.type === 'student' && requestingUser.id === studentIdToUpdate;
+        const isAdmin = requestingUser.type === 'admin';
+
+        if (!isAdmin && !isSelfUpdate) {
+            throw new AppError('Not authorized to update this student profile.', 403);
+        }
+
+        // --- 1. Parse Sub-Model Updates ---
+        
+        // Biodata Updates
+        if (updateData.bioData) {
+            const { religion, maritalStatus, firstName, lastName, middleName, gender, dateOfBirth, nationality, placeOfBirth } = updateData.bioData;
+            if (religion !== undefined) bioDataUpdate.religion = religion;
+            if (maritalStatus !== undefined) bioDataUpdate.maritalStatus = maritalStatus;
+            if (middleName !== undefined) bioDataUpdate.middleName = middleName;
+            if (gender !== undefined) bioDataUpdate.gender = gender;
+            if (dateOfBirth !== undefined) bioDataUpdate.dateOfBirth = dateOfBirth ? new Date(dateOfBirth) : null;
+            if (nationality !== undefined) bioDataUpdate.nationality = nationality;
+            if (placeOfBirth !== undefined) bioDataUpdate.placeOfBirth = placeOfBirth;
+
+            // Only Admin can modify legal names
+            if (isAdmin) {
+                if (firstName !== undefined) bioDataUpdate.firstName = String(firstName).trim();
+                if (lastName !== undefined) bioDataUpdate.lastName = String(lastName).trim();
+            }
+        }
+
+        // Contact Info Updates
+        if (updateData.contactInfo) {
+            const { countryOfResidence, stateOfResidence, lgaOfResidence, residentialAddress } = updateData.contactInfo;
+            if (countryOfResidence !== undefined) contactInfoUpdate.countryOfResidence = countryOfResidence;
+            if (stateOfResidence !== undefined) contactInfoUpdate.stateOfResidence = stateOfResidence;
+            if (lgaOfResidence !== undefined) contactInfoUpdate.lgaOfResidence = lgaOfResidence;
+            if (residentialAddress !== undefined) contactInfoUpdate.residentialAddress = residentialAddress;
+        }
+
+        // Next of Kin Updates
+        if (updateData.nextOfKin) {
+            const { fullName, relationship, phone, email, address } = updateData.nextOfKin;
+            if (fullName !== undefined) nextOfKinUpdate.fullName = fullName;
+            if (relationship !== undefined) nextOfKinUpdate.relationship = relationship;
+            if (phone !== undefined) nextOfKinUpdate.phone = phone;
+            if (email !== undefined) nextOfKinUpdate.email = email;
+            if (address !== undefined) nextOfKinUpdate.address = address;
+        }
+
+        // Guardian Info Updates
+        if (updateData.guardianInfo) {
+            const { fullName, relationship, phone, email, address, occupation } = updateData.guardianInfo;
+            if (fullName !== undefined) guardianInfoUpdate.fullName = fullName;
+            if (relationship !== undefined) guardianInfoUpdate.relationship = relationship;
+            if (phone !== undefined) guardianInfoUpdate.phone = phone;
+            if (email !== undefined) guardianInfoUpdate.email = email;
+            if (address !== undefined) guardianInfoUpdate.address = address;
+            if (occupation !== undefined) guardianInfoUpdate.occupation = occupation;
+        }
+
+        // --- 2. Parse Base & Detail Fields ---
+
+        if (isAdmin) {
             for (const key of adminEditableStudentFields) {
                 if (updateData.hasOwnProperty(key)) {
                     const value = updateData[key];
-                    if (key === 'regNo') { continue; } 
+                    if (key === 'regNo') continue;
 
                     if (key === 'password' && value && String(value).trim()) {
                         studentDataForDb.password = await hashPassword(String(value).trim());
@@ -626,21 +701,6 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                     } else if (key === 'entryMode' && value) {
                         if (!Object.values(EntryMode).includes(String(value))) throw new AppError('Invalid entry mode.', 400);
                         studentDataForDb.entryMode = String(value);
-                        if (!updateData.hasOwnProperty('entryLevelId')) {
-                            let entryLevelName = (studentDataForDb.entryMode === EntryMode.UTME) ? "100 Level" : (studentDataForDb.entryMode === EntryMode.DIRECT_ENTRY) ? "200 Level" : null;
-                            if(entryLevelName) {
-                                const entryLevelRec = await prisma.level.findUnique({
-                                    where: { 
-                                        unique_level_name_per_degree_type: { 
-                                            name: entryLevelName,
-                                            degreeType: programDegreeType 
-                                        }
-                                    }
-                                });
-                                if(entryLevelRec) studentDataForDb.entryLevelId = entryLevelRec.id; 
-                                else console.warn(`Default level ${entryLevelName} for degree type ${programDegreeType} not found for entry mode update.`);
-                            }
-                        }
                     } else if (['yearOfAdmission'].includes(key) && value != null) {
                         const parsedVal = parseInt(String(value), 10);
                         if (isNaN(parsedVal)) throw new AppError(`Invalid ${key}.`, 400);
@@ -650,25 +710,12 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                         if (studentDataForDb[key] !== null && isNaN(studentDataForDb[key])) throw new AppError(`Invalid ID for ${key}.`, 400);
                     } else if (key === 'isActive' || key === 'isGraduated') {
                         studentDataForDb[key] = Boolean(value);
-                        if (key === 'isGraduated') { 
-                            if (Boolean(value) === true) { 
-                                studentDataForDb.isActive = updateData.hasOwnProperty('isActive') ? Boolean(updateData.isActive) : false;
-                                if (!updateData.graduationSeasonId || !updateData.graduationSemesterId) throw new AppError('Graduation Season & Semester ID required when graduating.', 400);
-                                const gradSeasonId = parseInt(String(updateData.graduationSeasonId), 10);
-                                const gradSemesterId = parseInt(String(updateData.graduationSemesterId), 10);
-                                if (isNaN(gradSeasonId) || isNaN(gradSemesterId)) throw new AppError('Invalid graduation season/semester ID.', 400);
-                                studentDataForDb.graduationSeasonId = gradSeasonId;
-                                studentDataForDb.graduationSemesterId = gradSemesterId;
-                            } else { 
-                                studentDataForDb.graduationSeasonId = null;
-                                studentDataForDb.graduationSemesterId = null;
-                            }
-                        }
                     } else if (key !== 'password') {
                         studentDataForDb[key] = (value === '' && key !== 'name' && key !== 'email') ? null : String(value);
                     }
                 }
             }
+
             const adminEditableDetails = ['dob', 'gender', 'address', 'phone', 'guardianName', 'guardianPhone'];
             for (const key of adminEditableDetails) {
                 if (updateData.hasOwnProperty(key)) {
@@ -687,53 +734,196 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                     } else { studentDetailsDataForDb[key] = (value === '' || value === null) ? null : String(value); }
                 }
             }
-            if (Object.keys(studentDetailsDataForDb).length > 0 && !studentDetailsDataForDb.gender && !studentToUpdate.studentDetails?.gender) {
-                throw new AppError('Gender required for student details.', 400);
+
+            const adminEditableMedicalFields = ['bloodGroup', 'genotype', 'fileUrl', 'status', 'rejectionReason'];
+            for (const key of adminEditableMedicalFields) {
+                if (updateData.hasOwnProperty(key)) {
+                    const value = updateData[key];
+                    if (key === 'status') {
+                        medicalFitnessDataForDb.status = value;
+                        if (value === 'VERIFIED') {
+                            medicalFitnessDataForDb.verifiedByAdminId = requestingUser.id;
+                            medicalFitnessDataForDb.verifiedAt = new Date();
+                        }
+                    } else {
+                        medicalFitnessDataForDb[key] = (value === '' || value === null) ? null : String(value);
+                    }
+                }
             }
-        } else if (requestingUser.type === 'student' && requestingUser.id === studentIdToUpdate) {
+
+        } else if (isSelfUpdate) {
             for (const key of Object.keys(updateData)) {
-                let isAllowed = false; const value = updateData[key];
+                let isAllowed = false; 
+                const value = updateData[key];
+
                 if (studentSelfEditableStudentFields.includes(key)) {
                     isAllowed = true;
-                    if (key === 'password' && value && String(value).trim()) studentDataForDb.password = await hashPassword(String(value).trim());
-                    else if (key === 'profileImg') studentDataForDb.profileImg = String(value).trim() || null;
+                    if (key === 'password' && value && String(value).trim()) {
+                        studentDataForDb.password = await hashPassword(String(value).trim());
+                    } else if (key === 'profileImg') {
+                        studentDataForDb.profileImg = value ? String(value).trim() : null;
+                    }
                 } else if (studentSelfEditableDetailsFields.includes(key)){
                     isAllowed = true;
                     if (key === 'dob') studentDetailsDataForDb.dob = value ? new Date(String(value)) : null;
-                    else if (key === 'gender') { /* ... gender validation ... */ studentDetailsDataForDb.gender = String(value) || studentToUpdate.studentDetails?.gender || undefined; }
-                    else if (key === 'phone') { /* ... phone validation & uniqueness ... */ studentDetailsDataForDb.phone = value ? String(value).trim() : null; }
-                    else { studentDetailsDataForDb[key] = (value === '' || value === null) ? null : String(value); }
+                    else if (key === 'gender') { 
+                        studentDetailsDataForDb.gender = String(value) || studentToUpdate.studentDetails?.gender || undefined; 
+                    } else if (key === 'phone') { 
+                        const phoneVal = value ? String(value).trim() : null;
+                        if (phoneVal && phoneVal !== studentToUpdate.studentDetails?.phone) {
+                            const existing = await prisma.studentDetails.findFirst({ where: { phone: phoneVal, studentId: { not: studentIdToUpdate } } });
+                            if (existing) throw new AppError('This phone number is already in use.', 409);
+                        }
+                        studentDetailsDataForDb.phone = phoneVal; 
+                    } else { 
+                        studentDetailsDataForDb[key] = (value === '' || value === null) ? null : String(value); 
+                    }
+                } else if (studentSelfEditableMedicalFields.includes(key)) {
+                    isAllowed = true;
+                    if (key === 'fileUrl') {
+                        medicalFitnessDataForDb.fileUrl = value ? String(value).trim() : null;
+                        medicalFitnessDataForDb.status = value ? 'UPLOADED' : 'NOT_UPLOADED';
+                    } else {
+                        medicalFitnessDataForDb[key] = value ? String(value).trim() : null;
+                    }
                 }
+
+                // If updating sub-models directly as fields
+                if (['bioData', 'contactInfo', 'nextOfKin', 'guardianInfo'].includes(key)) {
+                    isAllowed = true;
+                }
+
                 if (updateData.hasOwnProperty(key) && !isAllowed) throw new AppError(`Not allowed to update '${key}'.`, 403);
             }
-            if (Object.keys(studentDetailsDataForDb).length > 0 && !studentDetailsDataForDb.gender && !studentToUpdate.studentDetails?.gender) {
-                throw new AppError('Gender required for student details.', 400);
-            }
-        } else {
-            throw new AppError('Not authorized to update this student profile.', 403);
         }
 
-        if (Object.keys(studentDataForDb).length === 0 && Object.keys(studentDetailsDataForDb).length === 0) {
-            throw new AppError('No valid fields provided for update.', 400);
+        if (Object.keys(studentDetailsDataForDb).length > 0 && !studentDetailsDataForDb.gender && !studentToUpdate.studentDetails?.gender) {
+            throw new AppError('Gender required for student details.', 400);
         }
 
+        // --- 3. Transaction Execution ---
         await prisma.$transaction(async (tx) => {
-            if (Object.keys(studentDataForDb).length > 0) await tx.student.update({ where: { id: studentIdToUpdate }, data: studentDataForDb });
+            // Update Student base record
+            if (Object.keys(studentDataForDb).length > 0) {
+                await tx.student.update({ 
+                    where: { id: studentIdToUpdate }, 
+                    data: studentDataForDb 
+                });
+            }
+
+            // Upsert Student Details
             if (Object.keys(studentDetailsDataForDb).length > 0) {
-                const finalDetailsData = {...studentDetailsDataForDb};
-                if (!finalDetailsData.gender && studentToUpdate.studentDetails?.gender) finalDetailsData.gender = studentToUpdate.studentDetails.gender;
-                else if (!finalDetailsData.gender && !studentToUpdate.studentDetails?.gender) throw new AppError('Gender required for details.', 400);
+                const finalDetailsData = { ...studentDetailsDataForDb };
+                if (!finalDetailsData.gender && studentToUpdate.studentDetails?.gender) {
+                    finalDetailsData.gender = studentToUpdate.studentDetails.gender;
+                } else if (!finalDetailsData.gender && !studentToUpdate.studentDetails?.gender) {
+                    throw new AppError('Gender is required to initialize student details.', 400);
+                }
+
                 await tx.studentDetails.upsert({
                     where: { studentId: studentIdToUpdate },
-                    create: { studentId: studentIdToUpdate, gender: finalDetailsData.gender, ...finalDetailsData }, // Ensure gender is present for create
+                    create: { 
+                        studentId: studentIdToUpdate, 
+                        gender: finalDetailsData.gender, 
+                        ...finalDetailsData 
+                    },
                     update: studentDetailsDataForDb,
                 });
             }
+
+            // Upsert Medical Fitness record
+            if (Object.keys(medicalFitnessDataForDb).length > 0) {
+                await tx.medicalFitness.upsert({
+                    where: { studentId: studentIdToUpdate },
+                    create: {
+                        studentId: studentIdToUpdate,
+                        ...medicalFitnessDataForDb
+                    },
+                    update: medicalFitnessDataForDb
+                });
+            }
+
+            // Sync Profile Image & Sub-models with Application Profile (if links exist)
+            const studentWithOffer = await tx.student.findUnique({
+                where: { id: studentIdToUpdate },
+                select: {
+                    admissionOfferDetails: {
+                        select: { applicationProfileId: true }
+                    }
+                }
+            });
+
+            const applicationProfileId = studentWithOffer?.admissionOfferDetails?.applicationProfileId;
+
+            if (applicationProfileId) {
+                // Sync profileImg directly with ApplicantDocument (type PROFILE_PHOTO)
+                if (studentDataForDb.profileImg) {
+                    await tx.applicantDocument.upsert({
+                        where: {
+                            applicant_document_unique_constraint: {
+                                applicationProfileId,
+                                documentType: 'PROFILE_PHOTO'
+                            }
+                        },
+                        create: {
+                            applicationProfileId,
+                            documentType: 'PROFILE_PHOTO',
+                            fileUrl: studentDataForDb.profileImg,
+                            status: 'VERIFIED'
+                        },
+                        update: {
+                            fileUrl: studentDataForDb.profileImg,
+                            status: 'VERIFIED'
+                        }
+                    });
+                }
+
+                // Update associated pre-admission sub-models if populated
+                if (Object.keys(bioDataUpdate).length > 0) {
+                    await tx.applicantBioData.update({
+                        where: { applicationProfileId },
+                        data: bioDataUpdate
+                    });
+                }
+
+                if (Object.keys(contactInfoUpdate).length > 0) {
+                    await tx.applicantContactInfo.update({
+                        where: { applicationProfileId },
+                        data: contactInfoUpdate
+                    });
+                }
+
+                if (Object.keys(nextOfKinUpdate).length > 0) {
+                    await tx.applicantNextOfKin.update({
+                        where: { applicationProfileId },
+                        data: nextOfKinUpdate
+                    });
+                }
+
+                if (Object.keys(guardianInfoUpdate).length > 0) {
+                    await tx.applicantGuardianInfo.update({
+                        where: { applicationProfileId },
+                        data: guardianInfoUpdate
+                    });
+                }
+            }
         });
-        return prisma.student.findUnique({ where: { id: studentIdToUpdate }, select: studentPublicSelection });
+
+        // Return updated student profile complete with all relations
+        return prisma.student.findUnique({ 
+            where: { id: studentIdToUpdate }, 
+            select: studentFullSelection 
+        });
+
     } catch (error) {
         if (error instanceof AppError) throw error;
-        if (error.code === 'P2002' && error.meta?.target) { /* ... unique constraint handling ... */ }
+        if (error.code === 'P2002' && error.meta?.target) {
+            const target = error.meta.target;
+            let fieldName = Array.isArray(target) ? target.join(', ') : String(target);
+            if (fieldName.includes('email')) fieldName = 'email address';
+            else if (fieldName.includes('StudentDetails_phone_key')) fieldName = 'phone number';
+            throw new AppError(`This ${fieldName} is already in use.`, 409);
+        }
         console.error("[STUDENT_SERVICE_ERROR] UpdateStudent:", error.message, error.stack);
         throw new AppError('Could not update student profile.', 500);
     }

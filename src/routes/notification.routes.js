@@ -16,7 +16,7 @@ const router = Router();
  * @access Private (Any authenticated user)
  */
 router.get(
-    '/me', // Changed from '/my-notifications' to '/me'
+    '/me',
     authenticateToken,
     authorize(['student', 'lecturer', 'ictstaff', 'admin']),
     NotificationController.getMyNotifications
@@ -28,7 +28,7 @@ router.get(
  * @access Private (Any authenticated user)
  */
 router.patch(
-    '/me/mark-all-read', // Changed from '/my-notifications/mark-all-read' to '/me/mark-all-read'
+    '/me/mark-all-read',
     authenticateToken,
     authorize(['student', 'lecturer', 'ictstaff', 'admin']),
     NotificationController.markAllMyNotificationsAsRead
@@ -40,9 +40,9 @@ router.patch(
  * @access Private (Recipient or Admin)
  */
 router.patch(
-    '/:id/read', // Changed from '/:notificationId/read-status' to '/:id/read'
+    '/:id/read',
     authenticateToken,
-    authorize(['student', 'lecturer', 'ictstaff', 'admin']), // Service does specific recipient/admin check
+    authorize(['student', 'lecturer', 'ictstaff', 'admin']),
     NotificationController.updateNotificationReadStatus
 );
 
@@ -95,7 +95,7 @@ router.post(
     '/payment-reminder',
     authenticateToken,
     authorizeAdmin,
-    NotificationController.triggerPaymentReminder // NEW Controller function
+    NotificationController.triggerPaymentReminder
 );
 
 export default router;

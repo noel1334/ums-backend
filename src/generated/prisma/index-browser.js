@@ -919,6 +919,21 @@ exports.Prisma.UniversitySettingScalarFieldEnum = {
   address: 'address',
   email: 'email',
   phone: 'phone',
+  logoUrl: 'logoUrl',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.MedicalFitnessScalarFieldEnum = {
+  id: 'id',
+  studentId: 'studentId',
+  bloodGroup: 'bloodGroup',
+  genotype: 'genotype',
+  fileUrl: 'fileUrl',
+  status: 'status',
+  rejectionReason: 'rejectionReason',
+  verifiedByAdminId: 'verifiedByAdminId',
+  verifiedAt: 'verifiedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -1252,7 +1267,15 @@ exports.Prisma.UniversitySettingOrderByRelevanceFieldEnum = {
   acronym: 'acronym',
   address: 'address',
   email: 'email',
-  phone: 'phone'
+  phone: 'phone',
+  logoUrl: 'logoUrl'
+};
+
+exports.Prisma.MedicalFitnessOrderByRelevanceFieldEnum = {
+  bloodGroup: 'bloodGroup',
+  genotype: 'genotype',
+  fileUrl: 'fileUrl',
+  rejectionReason: 'rejectionReason'
 };
 exports.EntryMode = exports.$Enums.EntryMode = {
   UTME: 'UTME',
@@ -1545,7 +1568,8 @@ exports.Prisma.ModelName = {
   AdmissionLetterTemplate: 'AdmissionLetterTemplate',
   AdmissionLetterSection: 'AdmissionLetterSection',
   RegistrationControl: 'RegistrationControl',
-  UniversitySetting: 'UniversitySetting'
+  UniversitySetting: 'UniversitySetting',
+  MedicalFitness: 'MedicalFitness'
 };
 
 /**

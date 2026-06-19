@@ -1,13 +1,9 @@
 // src/routes/universitySetting.routes.js
 
 import express from 'express';
-import jwt from 'jsonwebtoken'; // Used to inspect the token type
 import * as universitySettingController from '../controllers/universitySetting.controller.js';
-import { 
-    authenticateToken, 
-    authenticateApplicantToken, 
-    authorizeAdmin 
-} from '../middlewares/auth.middleware.js';
+import { authenticateToken, authorizeAdmin } from '../middlewares/auth.middleware.js';
+import uploadImageMiddleware from '../middlewares/uploadImage.middleware.js'; 
 import AppError from '../utils/AppError.js';
 
 const router = express.Router();
@@ -25,24 +21,33 @@ const authenticateAnyUser = (req, res, next) => {
     const token = authHeader.split(' ')[1];
     
     try {
-        // Decode token without verification to inspect the "type" field
-        const decoded = jwt.decode(token);
+        const tokenParts = token.split('.');
+        if (tokenParts.length !== 3) {
+            return next(new AppError('Invalid token format.', 401));
+        }
+
+        const payloadJson = Buffer.from(tokenParts[1], 'base64').toString('utf-8');
+        const decoded = JSON.parse(payloadJson);
 
         if (decoded && decoded.type === 'applicant') {
-            // Route to applicant authentication
             return authenticateApplicantToken(req, res, next);
         }
 
-        // Route to standard internal user authentication
         return authenticateToken(req, res, next);
     } catch (error) {
-        return next(new AppError('Invalid or malformed authentication token.', 401));
+        return next(new AppError('Invalid or malformed authentication token payload.', 401));
     }
 };
 
-// Routing configurations
-router.route('/')
-    .get(authenticateAnyUser, universitySettingController.handleGetSettings) // Accessible by all authenticated users & applicants
-    .put(authenticateToken, authorizeAdmin, universitySettingController.handleUpdateSettings); // Restrict updates to internal Admins only
+// Route endpoints configured inline (without router.use)
+router.get('/', authenticateAnyUser, universitySettingController.handleGetSettings);
+
+// FIXED: Changed 'profileImg' to 'logo' to match 'fd.append("logo", logoFile)' on the frontend
+router.put('/', 
+    authenticateToken, 
+    authorizeAdmin, 
+    uploadImageMiddleware('logo', 'single'), 
+    universitySettingController.handleUpdateSettings
+);
 
 export default router;

@@ -1,13 +1,14 @@
+// src/controllers/student.controller.js
+
 import * as StudentService from '../services/student.service.js';
-import * as StudentAcademicsService from '../services/studentAcademics.service.js'; // NEW IMPORT
+import * as StudentAcademicsService from '../services/studentAcademics.service.js';
 import AppError from '../utils/AppError.js';
-import { LecturerRole } from '../generated/prisma/index.js'; // Needed for HOD role check
+import { LecturerRole } from '../generated/prisma/index.js';
 import catchAsync from '../utils/catchAsync.js';
 
 // Admin creates student
 export const createStudent = async (req, res, next) => {
     try {
-        // Add Joi or express-validator validation for req.body here
         const newStudent = await StudentService.createStudent(req.body);
         res.status(201).json({
             status: 'success',
@@ -35,7 +36,8 @@ export const deleteStudent = async (req, res, next) => {
 // Student gets their own profile
 export const getMyProfile = async (req, res, next) => {
     try {
-        const student = await StudentService.getStudentById(req.user.id); // req.user.id from auth middleware
+        // FIXED: Added req.user as the second argument to match the service signature
+        const student = await StudentService.getStudentById(req.user.id, req.user); 
         res.status(200).json({
             status: 'success',
             data: { student },
@@ -64,7 +66,6 @@ export const updateMyProfile = async (req, res, next) => {
 
 export const getAllStudents = async (req, res, next) => {
     try {
-        // The service now expects req.user to determine if an HOD is making the request
         const result = await StudentService.getAllStudents(req.query, req.user);
         res.status(200).json({ status: 'success', data: result });
     } catch (error) {
@@ -78,10 +79,11 @@ export const getStudentById = async (req, res, next) => {
         const studentId = parseInt(req.params.id, 10);
         if (isNaN(studentId)) return next(new AppError('Invalid student ID format.', 400));
 
-        const student = await StudentService.getStudentById(studentId); // Fetches student first
+        // FIXED: Added req.user as the second argument to match the service signature
+        const student = await StudentService.getStudentById(studentId, req.user); 
 
         // Authorization checks (re-checked here for robust error messages)
-        const { user } = req; // Logged in user
+        const { user } = req; 
         if (user.type === 'admin' || (user.type === 'student' && user.id === studentId)) {
             // Allowed
         } else if (user.type === 'lecturer' && user.role === LecturerRole.HOD && student && user.departmentId === student.departmentId) {
@@ -112,11 +114,7 @@ export const updateStudent = async (req, res, next) => {
     }
 };
 
-
-// New Controller Action: For any lecturer to get students in their assigned courses
-
 export const getMyCourseStudents = catchAsync(async (req, res, next) => {
-    // req.user is the authenticated lecturer passed from auth middleware
     const result = await StudentService.getMyCourseStudentsList(req.user, req.query);
     res.status(200).json({
         status: 'success',
@@ -126,8 +124,6 @@ export const getMyCourseStudents = catchAsync(async (req, res, next) => {
 
 export const getMyRegistrableCourses = async (req, res, next) => {
     try {
-        // Student is authenticated, req.user.id is their ID.
-        // Target season and semester IDs should come from query parameters.
         const { seasonId, semesterId } = req.query;
         if (!seasonId || !semesterId) {
             return next(new AppError('Target Season ID and Semester ID are required in query.', 400));
@@ -147,34 +143,30 @@ export const getMyRegistrableCourses = async (req, res, next) => {
     }
 };
 
-// --- NEW CONTROLLER ACTION for getMyProgramCurriculumCourses ---
 export const getMyProgramCurriculumCourses = async (req, res, next) => {
     try {
-        const { seasonId, semesterId, levelId } = req.query; // levelId is optional
+        const { seasonId, semesterId, levelId } = req.query;
         if (!seasonId || !semesterId) {
             return next(new AppError('Season ID and Semester ID are required in query.', 400));
         }
 
         const result = await StudentAcademicsService.getStudentCurriculumCoursesForPeriod(
-            req.user.id, // Authenticated student's ID
+            req.user.id,
             seasonId,
             semesterId,
-            levelId // Pass optional levelId
+            levelId
         );
         res.status(200).json({
             status: 'success',
-            data: result,
+            data: { settings: result }
         });
     } catch (error) {
         next(error);
     }
 };
-// --- END NEW CONTROLLER ACTION ---
-
 
 export const getDepartmentStudents = async (req, res, next) => {
     try {
-        // req.user is the authenticated lecturer (HOD) or admin
         const result = await StudentService.getDepartmentStudents(req.user, req.query);
         res.status(200).json({
             status: 'success',
@@ -187,7 +179,6 @@ export const getDepartmentStudents = async (req, res, next) => {
 
 export const getStudentsForAssignedCourse = async (req, res, next) => {
     try {
-        // The service function handles authorization and data fetching
         const result = await StudentService.getStudentsForAssignedCourse(req.user, req.query);
         res.status(200).json({
             status: 'success',
@@ -200,22 +191,18 @@ export const getStudentsForAssignedCourse = async (req, res, next) => {
 
 export const batchCreateStudents = async (req, res, next) => {
     try {
-        const studentDataArray = req.body.students; // Expect an array of student data objects
+        const studentDataArray = req.body.students;
         
         if (!Array.isArray(studentDataArray) || studentDataArray.length === 0) {
             return next(new AppError('Student data must be a non-empty array in the request body.', 400));
         }
-        if (studentDataArray.length > 500) { // Optional: Set a reasonable limit for batch size
+        if (studentDataArray.length > 500) {
             return next(new AppError('Batch size too large. Please send a maximum of 500 students at a time.', 400));
         }
 
-        const result = await StudentService.batchCreateStudents(studentDataArray, req.user); // Pass req.user for logging/auth
-        
-        // The service function now returns a structured object (status, message, data)
-        // We can directly send this as the response.
+        const result = await StudentService.batchCreateStudents(studentDataArray, req.user);
         res.status(200).json(result);
-
     } catch (error) {
-        next(error); // Pass any errors to the global error handler
+        next(error);
     }
 };

@@ -303,6 +303,11 @@ export type RegistrationControl = $Result.DefaultSelection<Prisma.$RegistrationC
  * 
  */
 export type UniversitySetting = $Result.DefaultSelection<Prisma.$UniversitySettingPayload>
+/**
+ * Model MedicalFitness
+ * 
+ */
+export type MedicalFitness = $Result.DefaultSelection<Prisma.$MedicalFitnessPayload>
 
 /**
  * Enums
@@ -1421,6 +1426,16 @@ export class PrismaClient<
     * ```
     */
   get universitySetting(): Prisma.UniversitySettingDelegate<ExtArgs, ClientOptions>;
+
+  /**
+   * `prisma.medicalFitness`: Exposes CRUD operations for the **MedicalFitness** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more MedicalFitnesses
+    * const medicalFitnesses = await prisma.medicalFitness.findMany()
+    * ```
+    */
+  get medicalFitness(): Prisma.MedicalFitnessDelegate<ExtArgs, ClientOptions>;
 }
 
 export namespace Prisma {
@@ -1918,7 +1933,8 @@ export namespace Prisma {
     AdmissionLetterTemplate: 'AdmissionLetterTemplate',
     AdmissionLetterSection: 'AdmissionLetterSection',
     RegistrationControl: 'RegistrationControl',
-    UniversitySetting: 'UniversitySetting'
+    UniversitySetting: 'UniversitySetting',
+    MedicalFitness: 'MedicalFitness'
   };
 
   export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -1937,7 +1953,7 @@ export namespace Prisma {
       omit: GlobalOmitOptions
     }
     meta: {
-      modelProps: "admin" | "student" | "studentDetails" | "lecturer" | "iCTStaff" | "faculty" | "department" | "staffCourse" | "program" | "level" | "programCourseUnitRequirement" | "course" | "coursePrerequisite" | "programCourse" | "season" | "semester" | "studentCourseRegistration" | "score" | "result" | "schoolFeeList" | "schoolFee" | "paymentReceipt" | "hostel" | "hostelRoom" | "hostelFeeList" | "hostelBooking" | "notification" | "venue" | "exam" | "examSession" | "studentExamSessionAssignment" | "question" | "questionOption" | "examAttemptQuestion" | "examAttempt" | "studentAnswer" | "examFee" | "studentExamPayment" | "screeningFeeList" | "acceptanceFeeList" | "applicantPayment" | "jambApplicant" | "onlineScreeningList" | "applicationProfile" | "applicantBioData" | "applicantContactInfo" | "applicantNextOfKin" | "applicantGuardianInfo" | "applicantOLevelResult" | "applicantOLevelSubjectGrade" | "applicantTertiaryQualification" | "applicantDocument" | "physicalScreeningList" | "admissionOffer" | "admissionLetterTemplate" | "admissionLetterSection" | "registrationControl" | "universitySetting"
+      modelProps: "admin" | "student" | "studentDetails" | "lecturer" | "iCTStaff" | "faculty" | "department" | "staffCourse" | "program" | "level" | "programCourseUnitRequirement" | "course" | "coursePrerequisite" | "programCourse" | "season" | "semester" | "studentCourseRegistration" | "score" | "result" | "schoolFeeList" | "schoolFee" | "paymentReceipt" | "hostel" | "hostelRoom" | "hostelFeeList" | "hostelBooking" | "notification" | "venue" | "exam" | "examSession" | "studentExamSessionAssignment" | "question" | "questionOption" | "examAttemptQuestion" | "examAttempt" | "studentAnswer" | "examFee" | "studentExamPayment" | "screeningFeeList" | "acceptanceFeeList" | "applicantPayment" | "jambApplicant" | "onlineScreeningList" | "applicationProfile" | "applicantBioData" | "applicantContactInfo" | "applicantNextOfKin" | "applicantGuardianInfo" | "applicantOLevelResult" | "applicantOLevelSubjectGrade" | "applicantTertiaryQualification" | "applicantDocument" | "physicalScreeningList" | "admissionOffer" | "admissionLetterTemplate" | "admissionLetterSection" | "registrationControl" | "universitySetting" | "medicalFitness"
       txIsolationLevel: Prisma.TransactionIsolationLevel
     }
     model: {
@@ -5769,6 +5785,72 @@ export namespace Prisma {
           }
         }
       }
+      MedicalFitness: {
+        payload: Prisma.$MedicalFitnessPayload<ExtArgs>
+        fields: Prisma.MedicalFitnessFieldRefs
+        operations: {
+          findUnique: {
+            args: Prisma.MedicalFitnessFindUniqueArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MedicalFitnessPayload> | null
+          }
+          findUniqueOrThrow: {
+            args: Prisma.MedicalFitnessFindUniqueOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MedicalFitnessPayload>
+          }
+          findFirst: {
+            args: Prisma.MedicalFitnessFindFirstArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MedicalFitnessPayload> | null
+          }
+          findFirstOrThrow: {
+            args: Prisma.MedicalFitnessFindFirstOrThrowArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MedicalFitnessPayload>
+          }
+          findMany: {
+            args: Prisma.MedicalFitnessFindManyArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MedicalFitnessPayload>[]
+          }
+          create: {
+            args: Prisma.MedicalFitnessCreateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MedicalFitnessPayload>
+          }
+          createMany: {
+            args: Prisma.MedicalFitnessCreateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          delete: {
+            args: Prisma.MedicalFitnessDeleteArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MedicalFitnessPayload>
+          }
+          update: {
+            args: Prisma.MedicalFitnessUpdateArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MedicalFitnessPayload>
+          }
+          deleteMany: {
+            args: Prisma.MedicalFitnessDeleteManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          updateMany: {
+            args: Prisma.MedicalFitnessUpdateManyArgs<ExtArgs>
+            result: BatchPayload
+          }
+          upsert: {
+            args: Prisma.MedicalFitnessUpsertArgs<ExtArgs>
+            result: $Utils.PayloadToResult<Prisma.$MedicalFitnessPayload>
+          }
+          aggregate: {
+            args: Prisma.MedicalFitnessAggregateArgs<ExtArgs>
+            result: $Utils.Optional<AggregateMedicalFitness>
+          }
+          groupBy: {
+            args: Prisma.MedicalFitnessGroupByArgs<ExtArgs>
+            result: $Utils.Optional<MedicalFitnessGroupByOutputType>[]
+          }
+          count: {
+            args: Prisma.MedicalFitnessCountArgs<ExtArgs>
+            result: $Utils.Optional<MedicalFitnessCountAggregateOutputType> | number
+          }
+        }
+      }
     }
   } & {
     other: {
@@ -5911,6 +5993,7 @@ export namespace Prisma {
     admissionLetterSection?: AdmissionLetterSectionOmit
     registrationControl?: RegistrationControlOmit
     universitySetting?: UniversitySettingOmit
+    medicalFitness?: MedicalFitnessOmit
   }
 
   /* Types for Logging */
@@ -9083,6 +9166,7 @@ export namespace Prisma {
     currentSemester?: boolean | Student$currentSemesterArgs<ExtArgs>
     admissionOfferDetails?: boolean | Student$admissionOfferDetailsArgs<ExtArgs>
     studentDetails?: boolean | Student$studentDetailsArgs<ExtArgs>
+    medicalFitness?: boolean | Student$medicalFitnessArgs<ExtArgs>
     registrations?: boolean | Student$registrationsArgs<ExtArgs>
     results?: boolean | Student$resultsArgs<ExtArgs>
     schoolFees?: boolean | Student$schoolFeesArgs<ExtArgs>
@@ -9137,6 +9221,7 @@ export namespace Prisma {
     currentSemester?: boolean | Student$currentSemesterArgs<ExtArgs>
     admissionOfferDetails?: boolean | Student$admissionOfferDetailsArgs<ExtArgs>
     studentDetails?: boolean | Student$studentDetailsArgs<ExtArgs>
+    medicalFitness?: boolean | Student$medicalFitnessArgs<ExtArgs>
     registrations?: boolean | Student$registrationsArgs<ExtArgs>
     results?: boolean | Student$resultsArgs<ExtArgs>
     schoolFees?: boolean | Student$schoolFeesArgs<ExtArgs>
@@ -9164,6 +9249,7 @@ export namespace Prisma {
       currentSemester: Prisma.$SemesterPayload<ExtArgs> | null
       admissionOfferDetails: Prisma.$AdmissionOfferPayload<ExtArgs> | null
       studentDetails: Prisma.$StudentDetailsPayload<ExtArgs> | null
+      medicalFitness: Prisma.$MedicalFitnessPayload<ExtArgs> | null
       registrations: Prisma.$StudentCourseRegistrationPayload<ExtArgs>[]
       results: Prisma.$ResultPayload<ExtArgs>[]
       schoolFees: Prisma.$SchoolFeePayload<ExtArgs>[]
@@ -9550,6 +9636,7 @@ export namespace Prisma {
     currentSemester<T extends Student$currentSemesterArgs<ExtArgs> = {}>(args?: Subset<T, Student$currentSemesterArgs<ExtArgs>>): Prisma__SemesterClient<$Result.GetResult<Prisma.$SemesterPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     admissionOfferDetails<T extends Student$admissionOfferDetailsArgs<ExtArgs> = {}>(args?: Subset<T, Student$admissionOfferDetailsArgs<ExtArgs>>): Prisma__AdmissionOfferClient<$Result.GetResult<Prisma.$AdmissionOfferPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     studentDetails<T extends Student$studentDetailsArgs<ExtArgs> = {}>(args?: Subset<T, Student$studentDetailsArgs<ExtArgs>>): Prisma__StudentDetailsClient<$Result.GetResult<Prisma.$StudentDetailsPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+    medicalFitness<T extends Student$medicalFitnessArgs<ExtArgs> = {}>(args?: Subset<T, Student$medicalFitnessArgs<ExtArgs>>): Prisma__MedicalFitnessClient<$Result.GetResult<Prisma.$MedicalFitnessPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
     registrations<T extends Student$registrationsArgs<ExtArgs> = {}>(args?: Subset<T, Student$registrationsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$StudentCourseRegistrationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     results<T extends Student$resultsArgs<ExtArgs> = {}>(args?: Subset<T, Student$resultsArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$ResultPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
     schoolFees<T extends Student$schoolFeesArgs<ExtArgs> = {}>(args?: Subset<T, Student$schoolFeesArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$SchoolFeePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
@@ -10065,6 +10152,25 @@ export namespace Prisma {
      */
     include?: StudentDetailsInclude<ExtArgs> | null
     where?: StudentDetailsWhereInput
+  }
+
+  /**
+   * Student.medicalFitness
+   */
+  export type Student$medicalFitnessArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
+    where?: MedicalFitnessWhereInput
   }
 
   /**
@@ -71313,6 +71419,7 @@ export namespace Prisma {
     address: string | null
     email: string | null
     phone: string | null
+    logoUrl: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -71324,6 +71431,7 @@ export namespace Prisma {
     address: string | null
     email: string | null
     phone: string | null
+    logoUrl: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -71335,6 +71443,7 @@ export namespace Prisma {
     address: number
     email: number
     phone: number
+    logoUrl: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -71356,6 +71465,7 @@ export namespace Prisma {
     address?: true
     email?: true
     phone?: true
+    logoUrl?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -71367,6 +71477,7 @@ export namespace Prisma {
     address?: true
     email?: true
     phone?: true
+    logoUrl?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -71378,6 +71489,7 @@ export namespace Prisma {
     address?: true
     email?: true
     phone?: true
+    logoUrl?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -71476,6 +71588,7 @@ export namespace Prisma {
     address: string | null
     email: string | null
     phone: string | null
+    logoUrl: string | null
     createdAt: Date
     updatedAt: Date
     _count: UniversitySettingCountAggregateOutputType | null
@@ -71506,6 +71619,7 @@ export namespace Prisma {
     address?: boolean
     email?: boolean
     phone?: boolean
+    logoUrl?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["universitySetting"]>
@@ -71519,11 +71633,12 @@ export namespace Prisma {
     address?: boolean
     email?: boolean
     phone?: boolean
+    logoUrl?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type UniversitySettingOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "acronym" | "address" | "email" | "phone" | "createdAt" | "updatedAt", ExtArgs["result"]["universitySetting"]>
+  export type UniversitySettingOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "name" | "acronym" | "address" | "email" | "phone" | "logoUrl" | "createdAt" | "updatedAt", ExtArgs["result"]["universitySetting"]>
 
   export type $UniversitySettingPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "UniversitySetting"
@@ -71535,6 +71650,7 @@ export namespace Prisma {
       address: string | null
       email: string | null
       phone: string | null
+      logoUrl: string | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["universitySetting"]>
@@ -71912,6 +72028,7 @@ export namespace Prisma {
     readonly address: FieldRef<"UniversitySetting", 'String'>
     readonly email: FieldRef<"UniversitySetting", 'String'>
     readonly phone: FieldRef<"UniversitySetting", 'String'>
+    readonly logoUrl: FieldRef<"UniversitySetting", 'String'>
     readonly createdAt: FieldRef<"UniversitySetting", 'DateTime'>
     readonly updatedAt: FieldRef<"UniversitySetting", 'DateTime'>
   }
@@ -72232,6 +72349,1043 @@ export namespace Prisma {
      * Omit specific fields from the UniversitySetting
      */
     omit?: UniversitySettingOmit<ExtArgs> | null
+  }
+
+
+  /**
+   * Model MedicalFitness
+   */
+
+  export type AggregateMedicalFitness = {
+    _count: MedicalFitnessCountAggregateOutputType | null
+    _avg: MedicalFitnessAvgAggregateOutputType | null
+    _sum: MedicalFitnessSumAggregateOutputType | null
+    _min: MedicalFitnessMinAggregateOutputType | null
+    _max: MedicalFitnessMaxAggregateOutputType | null
+  }
+
+  export type MedicalFitnessAvgAggregateOutputType = {
+    id: number | null
+    studentId: number | null
+    verifiedByAdminId: number | null
+  }
+
+  export type MedicalFitnessSumAggregateOutputType = {
+    id: number | null
+    studentId: number | null
+    verifiedByAdminId: number | null
+  }
+
+  export type MedicalFitnessMinAggregateOutputType = {
+    id: number | null
+    studentId: number | null
+    bloodGroup: string | null
+    genotype: string | null
+    fileUrl: string | null
+    status: $Enums.DocumentUploadStatus | null
+    rejectionReason: string | null
+    verifiedByAdminId: number | null
+    verifiedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type MedicalFitnessMaxAggregateOutputType = {
+    id: number | null
+    studentId: number | null
+    bloodGroup: string | null
+    genotype: string | null
+    fileUrl: string | null
+    status: $Enums.DocumentUploadStatus | null
+    rejectionReason: string | null
+    verifiedByAdminId: number | null
+    verifiedAt: Date | null
+    createdAt: Date | null
+    updatedAt: Date | null
+  }
+
+  export type MedicalFitnessCountAggregateOutputType = {
+    id: number
+    studentId: number
+    bloodGroup: number
+    genotype: number
+    fileUrl: number
+    status: number
+    rejectionReason: number
+    verifiedByAdminId: number
+    verifiedAt: number
+    createdAt: number
+    updatedAt: number
+    _all: number
+  }
+
+
+  export type MedicalFitnessAvgAggregateInputType = {
+    id?: true
+    studentId?: true
+    verifiedByAdminId?: true
+  }
+
+  export type MedicalFitnessSumAggregateInputType = {
+    id?: true
+    studentId?: true
+    verifiedByAdminId?: true
+  }
+
+  export type MedicalFitnessMinAggregateInputType = {
+    id?: true
+    studentId?: true
+    bloodGroup?: true
+    genotype?: true
+    fileUrl?: true
+    status?: true
+    rejectionReason?: true
+    verifiedByAdminId?: true
+    verifiedAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type MedicalFitnessMaxAggregateInputType = {
+    id?: true
+    studentId?: true
+    bloodGroup?: true
+    genotype?: true
+    fileUrl?: true
+    status?: true
+    rejectionReason?: true
+    verifiedByAdminId?: true
+    verifiedAt?: true
+    createdAt?: true
+    updatedAt?: true
+  }
+
+  export type MedicalFitnessCountAggregateInputType = {
+    id?: true
+    studentId?: true
+    bloodGroup?: true
+    genotype?: true
+    fileUrl?: true
+    status?: true
+    rejectionReason?: true
+    verifiedByAdminId?: true
+    verifiedAt?: true
+    createdAt?: true
+    updatedAt?: true
+    _all?: true
+  }
+
+  export type MedicalFitnessAggregateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MedicalFitness to aggregate.
+     */
+    where?: MedicalFitnessWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MedicalFitnesses to fetch.
+     */
+    orderBy?: MedicalFitnessOrderByWithRelationInput | MedicalFitnessOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the start position
+     */
+    cursor?: MedicalFitnessWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MedicalFitnesses from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MedicalFitnesses.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Count returned MedicalFitnesses
+    **/
+    _count?: true | MedicalFitnessCountAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to average
+    **/
+    _avg?: MedicalFitnessAvgAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to sum
+    **/
+    _sum?: MedicalFitnessSumAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the minimum value
+    **/
+    _min?: MedicalFitnessMinAggregateInputType
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+     * 
+     * Select which fields to find the maximum value
+    **/
+    _max?: MedicalFitnessMaxAggregateInputType
+  }
+
+  export type GetMedicalFitnessAggregateType<T extends MedicalFitnessAggregateArgs> = {
+        [P in keyof T & keyof AggregateMedicalFitness]: P extends '_count' | 'count'
+      ? T[P] extends true
+        ? number
+        : GetScalarType<T[P], AggregateMedicalFitness[P]>
+      : GetScalarType<T[P], AggregateMedicalFitness[P]>
+  }
+
+
+
+
+  export type MedicalFitnessGroupByArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    where?: MedicalFitnessWhereInput
+    orderBy?: MedicalFitnessOrderByWithAggregationInput | MedicalFitnessOrderByWithAggregationInput[]
+    by: MedicalFitnessScalarFieldEnum[] | MedicalFitnessScalarFieldEnum
+    having?: MedicalFitnessScalarWhereWithAggregatesInput
+    take?: number
+    skip?: number
+    _count?: MedicalFitnessCountAggregateInputType | true
+    _avg?: MedicalFitnessAvgAggregateInputType
+    _sum?: MedicalFitnessSumAggregateInputType
+    _min?: MedicalFitnessMinAggregateInputType
+    _max?: MedicalFitnessMaxAggregateInputType
+  }
+
+  export type MedicalFitnessGroupByOutputType = {
+    id: number
+    studentId: number
+    bloodGroup: string | null
+    genotype: string | null
+    fileUrl: string | null
+    status: $Enums.DocumentUploadStatus
+    rejectionReason: string | null
+    verifiedByAdminId: number | null
+    verifiedAt: Date | null
+    createdAt: Date
+    updatedAt: Date
+    _count: MedicalFitnessCountAggregateOutputType | null
+    _avg: MedicalFitnessAvgAggregateOutputType | null
+    _sum: MedicalFitnessSumAggregateOutputType | null
+    _min: MedicalFitnessMinAggregateOutputType | null
+    _max: MedicalFitnessMaxAggregateOutputType | null
+  }
+
+  type GetMedicalFitnessGroupByPayload<T extends MedicalFitnessGroupByArgs> = Prisma.PrismaPromise<
+    Array<
+      PickEnumerable<MedicalFitnessGroupByOutputType, T['by']> &
+        {
+          [P in ((keyof T) & (keyof MedicalFitnessGroupByOutputType))]: P extends '_count'
+            ? T[P] extends boolean
+              ? number
+              : GetScalarType<T[P], MedicalFitnessGroupByOutputType[P]>
+            : GetScalarType<T[P], MedicalFitnessGroupByOutputType[P]>
+        }
+      >
+    >
+
+
+  export type MedicalFitnessSelect<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetSelect<{
+    id?: boolean
+    studentId?: boolean
+    bloodGroup?: boolean
+    genotype?: boolean
+    fileUrl?: boolean
+    status?: boolean
+    rejectionReason?: boolean
+    verifiedByAdminId?: boolean
+    verifiedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }, ExtArgs["result"]["medicalFitness"]>
+
+
+
+  export type MedicalFitnessSelectScalar = {
+    id?: boolean
+    studentId?: boolean
+    bloodGroup?: boolean
+    genotype?: boolean
+    fileUrl?: boolean
+    status?: boolean
+    rejectionReason?: boolean
+    verifiedByAdminId?: boolean
+    verifiedAt?: boolean
+    createdAt?: boolean
+    updatedAt?: boolean
+  }
+
+  export type MedicalFitnessOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "studentId" | "bloodGroup" | "genotype" | "fileUrl" | "status" | "rejectionReason" | "verifiedByAdminId" | "verifiedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["medicalFitness"]>
+  export type MedicalFitnessInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    student?: boolean | StudentDefaultArgs<ExtArgs>
+  }
+
+  export type $MedicalFitnessPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    name: "MedicalFitness"
+    objects: {
+      student: Prisma.$StudentPayload<ExtArgs>
+    }
+    scalars: $Extensions.GetPayloadResult<{
+      id: number
+      studentId: number
+      bloodGroup: string | null
+      genotype: string | null
+      fileUrl: string | null
+      status: $Enums.DocumentUploadStatus
+      rejectionReason: string | null
+      verifiedByAdminId: number | null
+      verifiedAt: Date | null
+      createdAt: Date
+      updatedAt: Date
+    }, ExtArgs["result"]["medicalFitness"]>
+    composites: {}
+  }
+
+  type MedicalFitnessGetPayload<S extends boolean | null | undefined | MedicalFitnessDefaultArgs> = $Result.GetResult<Prisma.$MedicalFitnessPayload, S>
+
+  type MedicalFitnessCountArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> =
+    Omit<MedicalFitnessFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+      select?: MedicalFitnessCountAggregateInputType | true
+    }
+
+  export interface MedicalFitnessDelegate<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+    [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['MedicalFitness'], meta: { name: 'MedicalFitness' } }
+    /**
+     * Find zero or one MedicalFitness that matches the filter.
+     * @param {MedicalFitnessFindUniqueArgs} args - Arguments to find a MedicalFitness
+     * @example
+     * // Get one MedicalFitness
+     * const medicalFitness = await prisma.medicalFitness.findUnique({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUnique<T extends MedicalFitnessFindUniqueArgs>(args: SelectSubset<T, MedicalFitnessFindUniqueArgs<ExtArgs>>): Prisma__MedicalFitnessClient<$Result.GetResult<Prisma.$MedicalFitnessPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find one MedicalFitness that matches the filter or throw an error with `error.code='P2025'`
+     * if no matches were found.
+     * @param {MedicalFitnessFindUniqueOrThrowArgs} args - Arguments to find a MedicalFitness
+     * @example
+     * // Get one MedicalFitness
+     * const medicalFitness = await prisma.medicalFitness.findUniqueOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findUniqueOrThrow<T extends MedicalFitnessFindUniqueOrThrowArgs>(args: SelectSubset<T, MedicalFitnessFindUniqueOrThrowArgs<ExtArgs>>): Prisma__MedicalFitnessClient<$Result.GetResult<Prisma.$MedicalFitnessPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MedicalFitness that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MedicalFitnessFindFirstArgs} args - Arguments to find a MedicalFitness
+     * @example
+     * // Get one MedicalFitness
+     * const medicalFitness = await prisma.medicalFitness.findFirst({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirst<T extends MedicalFitnessFindFirstArgs>(args?: SelectSubset<T, MedicalFitnessFindFirstArgs<ExtArgs>>): Prisma__MedicalFitnessClient<$Result.GetResult<Prisma.$MedicalFitnessPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find the first MedicalFitness that matches the filter or
+     * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MedicalFitnessFindFirstOrThrowArgs} args - Arguments to find a MedicalFitness
+     * @example
+     * // Get one MedicalFitness
+     * const medicalFitness = await prisma.medicalFitness.findFirstOrThrow({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     */
+    findFirstOrThrow<T extends MedicalFitnessFindFirstOrThrowArgs>(args?: SelectSubset<T, MedicalFitnessFindFirstOrThrowArgs<ExtArgs>>): Prisma__MedicalFitnessClient<$Result.GetResult<Prisma.$MedicalFitnessPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Find zero or more MedicalFitnesses that matches the filter.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MedicalFitnessFindManyArgs} args - Arguments to filter and select certain fields only.
+     * @example
+     * // Get all MedicalFitnesses
+     * const medicalFitnesses = await prisma.medicalFitness.findMany()
+     * 
+     * // Get first 10 MedicalFitnesses
+     * const medicalFitnesses = await prisma.medicalFitness.findMany({ take: 10 })
+     * 
+     * // Only select the `id`
+     * const medicalFitnessWithIdOnly = await prisma.medicalFitness.findMany({ select: { id: true } })
+     * 
+     */
+    findMany<T extends MedicalFitnessFindManyArgs>(args?: SelectSubset<T, MedicalFitnessFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<$Result.GetResult<Prisma.$MedicalFitnessPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+    /**
+     * Create a MedicalFitness.
+     * @param {MedicalFitnessCreateArgs} args - Arguments to create a MedicalFitness.
+     * @example
+     * // Create one MedicalFitness
+     * const MedicalFitness = await prisma.medicalFitness.create({
+     *   data: {
+     *     // ... data to create a MedicalFitness
+     *   }
+     * })
+     * 
+     */
+    create<T extends MedicalFitnessCreateArgs>(args: SelectSubset<T, MedicalFitnessCreateArgs<ExtArgs>>): Prisma__MedicalFitnessClient<$Result.GetResult<Prisma.$MedicalFitnessPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Create many MedicalFitnesses.
+     * @param {MedicalFitnessCreateManyArgs} args - Arguments to create many MedicalFitnesses.
+     * @example
+     * // Create many MedicalFitnesses
+     * const medicalFitness = await prisma.medicalFitness.createMany({
+     *   data: [
+     *     // ... provide data here
+     *   ]
+     * })
+     *     
+     */
+    createMany<T extends MedicalFitnessCreateManyArgs>(args?: SelectSubset<T, MedicalFitnessCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Delete a MedicalFitness.
+     * @param {MedicalFitnessDeleteArgs} args - Arguments to delete one MedicalFitness.
+     * @example
+     * // Delete one MedicalFitness
+     * const MedicalFitness = await prisma.medicalFitness.delete({
+     *   where: {
+     *     // ... filter to delete one MedicalFitness
+     *   }
+     * })
+     * 
+     */
+    delete<T extends MedicalFitnessDeleteArgs>(args: SelectSubset<T, MedicalFitnessDeleteArgs<ExtArgs>>): Prisma__MedicalFitnessClient<$Result.GetResult<Prisma.$MedicalFitnessPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Update one MedicalFitness.
+     * @param {MedicalFitnessUpdateArgs} args - Arguments to update one MedicalFitness.
+     * @example
+     * // Update one MedicalFitness
+     * const medicalFitness = await prisma.medicalFitness.update({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    update<T extends MedicalFitnessUpdateArgs>(args: SelectSubset<T, MedicalFitnessUpdateArgs<ExtArgs>>): Prisma__MedicalFitnessClient<$Result.GetResult<Prisma.$MedicalFitnessPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+    /**
+     * Delete zero or more MedicalFitnesses.
+     * @param {MedicalFitnessDeleteManyArgs} args - Arguments to filter MedicalFitnesses to delete.
+     * @example
+     * // Delete a few MedicalFitnesses
+     * const { count } = await prisma.medicalFitness.deleteMany({
+     *   where: {
+     *     // ... provide filter here
+     *   }
+     * })
+     * 
+     */
+    deleteMany<T extends MedicalFitnessDeleteManyArgs>(args?: SelectSubset<T, MedicalFitnessDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Update zero or more MedicalFitnesses.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MedicalFitnessUpdateManyArgs} args - Arguments to update one or more rows.
+     * @example
+     * // Update many MedicalFitnesses
+     * const medicalFitness = await prisma.medicalFitness.updateMany({
+     *   where: {
+     *     // ... provide filter here
+     *   },
+     *   data: {
+     *     // ... provide data here
+     *   }
+     * })
+     * 
+     */
+    updateMany<T extends MedicalFitnessUpdateManyArgs>(args: SelectSubset<T, MedicalFitnessUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<BatchPayload>
+
+    /**
+     * Create or update one MedicalFitness.
+     * @param {MedicalFitnessUpsertArgs} args - Arguments to update or create a MedicalFitness.
+     * @example
+     * // Update or create a MedicalFitness
+     * const medicalFitness = await prisma.medicalFitness.upsert({
+     *   create: {
+     *     // ... data to create a MedicalFitness
+     *   },
+     *   update: {
+     *     // ... in case it already exists, update
+     *   },
+     *   where: {
+     *     // ... the filter for the MedicalFitness we want to update
+     *   }
+     * })
+     */
+    upsert<T extends MedicalFitnessUpsertArgs>(args: SelectSubset<T, MedicalFitnessUpsertArgs<ExtArgs>>): Prisma__MedicalFitnessClient<$Result.GetResult<Prisma.$MedicalFitnessPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+    /**
+     * Count the number of MedicalFitnesses.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MedicalFitnessCountArgs} args - Arguments to filter MedicalFitnesses to count.
+     * @example
+     * // Count the number of MedicalFitnesses
+     * const count = await prisma.medicalFitness.count({
+     *   where: {
+     *     // ... the filter for the MedicalFitnesses we want to count
+     *   }
+     * })
+    **/
+    count<T extends MedicalFitnessCountArgs>(
+      args?: Subset<T, MedicalFitnessCountArgs>,
+    ): Prisma.PrismaPromise<
+      T extends $Utils.Record<'select', any>
+        ? T['select'] extends true
+          ? number
+          : GetScalarType<T['select'], MedicalFitnessCountAggregateOutputType>
+        : number
+    >
+
+    /**
+     * Allows you to perform aggregations operations on a MedicalFitness.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MedicalFitnessAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+     * @example
+     * // Ordered by age ascending
+     * // Where email contains prisma.io
+     * // Limited to the 10 users
+     * const aggregations = await prisma.user.aggregate({
+     *   _avg: {
+     *     age: true,
+     *   },
+     *   where: {
+     *     email: {
+     *       contains: "prisma.io",
+     *     },
+     *   },
+     *   orderBy: {
+     *     age: "asc",
+     *   },
+     *   take: 10,
+     * })
+    **/
+    aggregate<T extends MedicalFitnessAggregateArgs>(args: Subset<T, MedicalFitnessAggregateArgs>): Prisma.PrismaPromise<GetMedicalFitnessAggregateType<T>>
+
+    /**
+     * Group by MedicalFitness.
+     * Note, that providing `undefined` is treated as the value not being there.
+     * Read more here: https://pris.ly/d/null-undefined
+     * @param {MedicalFitnessGroupByArgs} args - Group by arguments.
+     * @example
+     * // Group by city, order by createdAt, get count
+     * const result = await prisma.user.groupBy({
+     *   by: ['city', 'createdAt'],
+     *   orderBy: {
+     *     createdAt: true
+     *   },
+     *   _count: {
+     *     _all: true
+     *   },
+     * })
+     * 
+    **/
+    groupBy<
+      T extends MedicalFitnessGroupByArgs,
+      HasSelectOrTake extends Or<
+        Extends<'skip', Keys<T>>,
+        Extends<'take', Keys<T>>
+      >,
+      OrderByArg extends True extends HasSelectOrTake
+        ? { orderBy: MedicalFitnessGroupByArgs['orderBy'] }
+        : { orderBy?: MedicalFitnessGroupByArgs['orderBy'] },
+      OrderFields extends ExcludeUnderscoreKeys<Keys<MaybeTupleToUnion<T['orderBy']>>>,
+      ByFields extends MaybeTupleToUnion<T['by']>,
+      ByValid extends Has<ByFields, OrderFields>,
+      HavingFields extends GetHavingFields<T['having']>,
+      HavingValid extends Has<ByFields, HavingFields>,
+      ByEmpty extends T['by'] extends never[] ? True : False,
+      InputErrors extends ByEmpty extends True
+      ? `Error: "by" must not be empty.`
+      : HavingValid extends False
+      ? {
+          [P in HavingFields]: P extends ByFields
+            ? never
+            : P extends string
+            ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+            : [
+                Error,
+                'Field ',
+                P,
+                ` in "having" needs to be provided in "by"`,
+              ]
+        }[HavingFields]
+      : 'take' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "take", you also need to provide "orderBy"'
+      : 'skip' extends Keys<T>
+      ? 'orderBy' extends Keys<T>
+        ? ByValid extends True
+          ? {}
+          : {
+              [P in OrderFields]: P extends ByFields
+                ? never
+                : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+            }[OrderFields]
+        : 'Error: If you provide "skip", you also need to provide "orderBy"'
+      : ByValid extends True
+      ? {}
+      : {
+          [P in OrderFields]: P extends ByFields
+            ? never
+            : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+        }[OrderFields]
+    >(args: SubsetIntersection<T, MedicalFitnessGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetMedicalFitnessGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+  /**
+   * Fields of the MedicalFitness model
+   */
+  readonly fields: MedicalFitnessFieldRefs;
+  }
+
+  /**
+   * The delegate class that acts as a "Promise-like" for MedicalFitness.
+   * Why is this prefixed with `Prisma__`?
+   * Because we want to prevent naming conflicts as mentioned in
+   * https://github.com/prisma/prisma-client-js/issues/707
+   */
+  export interface Prisma__MedicalFitnessClient<T, Null = never, ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+    readonly [Symbol.toStringTag]: "PrismaPromise"
+    student<T extends StudentDefaultArgs<ExtArgs> = {}>(args?: Subset<T, StudentDefaultArgs<ExtArgs>>): Prisma__StudentClient<$Result.GetResult<Prisma.$StudentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+    /**
+     * Attaches callbacks for the resolution and/or rejection of the Promise.
+     * @param onfulfilled The callback to execute when the Promise is resolved.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of which ever callback is executed.
+     */
+    then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): $Utils.JsPromise<TResult1 | TResult2>
+    /**
+     * Attaches a callback for only the rejection of the Promise.
+     * @param onrejected The callback to execute when the Promise is rejected.
+     * @returns A Promise for the completion of the callback.
+     */
+    catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): $Utils.JsPromise<T | TResult>
+    /**
+     * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+     * resolved value cannot be modified from the callback.
+     * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+     * @returns A Promise for the completion of the callback.
+     */
+    finally(onfinally?: (() => void) | undefined | null): $Utils.JsPromise<T>
+  }
+
+
+
+
+  /**
+   * Fields of the MedicalFitness model
+   */
+  interface MedicalFitnessFieldRefs {
+    readonly id: FieldRef<"MedicalFitness", 'Int'>
+    readonly studentId: FieldRef<"MedicalFitness", 'Int'>
+    readonly bloodGroup: FieldRef<"MedicalFitness", 'String'>
+    readonly genotype: FieldRef<"MedicalFitness", 'String'>
+    readonly fileUrl: FieldRef<"MedicalFitness", 'String'>
+    readonly status: FieldRef<"MedicalFitness", 'DocumentUploadStatus'>
+    readonly rejectionReason: FieldRef<"MedicalFitness", 'String'>
+    readonly verifiedByAdminId: FieldRef<"MedicalFitness", 'Int'>
+    readonly verifiedAt: FieldRef<"MedicalFitness", 'DateTime'>
+    readonly createdAt: FieldRef<"MedicalFitness", 'DateTime'>
+    readonly updatedAt: FieldRef<"MedicalFitness", 'DateTime'>
+  }
+    
+
+  // Custom InputTypes
+  /**
+   * MedicalFitness findUnique
+   */
+  export type MedicalFitnessFindUniqueArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
+    /**
+     * Filter, which MedicalFitness to fetch.
+     */
+    where: MedicalFitnessWhereUniqueInput
+  }
+
+  /**
+   * MedicalFitness findUniqueOrThrow
+   */
+  export type MedicalFitnessFindUniqueOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
+    /**
+     * Filter, which MedicalFitness to fetch.
+     */
+    where: MedicalFitnessWhereUniqueInput
+  }
+
+  /**
+   * MedicalFitness findFirst
+   */
+  export type MedicalFitnessFindFirstArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
+    /**
+     * Filter, which MedicalFitness to fetch.
+     */
+    where?: MedicalFitnessWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MedicalFitnesses to fetch.
+     */
+    orderBy?: MedicalFitnessOrderByWithRelationInput | MedicalFitnessOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MedicalFitnesses.
+     */
+    cursor?: MedicalFitnessWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MedicalFitnesses from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MedicalFitnesses.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MedicalFitnesses.
+     */
+    distinct?: MedicalFitnessScalarFieldEnum | MedicalFitnessScalarFieldEnum[]
+  }
+
+  /**
+   * MedicalFitness findFirstOrThrow
+   */
+  export type MedicalFitnessFindFirstOrThrowArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
+    /**
+     * Filter, which MedicalFitness to fetch.
+     */
+    where?: MedicalFitnessWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MedicalFitnesses to fetch.
+     */
+    orderBy?: MedicalFitnessOrderByWithRelationInput | MedicalFitnessOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for searching for MedicalFitnesses.
+     */
+    cursor?: MedicalFitnessWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MedicalFitnesses from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MedicalFitnesses.
+     */
+    skip?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+     * 
+     * Filter by unique combinations of MedicalFitnesses.
+     */
+    distinct?: MedicalFitnessScalarFieldEnum | MedicalFitnessScalarFieldEnum[]
+  }
+
+  /**
+   * MedicalFitness findMany
+   */
+  export type MedicalFitnessFindManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
+    /**
+     * Filter, which MedicalFitnesses to fetch.
+     */
+    where?: MedicalFitnessWhereInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+     * 
+     * Determine the order of MedicalFitnesses to fetch.
+     */
+    orderBy?: MedicalFitnessOrderByWithRelationInput | MedicalFitnessOrderByWithRelationInput[]
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+     * 
+     * Sets the position for listing MedicalFitnesses.
+     */
+    cursor?: MedicalFitnessWhereUniqueInput
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Take `±n` MedicalFitnesses from the position of the cursor.
+     */
+    take?: number
+    /**
+     * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+     * 
+     * Skip the first `n` MedicalFitnesses.
+     */
+    skip?: number
+    distinct?: MedicalFitnessScalarFieldEnum | MedicalFitnessScalarFieldEnum[]
+  }
+
+  /**
+   * MedicalFitness create
+   */
+  export type MedicalFitnessCreateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
+    /**
+     * The data needed to create a MedicalFitness.
+     */
+    data: XOR<MedicalFitnessCreateInput, MedicalFitnessUncheckedCreateInput>
+  }
+
+  /**
+   * MedicalFitness createMany
+   */
+  export type MedicalFitnessCreateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to create many MedicalFitnesses.
+     */
+    data: MedicalFitnessCreateManyInput | MedicalFitnessCreateManyInput[]
+    skipDuplicates?: boolean
+  }
+
+  /**
+   * MedicalFitness update
+   */
+  export type MedicalFitnessUpdateArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
+    /**
+     * The data needed to update a MedicalFitness.
+     */
+    data: XOR<MedicalFitnessUpdateInput, MedicalFitnessUncheckedUpdateInput>
+    /**
+     * Choose, which MedicalFitness to update.
+     */
+    where: MedicalFitnessWhereUniqueInput
+  }
+
+  /**
+   * MedicalFitness updateMany
+   */
+  export type MedicalFitnessUpdateManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * The data used to update MedicalFitnesses.
+     */
+    data: XOR<MedicalFitnessUpdateManyMutationInput, MedicalFitnessUncheckedUpdateManyInput>
+    /**
+     * Filter which MedicalFitnesses to update
+     */
+    where?: MedicalFitnessWhereInput
+    /**
+     * Limit how many MedicalFitnesses to update.
+     */
+    limit?: number
+  }
+
+  /**
+   * MedicalFitness upsert
+   */
+  export type MedicalFitnessUpsertArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
+    /**
+     * The filter to search for the MedicalFitness to update in case it exists.
+     */
+    where: MedicalFitnessWhereUniqueInput
+    /**
+     * In case the MedicalFitness found by the `where` argument doesn't exist, create a new MedicalFitness with this data.
+     */
+    create: XOR<MedicalFitnessCreateInput, MedicalFitnessUncheckedCreateInput>
+    /**
+     * In case the MedicalFitness was found with the provided `where` argument, update it with this data.
+     */
+    update: XOR<MedicalFitnessUpdateInput, MedicalFitnessUncheckedUpdateInput>
+  }
+
+  /**
+   * MedicalFitness delete
+   */
+  export type MedicalFitnessDeleteArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
+    /**
+     * Filter which MedicalFitness to delete.
+     */
+    where: MedicalFitnessWhereUniqueInput
+  }
+
+  /**
+   * MedicalFitness deleteMany
+   */
+  export type MedicalFitnessDeleteManyArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Filter which MedicalFitnesses to delete
+     */
+    where?: MedicalFitnessWhereInput
+    /**
+     * Limit how many MedicalFitnesses to delete.
+     */
+    limit?: number
+  }
+
+  /**
+   * MedicalFitness without action
+   */
+  export type MedicalFitnessDefaultArgs<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
+    /**
+     * Select specific fields to fetch from the MedicalFitness
+     */
+    select?: MedicalFitnessSelect<ExtArgs> | null
+    /**
+     * Omit specific fields from the MedicalFitness
+     */
+    omit?: MedicalFitnessOmit<ExtArgs> | null
+    /**
+     * Choose, which related nodes to fetch as well
+     */
+    include?: MedicalFitnessInclude<ExtArgs> | null
   }
 
 
@@ -73219,11 +74373,29 @@ export namespace Prisma {
     address: 'address',
     email: 'email',
     phone: 'phone',
+    logoUrl: 'logoUrl',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
 
   export type UniversitySettingScalarFieldEnum = (typeof UniversitySettingScalarFieldEnum)[keyof typeof UniversitySettingScalarFieldEnum]
+
+
+  export const MedicalFitnessScalarFieldEnum: {
+    id: 'id',
+    studentId: 'studentId',
+    bloodGroup: 'bloodGroup',
+    genotype: 'genotype',
+    fileUrl: 'fileUrl',
+    status: 'status',
+    rejectionReason: 'rejectionReason',
+    verifiedByAdminId: 'verifiedByAdminId',
+    verifiedAt: 'verifiedAt',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+  };
+
+  export type MedicalFitnessScalarFieldEnum = (typeof MedicalFitnessScalarFieldEnum)[keyof typeof MedicalFitnessScalarFieldEnum]
 
 
   export const SortOrder: {
@@ -73717,10 +74889,21 @@ export namespace Prisma {
     acronym: 'acronym',
     address: 'address',
     email: 'email',
-    phone: 'phone'
+    phone: 'phone',
+    logoUrl: 'logoUrl'
   };
 
   export type UniversitySettingOrderByRelevanceFieldEnum = (typeof UniversitySettingOrderByRelevanceFieldEnum)[keyof typeof UniversitySettingOrderByRelevanceFieldEnum]
+
+
+  export const MedicalFitnessOrderByRelevanceFieldEnum: {
+    bloodGroup: 'bloodGroup',
+    genotype: 'genotype',
+    fileUrl: 'fileUrl',
+    rejectionReason: 'rejectionReason'
+  };
+
+  export type MedicalFitnessOrderByRelevanceFieldEnum = (typeof MedicalFitnessOrderByRelevanceFieldEnum)[keyof typeof MedicalFitnessOrderByRelevanceFieldEnum]
 
 
   /**
@@ -74087,6 +75270,7 @@ export namespace Prisma {
     currentSemester?: XOR<SemesterNullableScalarRelationFilter, SemesterWhereInput> | null
     admissionOfferDetails?: XOR<AdmissionOfferNullableScalarRelationFilter, AdmissionOfferWhereInput> | null
     studentDetails?: XOR<StudentDetailsNullableScalarRelationFilter, StudentDetailsWhereInput> | null
+    medicalFitness?: XOR<MedicalFitnessNullableScalarRelationFilter, MedicalFitnessWhereInput> | null
     registrations?: StudentCourseRegistrationListRelationFilter
     results?: ResultListRelationFilter
     schoolFees?: SchoolFeeListRelationFilter
@@ -74134,6 +75318,7 @@ export namespace Prisma {
     currentSemester?: SemesterOrderByWithRelationInput
     admissionOfferDetails?: AdmissionOfferOrderByWithRelationInput
     studentDetails?: StudentDetailsOrderByWithRelationInput
+    medicalFitness?: MedicalFitnessOrderByWithRelationInput
     registrations?: StudentCourseRegistrationOrderByRelationAggregateInput
     results?: ResultOrderByRelationAggregateInput
     schoolFees?: SchoolFeeOrderByRelationAggregateInput
@@ -74185,6 +75370,7 @@ export namespace Prisma {
     currentSemester?: XOR<SemesterNullableScalarRelationFilter, SemesterWhereInput> | null
     admissionOfferDetails?: XOR<AdmissionOfferNullableScalarRelationFilter, AdmissionOfferWhereInput> | null
     studentDetails?: XOR<StudentDetailsNullableScalarRelationFilter, StudentDetailsWhereInput> | null
+    medicalFitness?: XOR<MedicalFitnessNullableScalarRelationFilter, MedicalFitnessWhereInput> | null
     registrations?: StudentCourseRegistrationListRelationFilter
     results?: ResultListRelationFilter
     schoolFees?: SchoolFeeListRelationFilter
@@ -79548,6 +80734,7 @@ export namespace Prisma {
     address?: StringNullableFilter<"UniversitySetting"> | string | null
     email?: StringNullableFilter<"UniversitySetting"> | string | null
     phone?: StringNullableFilter<"UniversitySetting"> | string | null
+    logoUrl?: StringNullableFilter<"UniversitySetting"> | string | null
     createdAt?: DateTimeFilter<"UniversitySetting"> | Date | string
     updatedAt?: DateTimeFilter<"UniversitySetting"> | Date | string
   }
@@ -79559,6 +80746,7 @@ export namespace Prisma {
     address?: SortOrderInput | SortOrder
     email?: SortOrderInput | SortOrder
     phone?: SortOrderInput | SortOrder
+    logoUrl?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _relevance?: UniversitySettingOrderByRelevanceInput
@@ -79574,6 +80762,7 @@ export namespace Prisma {
     address?: StringNullableFilter<"UniversitySetting"> | string | null
     email?: StringNullableFilter<"UniversitySetting"> | string | null
     phone?: StringNullableFilter<"UniversitySetting"> | string | null
+    logoUrl?: StringNullableFilter<"UniversitySetting"> | string | null
     createdAt?: DateTimeFilter<"UniversitySetting"> | Date | string
     updatedAt?: DateTimeFilter<"UniversitySetting"> | Date | string
   }, "id">
@@ -79585,6 +80774,7 @@ export namespace Prisma {
     address?: SortOrderInput | SortOrder
     email?: SortOrderInput | SortOrder
     phone?: SortOrderInput | SortOrder
+    logoUrl?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: UniversitySettingCountOrderByAggregateInput
@@ -79604,8 +80794,97 @@ export namespace Prisma {
     address?: StringNullableWithAggregatesFilter<"UniversitySetting"> | string | null
     email?: StringNullableWithAggregatesFilter<"UniversitySetting"> | string | null
     phone?: StringNullableWithAggregatesFilter<"UniversitySetting"> | string | null
+    logoUrl?: StringNullableWithAggregatesFilter<"UniversitySetting"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"UniversitySetting"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"UniversitySetting"> | Date | string
+  }
+
+  export type MedicalFitnessWhereInput = {
+    AND?: MedicalFitnessWhereInput | MedicalFitnessWhereInput[]
+    OR?: MedicalFitnessWhereInput[]
+    NOT?: MedicalFitnessWhereInput | MedicalFitnessWhereInput[]
+    id?: IntFilter<"MedicalFitness"> | number
+    studentId?: IntFilter<"MedicalFitness"> | number
+    bloodGroup?: StringNullableFilter<"MedicalFitness"> | string | null
+    genotype?: StringNullableFilter<"MedicalFitness"> | string | null
+    fileUrl?: StringNullableFilter<"MedicalFitness"> | string | null
+    status?: EnumDocumentUploadStatusFilter<"MedicalFitness"> | $Enums.DocumentUploadStatus
+    rejectionReason?: StringNullableFilter<"MedicalFitness"> | string | null
+    verifiedByAdminId?: IntNullableFilter<"MedicalFitness"> | number | null
+    verifiedAt?: DateTimeNullableFilter<"MedicalFitness"> | Date | string | null
+    createdAt?: DateTimeFilter<"MedicalFitness"> | Date | string
+    updatedAt?: DateTimeFilter<"MedicalFitness"> | Date | string
+    student?: XOR<StudentScalarRelationFilter, StudentWhereInput>
+  }
+
+  export type MedicalFitnessOrderByWithRelationInput = {
+    id?: SortOrder
+    studentId?: SortOrder
+    bloodGroup?: SortOrderInput | SortOrder
+    genotype?: SortOrderInput | SortOrder
+    fileUrl?: SortOrderInput | SortOrder
+    status?: SortOrder
+    rejectionReason?: SortOrderInput | SortOrder
+    verifiedByAdminId?: SortOrderInput | SortOrder
+    verifiedAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    student?: StudentOrderByWithRelationInput
+    _relevance?: MedicalFitnessOrderByRelevanceInput
+  }
+
+  export type MedicalFitnessWhereUniqueInput = Prisma.AtLeast<{
+    id?: number
+    studentId?: number
+    AND?: MedicalFitnessWhereInput | MedicalFitnessWhereInput[]
+    OR?: MedicalFitnessWhereInput[]
+    NOT?: MedicalFitnessWhereInput | MedicalFitnessWhereInput[]
+    bloodGroup?: StringNullableFilter<"MedicalFitness"> | string | null
+    genotype?: StringNullableFilter<"MedicalFitness"> | string | null
+    fileUrl?: StringNullableFilter<"MedicalFitness"> | string | null
+    status?: EnumDocumentUploadStatusFilter<"MedicalFitness"> | $Enums.DocumentUploadStatus
+    rejectionReason?: StringNullableFilter<"MedicalFitness"> | string | null
+    verifiedByAdminId?: IntNullableFilter<"MedicalFitness"> | number | null
+    verifiedAt?: DateTimeNullableFilter<"MedicalFitness"> | Date | string | null
+    createdAt?: DateTimeFilter<"MedicalFitness"> | Date | string
+    updatedAt?: DateTimeFilter<"MedicalFitness"> | Date | string
+    student?: XOR<StudentScalarRelationFilter, StudentWhereInput>
+  }, "id" | "studentId">
+
+  export type MedicalFitnessOrderByWithAggregationInput = {
+    id?: SortOrder
+    studentId?: SortOrder
+    bloodGroup?: SortOrderInput | SortOrder
+    genotype?: SortOrderInput | SortOrder
+    fileUrl?: SortOrderInput | SortOrder
+    status?: SortOrder
+    rejectionReason?: SortOrderInput | SortOrder
+    verifiedByAdminId?: SortOrderInput | SortOrder
+    verifiedAt?: SortOrderInput | SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+    _count?: MedicalFitnessCountOrderByAggregateInput
+    _avg?: MedicalFitnessAvgOrderByAggregateInput
+    _max?: MedicalFitnessMaxOrderByAggregateInput
+    _min?: MedicalFitnessMinOrderByAggregateInput
+    _sum?: MedicalFitnessSumOrderByAggregateInput
+  }
+
+  export type MedicalFitnessScalarWhereWithAggregatesInput = {
+    AND?: MedicalFitnessScalarWhereWithAggregatesInput | MedicalFitnessScalarWhereWithAggregatesInput[]
+    OR?: MedicalFitnessScalarWhereWithAggregatesInput[]
+    NOT?: MedicalFitnessScalarWhereWithAggregatesInput | MedicalFitnessScalarWhereWithAggregatesInput[]
+    id?: IntWithAggregatesFilter<"MedicalFitness"> | number
+    studentId?: IntWithAggregatesFilter<"MedicalFitness"> | number
+    bloodGroup?: StringNullableWithAggregatesFilter<"MedicalFitness"> | string | null
+    genotype?: StringNullableWithAggregatesFilter<"MedicalFitness"> | string | null
+    fileUrl?: StringNullableWithAggregatesFilter<"MedicalFitness"> | string | null
+    status?: EnumDocumentUploadStatusWithAggregatesFilter<"MedicalFitness"> | $Enums.DocumentUploadStatus
+    rejectionReason?: StringNullableWithAggregatesFilter<"MedicalFitness"> | string | null
+    verifiedByAdminId?: IntNullableWithAggregatesFilter<"MedicalFitness"> | number | null
+    verifiedAt?: DateTimeNullableWithAggregatesFilter<"MedicalFitness"> | Date | string | null
+    createdAt?: DateTimeWithAggregatesFilter<"MedicalFitness"> | Date | string
+    updatedAt?: DateTimeWithAggregatesFilter<"MedicalFitness"> | Date | string
   }
 
   export type AdminCreateInput = {
@@ -79739,6 +81018,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -79776,6 +81056,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -79812,6 +81093,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -79849,6 +81131,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -85360,6 +86643,7 @@ export namespace Prisma {
     address?: string | null
     email?: string | null
     phone?: string | null
+    logoUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -85371,6 +86655,7 @@ export namespace Prisma {
     address?: string | null
     email?: string | null
     phone?: string | null
+    logoUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -85381,6 +86666,7 @@ export namespace Prisma {
     address?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -85392,6 +86678,7 @@ export namespace Prisma {
     address?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -85403,6 +86690,7 @@ export namespace Prisma {
     address?: string | null
     email?: string | null
     phone?: string | null
+    logoUrl?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -85413,6 +86701,7 @@ export namespace Prisma {
     address?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -85424,6 +86713,101 @@ export namespace Prisma {
     address?: NullableStringFieldUpdateOperationsInput | string | null
     email?: NullableStringFieldUpdateOperationsInput | string | null
     phone?: NullableStringFieldUpdateOperationsInput | string | null
+    logoUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MedicalFitnessCreateInput = {
+    bloodGroup?: string | null
+    genotype?: string | null
+    fileUrl?: string | null
+    status?: $Enums.DocumentUploadStatus
+    rejectionReason?: string | null
+    verifiedByAdminId?: number | null
+    verifiedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    student: StudentCreateNestedOneWithoutMedicalFitnessInput
+  }
+
+  export type MedicalFitnessUncheckedCreateInput = {
+    id?: number
+    studentId: number
+    bloodGroup?: string | null
+    genotype?: string | null
+    fileUrl?: string | null
+    status?: $Enums.DocumentUploadStatus
+    rejectionReason?: string | null
+    verifiedByAdminId?: number | null
+    verifiedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MedicalFitnessUpdateInput = {
+    bloodGroup?: NullableStringFieldUpdateOperationsInput | string | null
+    genotype?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumDocumentUploadStatusFieldUpdateOperationsInput | $Enums.DocumentUploadStatus
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    verifiedByAdminId?: NullableIntFieldUpdateOperationsInput | number | null
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    student?: StudentUpdateOneRequiredWithoutMedicalFitnessNestedInput
+  }
+
+  export type MedicalFitnessUncheckedUpdateInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    studentId?: IntFieldUpdateOperationsInput | number
+    bloodGroup?: NullableStringFieldUpdateOperationsInput | string | null
+    genotype?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumDocumentUploadStatusFieldUpdateOperationsInput | $Enums.DocumentUploadStatus
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    verifiedByAdminId?: NullableIntFieldUpdateOperationsInput | number | null
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MedicalFitnessCreateManyInput = {
+    id?: number
+    studentId: number
+    bloodGroup?: string | null
+    genotype?: string | null
+    fileUrl?: string | null
+    status?: $Enums.DocumentUploadStatus
+    rejectionReason?: string | null
+    verifiedByAdminId?: number | null
+    verifiedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MedicalFitnessUpdateManyMutationInput = {
+    bloodGroup?: NullableStringFieldUpdateOperationsInput | string | null
+    genotype?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumDocumentUploadStatusFieldUpdateOperationsInput | $Enums.DocumentUploadStatus
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    verifiedByAdminId?: NullableIntFieldUpdateOperationsInput | number | null
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MedicalFitnessUncheckedUpdateManyInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    studentId?: IntFieldUpdateOperationsInput | number
+    bloodGroup?: NullableStringFieldUpdateOperationsInput | string | null
+    genotype?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumDocumentUploadStatusFieldUpdateOperationsInput | $Enums.DocumentUploadStatus
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    verifiedByAdminId?: NullableIntFieldUpdateOperationsInput | number | null
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -85694,6 +87078,11 @@ export namespace Prisma {
   export type StudentDetailsNullableScalarRelationFilter = {
     is?: StudentDetailsWhereInput | null
     isNot?: StudentDetailsWhereInput | null
+  }
+
+  export type MedicalFitnessNullableScalarRelationFilter = {
+    is?: MedicalFitnessWhereInput | null
+    isNot?: MedicalFitnessWhereInput | null
   }
 
   export type StudentCourseRegistrationListRelationFilter = {
@@ -90530,6 +91919,7 @@ export namespace Prisma {
     address?: SortOrder
     email?: SortOrder
     phone?: SortOrder
+    logoUrl?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -90545,6 +91935,7 @@ export namespace Prisma {
     address?: SortOrder
     email?: SortOrder
     phone?: SortOrder
+    logoUrl?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -90556,12 +91947,73 @@ export namespace Prisma {
     address?: SortOrder
     email?: SortOrder
     phone?: SortOrder
+    logoUrl?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
 
   export type UniversitySettingSumOrderByAggregateInput = {
     id?: SortOrder
+  }
+
+  export type MedicalFitnessOrderByRelevanceInput = {
+    fields: MedicalFitnessOrderByRelevanceFieldEnum | MedicalFitnessOrderByRelevanceFieldEnum[]
+    sort: SortOrder
+    search: string
+  }
+
+  export type MedicalFitnessCountOrderByAggregateInput = {
+    id?: SortOrder
+    studentId?: SortOrder
+    bloodGroup?: SortOrder
+    genotype?: SortOrder
+    fileUrl?: SortOrder
+    status?: SortOrder
+    rejectionReason?: SortOrder
+    verifiedByAdminId?: SortOrder
+    verifiedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MedicalFitnessAvgOrderByAggregateInput = {
+    id?: SortOrder
+    studentId?: SortOrder
+    verifiedByAdminId?: SortOrder
+  }
+
+  export type MedicalFitnessMaxOrderByAggregateInput = {
+    id?: SortOrder
+    studentId?: SortOrder
+    bloodGroup?: SortOrder
+    genotype?: SortOrder
+    fileUrl?: SortOrder
+    status?: SortOrder
+    rejectionReason?: SortOrder
+    verifiedByAdminId?: SortOrder
+    verifiedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MedicalFitnessMinOrderByAggregateInput = {
+    id?: SortOrder
+    studentId?: SortOrder
+    bloodGroup?: SortOrder
+    genotype?: SortOrder
+    fileUrl?: SortOrder
+    status?: SortOrder
+    rejectionReason?: SortOrder
+    verifiedByAdminId?: SortOrder
+    verifiedAt?: SortOrder
+    createdAt?: SortOrder
+    updatedAt?: SortOrder
+  }
+
+  export type MedicalFitnessSumOrderByAggregateInput = {
+    id?: SortOrder
+    studentId?: SortOrder
+    verifiedByAdminId?: SortOrder
   }
 
   export type ResultCreateNestedManyWithoutStudentReleaseApproverAdminInput = {
@@ -90702,6 +92154,12 @@ export namespace Prisma {
     connect?: StudentDetailsWhereUniqueInput
   }
 
+  export type MedicalFitnessCreateNestedOneWithoutStudentInput = {
+    create?: XOR<MedicalFitnessCreateWithoutStudentInput, MedicalFitnessUncheckedCreateWithoutStudentInput>
+    connectOrCreate?: MedicalFitnessCreateOrConnectWithoutStudentInput
+    connect?: MedicalFitnessWhereUniqueInput
+  }
+
   export type StudentCourseRegistrationCreateNestedManyWithoutStudentInput = {
     create?: XOR<StudentCourseRegistrationCreateWithoutStudentInput, StudentCourseRegistrationUncheckedCreateWithoutStudentInput> | StudentCourseRegistrationCreateWithoutStudentInput[] | StudentCourseRegistrationUncheckedCreateWithoutStudentInput[]
     connectOrCreate?: StudentCourseRegistrationCreateOrConnectWithoutStudentInput | StudentCourseRegistrationCreateOrConnectWithoutStudentInput[]
@@ -90775,6 +92233,12 @@ export namespace Prisma {
     create?: XOR<StudentDetailsCreateWithoutStudentInput, StudentDetailsUncheckedCreateWithoutStudentInput>
     connectOrCreate?: StudentDetailsCreateOrConnectWithoutStudentInput
     connect?: StudentDetailsWhereUniqueInput
+  }
+
+  export type MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput = {
+    create?: XOR<MedicalFitnessCreateWithoutStudentInput, MedicalFitnessUncheckedCreateWithoutStudentInput>
+    connectOrCreate?: MedicalFitnessCreateOrConnectWithoutStudentInput
+    connect?: MedicalFitnessWhereUniqueInput
   }
 
   export type StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput = {
@@ -90952,6 +92416,16 @@ export namespace Prisma {
     update?: XOR<XOR<StudentDetailsUpdateToOneWithWhereWithoutStudentInput, StudentDetailsUpdateWithoutStudentInput>, StudentDetailsUncheckedUpdateWithoutStudentInput>
   }
 
+  export type MedicalFitnessUpdateOneWithoutStudentNestedInput = {
+    create?: XOR<MedicalFitnessCreateWithoutStudentInput, MedicalFitnessUncheckedCreateWithoutStudentInput>
+    connectOrCreate?: MedicalFitnessCreateOrConnectWithoutStudentInput
+    upsert?: MedicalFitnessUpsertWithoutStudentInput
+    disconnect?: MedicalFitnessWhereInput | boolean
+    delete?: MedicalFitnessWhereInput | boolean
+    connect?: MedicalFitnessWhereUniqueInput
+    update?: XOR<XOR<MedicalFitnessUpdateToOneWithWhereWithoutStudentInput, MedicalFitnessUpdateWithoutStudentInput>, MedicalFitnessUncheckedUpdateWithoutStudentInput>
+  }
+
   export type StudentCourseRegistrationUpdateManyWithoutStudentNestedInput = {
     create?: XOR<StudentCourseRegistrationCreateWithoutStudentInput, StudentCourseRegistrationUncheckedCreateWithoutStudentInput> | StudentCourseRegistrationCreateWithoutStudentInput[] | StudentCourseRegistrationUncheckedCreateWithoutStudentInput[]
     connectOrCreate?: StudentCourseRegistrationCreateOrConnectWithoutStudentInput | StudentCourseRegistrationCreateOrConnectWithoutStudentInput[]
@@ -91104,6 +92578,16 @@ export namespace Prisma {
     delete?: StudentDetailsWhereInput | boolean
     connect?: StudentDetailsWhereUniqueInput
     update?: XOR<XOR<StudentDetailsUpdateToOneWithWhereWithoutStudentInput, StudentDetailsUpdateWithoutStudentInput>, StudentDetailsUncheckedUpdateWithoutStudentInput>
+  }
+
+  export type MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput = {
+    create?: XOR<MedicalFitnessCreateWithoutStudentInput, MedicalFitnessUncheckedCreateWithoutStudentInput>
+    connectOrCreate?: MedicalFitnessCreateOrConnectWithoutStudentInput
+    upsert?: MedicalFitnessUpsertWithoutStudentInput
+    disconnect?: MedicalFitnessWhereInput | boolean
+    delete?: MedicalFitnessWhereInput | boolean
+    connect?: MedicalFitnessWhereUniqueInput
+    update?: XOR<XOR<MedicalFitnessUpdateToOneWithWhereWithoutStudentInput, MedicalFitnessUpdateWithoutStudentInput>, MedicalFitnessUncheckedUpdateWithoutStudentInput>
   }
 
   export type StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput = {
@@ -97618,6 +99102,20 @@ export namespace Prisma {
     update?: XOR<XOR<AdmissionLetterTemplateUpdateToOneWithWhereWithoutSectionsInput, AdmissionLetterTemplateUpdateWithoutSectionsInput>, AdmissionLetterTemplateUncheckedUpdateWithoutSectionsInput>
   }
 
+  export type StudentCreateNestedOneWithoutMedicalFitnessInput = {
+    create?: XOR<StudentCreateWithoutMedicalFitnessInput, StudentUncheckedCreateWithoutMedicalFitnessInput>
+    connectOrCreate?: StudentCreateOrConnectWithoutMedicalFitnessInput
+    connect?: StudentWhereUniqueInput
+  }
+
+  export type StudentUpdateOneRequiredWithoutMedicalFitnessNestedInput = {
+    create?: XOR<StudentCreateWithoutMedicalFitnessInput, StudentUncheckedCreateWithoutMedicalFitnessInput>
+    connectOrCreate?: StudentCreateOrConnectWithoutMedicalFitnessInput
+    upsert?: StudentUpsertWithoutMedicalFitnessInput
+    connect?: StudentWhereUniqueInput
+    update?: XOR<XOR<StudentUpdateToOneWithWhereWithoutMedicalFitnessInput, StudentUpdateWithoutMedicalFitnessInput>, StudentUncheckedUpdateWithoutMedicalFitnessInput>
+  }
+
   export type NestedIntFilter<$PrismaModel = never> = {
     equals?: number | IntFieldRefInput<$PrismaModel>
     in?: number[]
@@ -99018,6 +100516,36 @@ export namespace Prisma {
     create: XOR<StudentDetailsCreateWithoutStudentInput, StudentDetailsUncheckedCreateWithoutStudentInput>
   }
 
+  export type MedicalFitnessCreateWithoutStudentInput = {
+    bloodGroup?: string | null
+    genotype?: string | null
+    fileUrl?: string | null
+    status?: $Enums.DocumentUploadStatus
+    rejectionReason?: string | null
+    verifiedByAdminId?: number | null
+    verifiedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MedicalFitnessUncheckedCreateWithoutStudentInput = {
+    id?: number
+    bloodGroup?: string | null
+    genotype?: string | null
+    fileUrl?: string | null
+    status?: $Enums.DocumentUploadStatus
+    rejectionReason?: string | null
+    verifiedByAdminId?: number | null
+    verifiedAt?: Date | string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+  }
+
+  export type MedicalFitnessCreateOrConnectWithoutStudentInput = {
+    where: MedicalFitnessWhereUniqueInput
+    create: XOR<MedicalFitnessCreateWithoutStudentInput, MedicalFitnessUncheckedCreateWithoutStudentInput>
+  }
+
   export type StudentCourseRegistrationCreateWithoutStudentInput = {
     isScoreRecorded?: boolean
     registeredAt?: Date | string
@@ -100005,6 +101533,42 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
+  export type MedicalFitnessUpsertWithoutStudentInput = {
+    update: XOR<MedicalFitnessUpdateWithoutStudentInput, MedicalFitnessUncheckedUpdateWithoutStudentInput>
+    create: XOR<MedicalFitnessCreateWithoutStudentInput, MedicalFitnessUncheckedCreateWithoutStudentInput>
+    where?: MedicalFitnessWhereInput
+  }
+
+  export type MedicalFitnessUpdateToOneWithWhereWithoutStudentInput = {
+    where?: MedicalFitnessWhereInput
+    data: XOR<MedicalFitnessUpdateWithoutStudentInput, MedicalFitnessUncheckedUpdateWithoutStudentInput>
+  }
+
+  export type MedicalFitnessUpdateWithoutStudentInput = {
+    bloodGroup?: NullableStringFieldUpdateOperationsInput | string | null
+    genotype?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumDocumentUploadStatusFieldUpdateOperationsInput | $Enums.DocumentUploadStatus
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    verifiedByAdminId?: NullableIntFieldUpdateOperationsInput | number | null
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type MedicalFitnessUncheckedUpdateWithoutStudentInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    bloodGroup?: NullableStringFieldUpdateOperationsInput | string | null
+    genotype?: NullableStringFieldUpdateOperationsInput | string | null
+    fileUrl?: NullableStringFieldUpdateOperationsInput | string | null
+    status?: EnumDocumentUploadStatusFieldUpdateOperationsInput | $Enums.DocumentUploadStatus
+    rejectionReason?: NullableStringFieldUpdateOperationsInput | string | null
+    verifiedByAdminId?: NullableIntFieldUpdateOperationsInput | number | null
+    verifiedAt?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
   export type StudentCourseRegistrationUpsertWithWhereUniqueWithoutStudentInput = {
     where: StudentCourseRegistrationWhereUniqueInput
     update: XOR<StudentCourseRegistrationUpdateWithoutStudentInput, StudentCourseRegistrationUncheckedUpdateWithoutStudentInput>
@@ -100316,6 +101880,7 @@ export namespace Prisma {
     currentSeason?: SeasonCreateNestedOneWithoutStudentsCurrentInput
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -100352,6 +101917,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -100403,6 +101969,7 @@ export namespace Prisma {
     currentSeason?: SeasonUpdateOneWithoutStudentsCurrentNestedInput
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -100439,6 +102006,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -101514,6 +103082,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -101550,6 +103119,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -102684,6 +104254,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -102720,6 +104291,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -103216,6 +104788,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -103252,6 +104825,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -103297,6 +104871,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -103333,6 +104908,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -104739,6 +106315,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -104775,6 +106352,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -104820,6 +106398,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -104856,6 +106435,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -104901,6 +106481,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -104937,6 +106518,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -106080,6 +107662,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -106116,6 +107699,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -106161,6 +107745,7 @@ export namespace Prisma {
     currentSeason?: SeasonCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -106197,6 +107782,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -106242,6 +107828,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -106278,6 +107865,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -106685,6 +108273,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
     payments?: PaymentReceiptCreateNestedManyWithoutStudentInput
@@ -106721,6 +108310,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
     payments?: PaymentReceiptUncheckedCreateNestedManyWithoutStudentInput
@@ -107010,6 +108600,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
     payments?: PaymentReceiptUpdateManyWithoutStudentNestedInput
@@ -107046,6 +108637,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
     payments?: PaymentReceiptUncheckedUpdateManyWithoutStudentNestedInput
@@ -107909,6 +109501,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
     payments?: PaymentReceiptCreateNestedManyWithoutStudentInput
@@ -107945,6 +109538,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
     payments?: PaymentReceiptUncheckedCreateNestedManyWithoutStudentInput
@@ -108315,6 +109909,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
     payments?: PaymentReceiptUpdateManyWithoutStudentNestedInput
@@ -108351,6 +109946,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
     payments?: PaymentReceiptUncheckedUpdateManyWithoutStudentNestedInput
@@ -109144,6 +110740,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     payments?: PaymentReceiptCreateNestedManyWithoutStudentInput
@@ -109180,6 +110777,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     payments?: PaymentReceiptUncheckedCreateNestedManyWithoutStudentInput
@@ -109466,6 +111064,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     payments?: PaymentReceiptUpdateManyWithoutStudentNestedInput
@@ -109502,6 +111101,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     payments?: PaymentReceiptUncheckedUpdateManyWithoutStudentNestedInput
@@ -109767,6 +111367,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -109803,6 +111404,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -109988,6 +111590,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -110024,6 +111627,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -110848,6 +112452,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -110884,6 +112489,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -111118,6 +112724,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -111154,6 +112761,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -111367,6 +112975,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -111403,6 +113012,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -111502,6 +113112,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -111538,6 +113149,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -112824,6 +114436,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -112860,6 +114473,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -113001,6 +114615,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -113037,6 +114652,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -113937,6 +115553,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -113973,6 +115590,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -114170,6 +115788,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -114206,6 +115825,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -114730,6 +116350,7 @@ export namespace Prisma {
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -114766,6 +116387,7 @@ export namespace Prisma {
     updatedAt?: Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -114897,6 +116519,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -114933,6 +116556,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -118338,6 +119962,7 @@ export namespace Prisma {
     currentSeason?: SeasonCreateNestedOneWithoutStudentsCurrentInput
     currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
     studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
     results?: ResultCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
@@ -118374,6 +119999,7 @@ export namespace Prisma {
     createdAt?: Date | string
     updatedAt?: Date | string
     studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    medicalFitness?: MedicalFitnessUncheckedCreateNestedOneWithoutStudentInput
     registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
     results?: ResultUncheckedCreateNestedManyWithoutStudentInput
     schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
@@ -118755,6 +120381,7 @@ export namespace Prisma {
     currentSeason?: SeasonUpdateOneWithoutStudentsCurrentNestedInput
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -118791,6 +120418,7 @@ export namespace Prisma {
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -119165,6 +120793,168 @@ export namespace Prisma {
     registrarSignatureUrl?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+  }
+
+  export type StudentCreateWithoutMedicalFitnessInput = {
+    regNo?: string | null
+    jambRegNo?: string | null
+    name: string
+    email: string
+    entryMode: $Enums.EntryMode
+    yearOfAdmission: number
+    isGraduated?: boolean
+    isActive?: boolean
+    password: string
+    profileImg?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    entryLevel: LevelCreateNestedOneWithoutStudentsAtEntryLevelInput
+    currentLevel: LevelCreateNestedOneWithoutStudentsAtCurrentLevelInput
+    department: DepartmentCreateNestedOneWithoutStudentsInput
+    program: ProgramCreateNestedOneWithoutStudentsInput
+    admissionSeason: SeasonCreateNestedOneWithoutStudentsAdmittedInput
+    admissionSemester: SemesterCreateNestedOneWithoutStudentsAdmittedInput
+    graduationSeason?: SeasonCreateNestedOneWithoutStudentsGraduatedInput
+    graduationSemester?: SemesterCreateNestedOneWithoutStudentsGraduatedInput
+    currentSeason?: SeasonCreateNestedOneWithoutStudentsCurrentInput
+    currentSemester?: SemesterCreateNestedOneWithoutStudentsCurrentInput
+    admissionOfferDetails?: AdmissionOfferCreateNestedOneWithoutCreatedStudentInput
+    studentDetails?: StudentDetailsCreateNestedOneWithoutStudentInput
+    registrations?: StudentCourseRegistrationCreateNestedManyWithoutStudentInput
+    results?: ResultCreateNestedManyWithoutStudentInput
+    schoolFees?: SchoolFeeCreateNestedManyWithoutStudentInput
+    payments?: PaymentReceiptCreateNestedManyWithoutStudentInput
+    hostelBookings?: HostelBookingCreateNestedManyWithoutStudentInput
+    notifications?: NotificationCreateNestedManyWithoutStudentInput
+    examAttempts?: ExamAttemptCreateNestedManyWithoutStudentInput
+    assignedExamSessions?: StudentExamSessionAssignmentCreateNestedManyWithoutStudentInput
+    studentExamPayment?: StudentExamPaymentCreateNestedManyWithoutStudentInput
+  }
+
+  export type StudentUncheckedCreateWithoutMedicalFitnessInput = {
+    id?: number
+    regNo?: string | null
+    jambRegNo?: string | null
+    name: string
+    email: string
+    entryMode: $Enums.EntryMode
+    yearOfAdmission: number
+    admissionSeasonId: number
+    admissionSemesterId: number
+    departmentId: number
+    programId: number
+    entryLevelId: number
+    currentLevelId: number
+    isGraduated?: boolean
+    graduationSeasonId?: number | null
+    graduationSemesterId?: number | null
+    currentSeasonId?: number | null
+    currentSemesterId?: number | null
+    isActive?: boolean
+    password: string
+    profileImg?: string | null
+    createdAt?: Date | string
+    updatedAt?: Date | string
+    admissionOfferDetails?: AdmissionOfferUncheckedCreateNestedOneWithoutCreatedStudentInput
+    studentDetails?: StudentDetailsUncheckedCreateNestedOneWithoutStudentInput
+    registrations?: StudentCourseRegistrationUncheckedCreateNestedManyWithoutStudentInput
+    results?: ResultUncheckedCreateNestedManyWithoutStudentInput
+    schoolFees?: SchoolFeeUncheckedCreateNestedManyWithoutStudentInput
+    payments?: PaymentReceiptUncheckedCreateNestedManyWithoutStudentInput
+    hostelBookings?: HostelBookingUncheckedCreateNestedManyWithoutStudentInput
+    notifications?: NotificationUncheckedCreateNestedManyWithoutStudentInput
+    examAttempts?: ExamAttemptUncheckedCreateNestedManyWithoutStudentInput
+    assignedExamSessions?: StudentExamSessionAssignmentUncheckedCreateNestedManyWithoutStudentInput
+    studentExamPayment?: StudentExamPaymentUncheckedCreateNestedManyWithoutStudentInput
+  }
+
+  export type StudentCreateOrConnectWithoutMedicalFitnessInput = {
+    where: StudentWhereUniqueInput
+    create: XOR<StudentCreateWithoutMedicalFitnessInput, StudentUncheckedCreateWithoutMedicalFitnessInput>
+  }
+
+  export type StudentUpsertWithoutMedicalFitnessInput = {
+    update: XOR<StudentUpdateWithoutMedicalFitnessInput, StudentUncheckedUpdateWithoutMedicalFitnessInput>
+    create: XOR<StudentCreateWithoutMedicalFitnessInput, StudentUncheckedCreateWithoutMedicalFitnessInput>
+    where?: StudentWhereInput
+  }
+
+  export type StudentUpdateToOneWithWhereWithoutMedicalFitnessInput = {
+    where?: StudentWhereInput
+    data: XOR<StudentUpdateWithoutMedicalFitnessInput, StudentUncheckedUpdateWithoutMedicalFitnessInput>
+  }
+
+  export type StudentUpdateWithoutMedicalFitnessInput = {
+    regNo?: NullableStringFieldUpdateOperationsInput | string | null
+    jambRegNo?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    entryMode?: EnumEntryModeFieldUpdateOperationsInput | $Enums.EntryMode
+    yearOfAdmission?: IntFieldUpdateOperationsInput | number
+    isGraduated?: BoolFieldUpdateOperationsInput | boolean
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    password?: StringFieldUpdateOperationsInput | string
+    profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    entryLevel?: LevelUpdateOneRequiredWithoutStudentsAtEntryLevelNestedInput
+    currentLevel?: LevelUpdateOneRequiredWithoutStudentsAtCurrentLevelNestedInput
+    department?: DepartmentUpdateOneRequiredWithoutStudentsNestedInput
+    program?: ProgramUpdateOneRequiredWithoutStudentsNestedInput
+    admissionSeason?: SeasonUpdateOneRequiredWithoutStudentsAdmittedNestedInput
+    admissionSemester?: SemesterUpdateOneRequiredWithoutStudentsAdmittedNestedInput
+    graduationSeason?: SeasonUpdateOneWithoutStudentsGraduatedNestedInput
+    graduationSemester?: SemesterUpdateOneWithoutStudentsGraduatedNestedInput
+    currentSeason?: SeasonUpdateOneWithoutStudentsCurrentNestedInput
+    currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
+    admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
+    studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
+    results?: ResultUpdateManyWithoutStudentNestedInput
+    schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
+    payments?: PaymentReceiptUpdateManyWithoutStudentNestedInput
+    hostelBookings?: HostelBookingUpdateManyWithoutStudentNestedInput
+    notifications?: NotificationUpdateManyWithoutStudentNestedInput
+    examAttempts?: ExamAttemptUpdateManyWithoutStudentNestedInput
+    assignedExamSessions?: StudentExamSessionAssignmentUpdateManyWithoutStudentNestedInput
+    studentExamPayment?: StudentExamPaymentUpdateManyWithoutStudentNestedInput
+  }
+
+  export type StudentUncheckedUpdateWithoutMedicalFitnessInput = {
+    id?: IntFieldUpdateOperationsInput | number
+    regNo?: NullableStringFieldUpdateOperationsInput | string | null
+    jambRegNo?: NullableStringFieldUpdateOperationsInput | string | null
+    name?: StringFieldUpdateOperationsInput | string
+    email?: StringFieldUpdateOperationsInput | string
+    entryMode?: EnumEntryModeFieldUpdateOperationsInput | $Enums.EntryMode
+    yearOfAdmission?: IntFieldUpdateOperationsInput | number
+    admissionSeasonId?: IntFieldUpdateOperationsInput | number
+    admissionSemesterId?: IntFieldUpdateOperationsInput | number
+    departmentId?: IntFieldUpdateOperationsInput | number
+    programId?: IntFieldUpdateOperationsInput | number
+    entryLevelId?: IntFieldUpdateOperationsInput | number
+    currentLevelId?: IntFieldUpdateOperationsInput | number
+    isGraduated?: BoolFieldUpdateOperationsInput | boolean
+    graduationSeasonId?: NullableIntFieldUpdateOperationsInput | number | null
+    graduationSemesterId?: NullableIntFieldUpdateOperationsInput | number | null
+    currentSeasonId?: NullableIntFieldUpdateOperationsInput | number | null
+    currentSemesterId?: NullableIntFieldUpdateOperationsInput | number | null
+    isActive?: BoolFieldUpdateOperationsInput | boolean
+    password?: StringFieldUpdateOperationsInput | string
+    profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
+    admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
+    studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
+    results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
+    schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
+    payments?: PaymentReceiptUncheckedUpdateManyWithoutStudentNestedInput
+    hostelBookings?: HostelBookingUncheckedUpdateManyWithoutStudentNestedInput
+    notifications?: NotificationUncheckedUpdateManyWithoutStudentNestedInput
+    examAttempts?: ExamAttemptUncheckedUpdateManyWithoutStudentNestedInput
+    assignedExamSessions?: StudentExamSessionAssignmentUncheckedUpdateManyWithoutStudentNestedInput
+    studentExamPayment?: StudentExamPaymentUncheckedUpdateManyWithoutStudentNestedInput
   }
 
   export type ResultCreateManyStudentReleaseApproverAdminInput = {
@@ -120826,6 +122616,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -120862,6 +122653,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -121521,6 +123313,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -121557,6 +123350,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -121972,6 +123766,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -122008,6 +123803,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -122068,6 +123864,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -122104,6 +123901,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -122947,6 +124745,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -122983,6 +124782,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -123043,6 +124843,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -123079,6 +124880,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -123139,6 +124941,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -123175,6 +124978,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -124181,6 +125985,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -124217,6 +126022,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -124277,6 +126083,7 @@ export namespace Prisma {
     currentSeason?: SeasonUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -124313,6 +126120,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput
@@ -124373,6 +126181,7 @@ export namespace Prisma {
     currentSemester?: SemesterUpdateOneWithoutStudentsCurrentNestedInput
     admissionOfferDetails?: AdmissionOfferUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUpdateManyWithoutStudentNestedInput
     results?: ResultUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUpdateManyWithoutStudentNestedInput
@@ -124409,6 +126218,7 @@ export namespace Prisma {
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     admissionOfferDetails?: AdmissionOfferUncheckedUpdateOneWithoutCreatedStudentNestedInput
     studentDetails?: StudentDetailsUncheckedUpdateOneWithoutStudentNestedInput
+    medicalFitness?: MedicalFitnessUncheckedUpdateOneWithoutStudentNestedInput
     registrations?: StudentCourseRegistrationUncheckedUpdateManyWithoutStudentNestedInput
     results?: ResultUncheckedUpdateManyWithoutStudentNestedInput
     schoolFees?: SchoolFeeUncheckedUpdateManyWithoutStudentNestedInput

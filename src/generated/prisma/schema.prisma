@@ -254,6 +254,8 @@ enum ApplicantPaymentPurpose {
 }
 
 // --- USER & ADMINISTRATIVE MODELS ---
+// Update the Admin model in your prisma/schema.prisma
+
 model Admin {
   id                        Int      @id @default(autoincrement())
   email                     String   @unique
@@ -263,11 +265,11 @@ model Admin {
   phone                     String?  @unique
   role                      String?  @default("ADMIN")
   createdAt                 DateTime @default(now())
-  isPermittedToAddAdmin     Boolean  @default(false) // Can this admin add other admins?
-  location                  String? // Optional: Admin's location
+  isPermittedToAddAdmin     Boolean  @default(false)
+  location                  String? // Admin's location
+  bio                       String?  @db.Text // <-- ADDED: Supports admin bios
   updatedAt                 DateTime @updatedAt
   resultsApprovedForRelease Result[] @relation("ResultsApprovedForReleaseByAdmin")
-  // createdExams              Exam[]   @relation("AdminCreatedExams") // Optional
 }
 
 model Student {
@@ -1462,4 +1464,18 @@ model RegistrationControl {
   message    String?    @db.Text // Message to show applicants when registration is closed
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
+}
+
+// Add this model to your prisma/schema.prisma file
+
+model UniversitySetting {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(255)
+  acronym   String?  @db.VarChar(50)
+  address   String?  @db.Text
+  email     String?  @db.VarChar(191)
+  phone     String?  @db.VarChar(191)
+  logoUrl   String?  @db.VarChar(255) // <-- ADDED: Path to the uploaded school logo image
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

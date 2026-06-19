@@ -21,7 +21,8 @@ export const getUniversitySettings = async () => {
                 acronym: 'FUTO',
                 address: 'P.M.B. 1526, Owerri, Imo State',
                 email: 'info@futo.edu.ng',
-                phone: '+234-803-123-4567'
+                phone: '+234-803-123-4567',
+                logoUrl: null
             };
         }
         return settings;
@@ -39,7 +40,7 @@ export const updateUniversitySettings = async (data) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
 
-        const { name, acronym, address, email, phone } = data;
+        const { name, acronym, address, email, phone, logoUrl } = data;
 
         if (!name || String(name).trim() === '') {
             throw new AppError('University Name is required.', 400);
@@ -58,6 +59,7 @@ export const updateUniversitySettings = async (data) => {
                     address: address ? String(address).trim() : null,
                     email: email ? String(email).trim() : null,
                     phone: phone ? String(phone).trim() : null,
+                    logoUrl: logoUrl ? String(logoUrl).trim() : existingSettings.logoUrl,
                 }
             });
         } else {
@@ -69,6 +71,7 @@ export const updateUniversitySettings = async (data) => {
                     address: address ? String(address).trim() : null,
                     email: email ? String(email).trim() : null,
                     phone: phone ? String(phone).trim() : null,
+                    logoUrl: logoUrl ? String(logoUrl).trim() : null,
                 }
             });
         }
