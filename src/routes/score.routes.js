@@ -1,3 +1,5 @@
+// src/routes/score.routes.js
+
 import { Router } from 'express';
 import * as ScoreController from '../controllers/score.controller.js';
 import {
@@ -23,7 +25,7 @@ router.post('/', authenticateToken, canManageScores, ScoreController.createScore
 router.get('/', authenticateToken, canViewScores, ScoreController.getAllScores);
 
 // =========================================================================
-// --- THE FIX: Define BATCH routes BEFORE the general ':id' route ---
+// --- BATCH & CBT Dispatches (Defined BEFORE route parameters ':id') ---
 // =========================================================================
 
 // BATCH UPDATE (PUT /scores/batch)
@@ -32,8 +34,11 @@ router.put('/batch', authenticateToken, canManageScores, ScoreController.batchUp
 // BATCH DELETE (DELETE /scores/batch)
 router.delete('/batch', authenticateToken, canManageScores, ScoreController.batchDeleteScores);
 
-
+// BATCH CREATE (POST /scores/batch)
 router.post('/batch', authenticateToken, canManageScores, ScoreController.batchCreateScores);
+
+// --- NEW: Submit CBT Scores to Score Model (POST /scores/submit-cbt) ---
+router.post('/submit-cbt', authenticateToken, canManageScores, ScoreController.submitCbtScores);
 
 
 // Single item routes using route parameter (:id)
@@ -61,17 +66,20 @@ router.patch(
     ScoreController.acceptScoreByHOD
 );
 
+// Examiner de-approves a score
 router.patch(
     '/:id/deapprove-examiner',
     authenticateToken,
-    canManageApprovals, // Use a broader role check; service will handle specifics
+    canManageApprovals,
     ScoreController.deapproveScoreByExaminer
 );
 
+// HOD de-accepts a score
 router.patch(
     '/:id/deaccept-hod',
     authenticateToken,
-    canManageApprovals, // Use a broader role check; service will handle specifics
+    canManageApprovals,
     ScoreController.deacceptScoreByHOD
 );
+
 export default router;

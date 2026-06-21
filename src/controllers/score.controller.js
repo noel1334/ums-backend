@@ -4,6 +4,16 @@ import * as ScoreService from '../services/score.service.js';
 import AppError from '../utils/AppError.js';
 import catchAsync from '../utils/catchAsync.js';
 
+// --- NEW: Submit CBT Exam Scores to the Score Model ---
+export const submitCbtScores = catchAsync(async (req, res, next) => {
+    const result = await ScoreService.submitCbtScores(req.body, req.user);
+    res.status(200).json({
+        status: 'success',
+        message: result.message,
+        data: result,
+    });
+});
+
 // CREATE a new score
 export const createScore = catchAsync(async (req, res, next) => {
     const newScore = await ScoreService.createScore(req.body, req.user);
@@ -16,7 +26,6 @@ export const createScore = catchAsync(async (req, res, next) => {
 
 // UPDATE an existing score (SINGLE ITEM)
 export const updateScore = catchAsync(async (req, res, next) => {
-    // This is for single UPDATE: req.params.id must be the score ID
     const updatedScore = await ScoreService.updateScore(req.params.id, req.body, req.user);
     res.status(200).json({
         status: 'success',
@@ -39,7 +48,6 @@ export const getAllScores = catchAsync(async (req, res, next) => {
 
 // DELETE a single score (SINGLE ITEM)
 export const deleteScore = catchAsync(async (req, res, next) => {
-    // This is for single DELETE: req.params.id must be the score ID
     await ScoreService.deleteScore(req.params.id, req.user);
     res.status(204).json({ status: 'success', data: null });
 });
@@ -64,10 +72,8 @@ export const acceptScoreByHOD = catchAsync(async (req, res, next) => {
     });
 });
 
-
 // BATCH CREATE new scores
 export const batchCreateScores = catchAsync(async (req, res, next) => {
-    // req.body contains the array of new score data
     const createdScores = await ScoreService.batchCreateScores(req.body, req.user);
     res.status(201).json({
         status: 'success',
@@ -76,16 +82,14 @@ export const batchCreateScores = catchAsync(async (req, res, next) => {
     });
 });
 
-// --- BATCH UPDATE CONTROLLER FIX ---
+// BATCH UPDATE scores
 export const batchUpdateScores = catchAsync(async (req, res, next) => {
-    // 1. Read the array of scores directly from the request body
     const scoresData = req.body; 
     
     if (!Array.isArray(scoresData)) {
         throw new AppError('Request body must be an array of scores for batch update.', 400);
     }
     
-    // 2. Call the BATCH service function
     const updatedScores = await ScoreService.batchUpdateScores(scoresData, req.user);
     
     res.status(200).json({
@@ -95,17 +99,14 @@ export const batchUpdateScores = catchAsync(async (req, res, next) => {
     });
 });
 
-
-// --- BATCH DELETE CONTROLLER FIX ---
+// BATCH DELETE scores
 export const batchDeleteScores = catchAsync(async (req, res, next) => {
-    // 1. Read the array of IDs from the request body. 
-    const scoreIds = req.body.scoreIds || req.body; // Safely try to extract the array
+    const scoreIds = req.body.scoreIds || req.body;
     
     if (!Array.isArray(scoreIds) || scoreIds.length === 0) {
         throw new AppError('An array of score IDs is required in the request body for batch delete.', 400);
     }
     
-    // 2. Call the BATCH service function
     const deletedCount = await ScoreService.batchDeleteScores(scoreIds, req.user);
     
     res.status(200).json({
@@ -115,9 +116,7 @@ export const batchDeleteScores = catchAsync(async (req, res, next) => {
     });
 });
 
-// --- NEW: DE-APPROVAL CONTROLLERS ---
-// =======================================================================
-
+// DE-APPROVAL score by Examiner
 export const deapproveScoreByExaminer = catchAsync(async (req, res, next) => {
     const score = await ScoreService.deapproveScoreByExaminer(req.params.id, req.user);
     res.status(200).json({
@@ -127,6 +126,7 @@ export const deapproveScoreByExaminer = catchAsync(async (req, res, next) => {
     });
 });
 
+// DE-ACCEPT score by HOD
 export const deacceptScoreByHOD = catchAsync(async (req, res, next) => {
     const score = await ScoreService.deacceptScoreByHOD(req.params.id, req.user);
     res.status(200).json({

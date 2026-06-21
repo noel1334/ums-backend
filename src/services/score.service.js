@@ -1,9 +1,11 @@
+// src/services/score.service.js
+
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
 import { calculateGradeAndPoint } from '../utils/grading.utils.js'; 
 import { LecturerRole } from '../generated/prisma/index.js';
 
-// --- UPDATED SELECTION OBJECT ---
+// --- SELECTION OBJECT ---
 const scorePublicSelection = {
     id: true,
     firstCA: true,
@@ -30,9 +32,7 @@ const scorePublicSelection = {
         }
     },
     submittedByLecturer: { select: { id: true, name: true, staffId: true } },
-    // --- ADDED THIS LINE ---
     submittedByICTStaff: { select: { id: true, name: true, staffId: true } }, 
-    
     examinerWhoApproved: { select: { id: true, name: true, staffId: true } },
     hodWhoAccepted: { select: { id: true, name: true, staffId: true } },
     resultId: true,
@@ -81,6 +81,128 @@ function validateScoreData(data, existingScore = {}) {
     return dataForDb;
 }
 
+/**
+ * Submit CBT Exam Scores dynamically to specified score fields (firstCA, secondCA, examScore)
+ */
+export const submitCbtScores = async (submitData, requestingUser) => {
+    try {
+        if (!prisma) throw new AppError('Prisma client is not available.', 500);
+
+        const { courseId, seasonId, semesterId, scoreField, attemptIds } = submitData;
+
+        if (!courseId || !seasonId || !semesterId || !scoreField || !Array.isArray(attemptIds) || attemptIds.length === 0) {
+            throw new AppError('Missing required parameters for CBT score submission.', 400);
+        }
+
+        const pCourseId = parseInt(courseId, 10);
+        const pSeasonId = parseInt(seasonId, 10);
+        const pSemesterId = parseInt(semesterId, 10);
+
+        // Map frontend fields safely to score model database fields
+        const validFields = ['firstCA', 'secondCA', 'examScore'];
+        if (!validFields.includes(scoreField)) {
+            throw new AppError(`Invalid target score field: '${scoreField}'. Must be one of: ${validFields.join(', ')}`, 400);
+        }
+
+        // Fetch selected CBT exam attempts
+        const attempts = await prisma.examAttempt.findMany({
+            where: { id: { in: attemptIds.map(id => parseInt(id, 10)) } },
+            include: { student: true, exam: true }
+        });
+
+        if (attempts.length === 0) {
+            throw new AppError('No valid CBT exam attempts found for the selected IDs.', 404);
+        }
+
+        const processedScores = [];
+
+        // Run the operations inside a transaction to ensure atomic execution
+        await prisma.$transaction(async (tx) => {
+            for (const attempt of attempts) {
+                // Find matching course registration for the student
+                const registration = await tx.studentCourseRegistration.findFirst({
+                    where: {
+                        studentId: attempt.studentId,
+                        courseId: pCourseId,
+                        semesterId: pSemesterId,
+                        seasonId: pSeasonId
+                    },
+                    include: { course: true }
+                });
+
+                if (!registration) {
+                    console.warn(`[CBT_SUBMISSION_WARNING] Student ID ${attempt.studentId} is not registered for course ID ${pCourseId}. Skipping.`);
+                    continue;
+                }
+
+                // Check for existing score record
+                const existingScore = await tx.score.findUnique({
+                    where: { studentCourseRegistrationId: registration.id }
+                });
+
+                const scoreValue = attempt.scoreAchieved || 0;
+
+                // Validate and update fields dynamically
+                const updatePayload = {
+                    [scoreField]: scoreValue
+                };
+
+                const validatedData = validateScoreData(updatePayload, existingScore || {});
+                
+                const creditUnit = registration.course.creditUnit || 0;
+                validatedData.cuGp = (validatedData.point || 0) * creditUnit;
+
+                // Set submitter context
+                if (requestingUser.type === 'lecturer') {
+                    validatedData.submittedByLecturerId = requestingUser.id;
+                    validatedData.submittedByICTStaffId = null;
+                } else if (requestingUser.type === 'ictstaff' && requestingUser.canManageScores) {
+                    validatedData.submittedByICTStaffId = requestingUser.id;
+                    validatedData.submittedByLecturerId = null;
+                }
+                validatedData.submittedAt = new Date();
+
+                let savedScore;
+                if (existingScore) {
+                    // Reset approvals when updating values
+                    validatedData.isApprovedByExaminer = false;
+                    validatedData.isAcceptedByHOD = false;
+                    validatedData.examinerWhoApprovedId = null;
+                    validatedData.hodWhoAcceptedId = null;
+
+                    savedScore = await tx.score.update({
+                        where: { id: existingScore.id },
+                        data: validatedData
+                    });
+                } else {
+                    validatedData.studentCourseRegistrationId = registration.id;
+                    savedScore = await tx.score.create({
+                        data: validatedData
+                    });
+
+                    // Set score recorded status to true
+                    await tx.studentCourseRegistration.update({
+                        where: { id: registration.id },
+                        data: { isScoreRecorded: true }
+                    });
+                }
+
+                processedScores.push(savedScore);
+            }
+        });
+
+        return {
+            count: processedScores.length,
+            message: `Successfully processed and recorded ${processedScores.length} CBT score(s).`
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("Error submitting CBT scores:", error.message, error.stack);
+        throw new AppError('Could not process CBT score submission.', 500);
+    }
+};
+
 export const createScore = async (scoreData, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -98,7 +220,6 @@ export const createScore = async (scoreData, requestingUser) => {
         const existingScore = await prisma.score.findUnique({ where: { studentCourseRegistrationId: pRegId } });
         if (existingScore) throw new AppError('A score for this registration already exists. Use update instead.', 409);
 
-        // Authorization checks
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageScores;
         const isAssignedLecturer = requestingUser.type === 'lecturer' && await isLecturerAssigned(requestingUser.id, registration);
@@ -112,11 +233,9 @@ export const createScore = async (scoreData, requestingUser) => {
 
         const dataForDb = validateScoreData(scoreData);
         
-        // Calculate CU * GP
         const creditUnit = registration.course.creditUnit || 0;
         dataForDb.cuGp = (dataForDb.point || 0) * creditUnit;
 
-        // --- NEW: Handle Submitted By (Lecturer vs ICT) ---
         if (requestingUser.type === 'lecturer') {
             dataForDb.submittedByLecturerId = requestingUser.id;
             dataForDb.submittedByICTStaffId = null;
@@ -175,19 +294,17 @@ export const updateScore = async (scoreId, scoreData, requestingUser) => {
         const creditUnit = score.studentCourseRegistration.course.creditUnit || 0;
         dataForDb.cuGp = (dataForDb.point || 0) * creditUnit;
         
-        // Reset approvals on update
         dataForDb.isApprovedByExaminer = false;
         dataForDb.isAcceptedByHOD = false;
         dataForDb.examinerWhoApprovedId = null;
         dataForDb.hodWhoAcceptedId = null;
         
-        // --- NEW: Handle Submitted By Update ---
         if (requestingUser.type === 'lecturer') {
             dataForDb.submittedByLecturerId = requestingUser.id;
-            dataForDb.submittedByICTStaffId = null; // Switch ownership
+            dataForDb.submittedByICTStaffId = null; 
         } else if (isPermittedICT) {
             dataForDb.submittedByICTStaffId = requestingUser.id;
-            dataForDb.submittedByLecturerId = null; // Switch ownership
+            dataForDb.submittedByLecturerId = null; 
         }
         dataForDb.submittedAt = new Date();
 
@@ -197,15 +314,13 @@ export const updateScore = async (scoreId, scoreData, requestingUser) => {
             select: scorePublicSelection
         });
 
-        return updatedScore;
+        return updatedNotification;
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error updating score:", error.message, error.stack);
+        console.error("Error updating score:", error.message);
         throw new AppError('Could not update score.', 500);
     }
 };
-
-// --- APPROVAL WORKFLOWS ---
 
 export const approveScoreByExaminer = async (scoreId, requestingUser) => {
     try {
@@ -240,7 +355,7 @@ export const approveScoreByExaminer = async (scoreId, requestingUser) => {
         return updatedScore;
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error approving score by examiner:", error.message, error.stack);
+        console.error("Error approving score by examiner:", error.message);
         throw new AppError('Could not approve score.', 500);
     }
 };
@@ -279,7 +394,7 @@ export const acceptScoreByHOD = async (scoreId, requestingUser) => {
         return updatedScore;
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error accepting score by HOD:", error.message, error.stack);
+        console.error("Error accepting score by HOD:", error.message);
         throw new AppError('Could not accept score.', 500);
     }
 };
@@ -318,7 +433,7 @@ export const getScoreById = async (id, requestingUser) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error fetching score by ID:", error.message, error.stack);
+        console.error("Error fetching score by ID:", error.message);
         throw new AppError('Could not retrieve score.', 500);
     }
 };
@@ -328,7 +443,7 @@ export const getAllScores = async (query, requestingUser) => {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
         const {
             studentId, courseId, semesterId, seasonId, departmentId, programId, levelId,
-            isApprovedByExaminer, isAcceptedByHOD,studentCourseRegistrationIds,
+            isApprovedByExaminer, isAcceptedByHOD, studentCourseRegistrationIds,
             page = 1, limit = 10
         } = query;
         const where = {};
@@ -390,7 +505,7 @@ export const getAllScores = async (query, requestingUser) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error fetching scores:", error.message, error.stack);
+        console.error("Error fetching scores:", error.message);
         throw new AppError('Could not retrieve scores.', 500);
     }
 };
@@ -440,13 +555,11 @@ export const deleteScore = async (scoreId, requestingUser) => {
         return { message: 'Score deleted successfully and registration marked as score not recorded.' };
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error deleting score:", error.message, error.stack);
+        console.error("Error deleting score:", error.message);
         throw new AppError('Could not delete score.', 500);
     }
 };
 
-
-// --- BATCH SCORE OPERATIONS ---
 export const batchCreateScores = async (scoresData, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -492,7 +605,6 @@ export const batchCreateScores = async (scoresData, requestingUser) => {
             const creditUnit = registration.course.creditUnit || 0;
             dataForDb.cuGp = (dataForDb.point || 0) * creditUnit;
             
-            // --- NEW: Handle Submitted By (Batch) ---
             if (isLecturer) {
                 dataForDb.submittedByLecturerId = requestingUser.id;
                 dataForDb.submittedByICTStaffId = null;
@@ -530,7 +642,7 @@ export const batchCreateScores = async (scoresData, requestingUser) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error in batchCreateScores:", error.message, error.stack);
+        console.error("Error in batchCreateScores:", error.message);
         throw new AppError('Could not process batch creation of scores. Transaction failed.', 500);
     }
 };
@@ -585,7 +697,6 @@ export const batchUpdateScores = async (scoresData, requestingUser) => {
             dataForDb.examinerWhoApprovedId = null;
             dataForDb.hodWhoAcceptedId = null;
             
-            // --- NEW: Handle Submitted By (Batch Update) ---
             if (isLecturer) {
                 dataForDb.submittedByLecturerId = requestingUser.id;
                 dataForDb.submittedByICTStaffId = null;
@@ -616,7 +727,7 @@ export const batchUpdateScores = async (scoresData, requestingUser) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error in batchUpdateScores:", error.message, error.stack);
+        console.error("Error in batchUpdateScores:", error.message);
         throw new AppError('Could not process batch update of scores. Transaction failed.', 500);
     }
 };
@@ -644,9 +755,8 @@ export const batchDeleteScores = async (scoreIds, requestingUser) => {
                 include: { studentCourseRegistration: { include: { student: true } } }
             });
 
-            if (!score) continue; // Skip if already deleted
+            if (!score) continue; 
 
-            // Authorization Checks
             const isAssignedLecturer = requestingUser.type === 'lecturer' && await isLecturerAssigned(requestingUser.id, score.studentCourseRegistration);
             if (!isAdmin && !isPermittedICT && !isAssignedLecturer) {
                 throw new AppError(`Unauthorized to delete score ID ${pScoreId}.`, 403);
@@ -655,7 +765,6 @@ export const batchDeleteScores = async (scoreIds, requestingUser) => {
                 throw new AppError(`Cannot delete score ID ${pScoreId}: already accepted by HOD.`, 400);
             }
 
-            // Push the delete and registration update operations
             transactions.push(
                 prisma.score.delete({ where: { id: pScoreId } }),
                 prisma.studentCourseRegistration.update({
@@ -665,23 +774,16 @@ export const batchDeleteScores = async (scoreIds, requestingUser) => {
             );
         }
 
-        // 2. Execute all operations atomically
         await prisma.$transaction(transactions);
         return scoreIds.length;
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error in batchDeleteScores:", error.message, error.stack);
+        console.error("Error in batchDeleteScores:", error.message);
         throw new AppError('Could not process batch deletion of scores. Transaction failed.', 500);
     }
 };
 
-
-/**
- * Reverses an Examiner's approval for a score.
- * Can be done by an Examiner (in the dept), HOD (in the dept), or Admin.
- * Cannot be done if the score is already accepted by the HOD.
- */
 export const deapproveScoreByExaminer = async (scoreId, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -696,12 +798,10 @@ export const deapproveScoreByExaminer = async (scoreId, requestingUser) => {
         if (!score) throw new AppError('Score not found.', 404);
         if (!score.isApprovedByExaminer) throw new AppError('Score is not currently approved by an examiner.', 400);
         
-        // CRITICAL WORKFLOW CHECK: Cannot de-approve if HOD has already accepted.
         if (score.isAcceptedByHOD) {
             throw new AppError('Cannot de-approve score. It has already been accepted by the HOD. The HOD must de-accept it first.', 403);
         }
 
-        // Authorization: Admin, permitted ICT, HOD of dept, or Examiner of dept
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageScores;
         const isHODInDept = requestingUser.type === 'lecturer' &&
@@ -727,15 +827,11 @@ export const deapproveScoreByExaminer = async (scoreId, requestingUser) => {
         return updatedScore;
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error de-approving score by examiner:", error.message, error.stack);
+        console.error("Error de-approving score by examiner:", error.message);
         throw new AppError('Could not de-approve score.', 500);
     }
 };
 
-/**
- * Reverses an HOD's acceptance for a score.
- * Can be done by an HOD (in the dept) or Admin.
- */
 export const deacceptScoreByHOD = async (scoreId, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -750,7 +846,6 @@ export const deacceptScoreByHOD = async (scoreId, requestingUser) => {
         if (!score) throw new AppError('Score not found.', 404);
         if (!score.isAcceptedByHOD) throw new AppError('Score is not currently accepted by an HOD.', 400);
 
-        // Authorization: Admin, permitted ICT, or HOD of the student's department
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageScores;
         const isHODInDept = requestingUser.type === 'lecturer' &&
@@ -773,7 +868,7 @@ export const deacceptScoreByHOD = async (scoreId, requestingUser) => {
         return updatedScore;
     } catch (error) {
         if (error instanceof AppError) throw error;
-        console.error("Error de-accepting score by HOD:", error.message, error.stack);
+        console.error("Error de-accepting score by HOD:", error.message);
         throw new AppError('Could not de-accept score.', 500);
     }
 };

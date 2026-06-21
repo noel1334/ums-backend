@@ -1,3 +1,5 @@
+// src/services/result.service.js
+
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
 import { ResultRemark, LecturerRole } from '../generated/prisma/index.js';
@@ -79,14 +81,14 @@ function determineResultRemark(gpa) {
     if (gpa >= 1.0) return ResultRemark.PROBATION;
     return ResultRemark.FAIL;
 }
+
 // --- AUTHORIZATION HELPER for Deletion ---
 const canUserDeleteResult = (requestingUser) => {
-    // Only Admin and ICT Staff with result management permissions can delete results
     if (requestingUser.type === 'admin') return true;
     if (requestingUser.type === 'ictstaff' && requestingUser.canManageResults) return true;
-    
     return false;
 };
+
 // --- SERVICE FUNCTIONS ---
 
 export const generateResultsForSemester = async (criteria, requestingUser) => {
@@ -153,10 +155,7 @@ export const generateResultsForSemester = async (criteria, requestingUser) => {
         }
 
         // --- 3. Calculate Results for Each Student ---
-        const currentSemester = await prisma.semester.findUnique({ where: { id: pSemesterId } });
         const generatedResults = [];
-        const isAdminOrPermittedICT = requestingUser.type === 'admin' || 
-                                     (requestingUser.type === 'ictstaff' && requestingUser.canManageResults);
 
         for (const student of studentsToProcess) {
             const result = await prisma.$transaction(async (tx) => {
@@ -168,6 +167,7 @@ export const generateResultsForSemester = async (criteria, requestingUser) => {
                 const scoresToConnect = []; 
 
                 for (const reg of currentSemesterRegistrations) {
+                    // STRICT CHECK: Only consider scores that are both approved by the Examiner and accepted by HOD
                     const isFullyApproved = reg.score && reg.score.isApprovedByExaminer && reg.score.isAcceptedByHOD;
                     
                     if (isFullyApproved) {
@@ -177,51 +177,21 @@ export const generateResultsForSemester = async (criteria, requestingUser) => {
                             creditUnit: reg.course.creditUnit,
                             cuGp: reg.score.cuGp
                         });
-                    } else if (reg.score && isAdminOrPermittedICT) {
-                        scoresToConnect.push({ id: reg.score.id });
-                         finalScoresForSemester.push({
-                            ...reg.score, 
-                            creditUnit: reg.course.creditUnit,
-                            cuGp: reg.score.cuGp 
-                        });
-                        
-                    } else if (reg.score) {
-                        scoresToConnect.push({ id: reg.score.id });
-                         finalScoresForSemester.push({
-                            ...reg.score, 
-                            totalScore: 0, grade: 'F', point: 0, cuGp: 0, 
-                            creditUnit: reg.course.creditUnit,
-                        });
-                    } else {
-                        const failScorePayload = {
-                            firstCA: 0, secondCA: 0, examScore: 0,
-                            totalScore: 0, grade: 'F', point: 0,
-                            cuGp: 0, 
-                            isApprovedByExaminer: true, isAcceptedByHOD: true,
-                            submittedByLecturerId: null, submittedAt: new Date(),
-                            examinerApprovedAt: new Date(), hodAcceptedAt: new Date(),
-                        };
-
-                        const autoFailedScore = await tx.score.create({
-                            data: { studentCourseRegistrationId: reg.id, ...failScorePayload }
-                        });
-                        scoresToConnect.push({ id: autoFailedScore.id });
-                        
-                        finalScoresForSemester.push({
-                            ...autoFailedScore,
-                            creditUnit: reg.course.creditUnit,
-                            cuGp: 0
-                        });
                     }
                 }
 
-                // --- Correct GPA & CGPA Calculation ---
+                // If a student has no fully approved and accepted scores, skip generating a result record entirely
+                if (finalScoresForSemester.length === 0) {
+                    return null;
+                }
+
+                // --- Correct GPA & CGPA Calculation using only approved scores ---
                 const gpaData = calculateGradeAverages(finalScoresForSemester);
                 
                 const allHistoricalApprovedScores = await tx.score.findMany({
                     where: {
-                        isApprovedByExaminer: true, isAcceptedByHOD: true,
-                        // --- CRITICAL FIX: The NOT clause targets the fields of the Registration model directly ---
+                        isApprovedByExaminer: true, 
+                        isAcceptedByHOD: true,
                         studentCourseRegistration: {
                             studentId: student.id,
                             NOT: {
@@ -243,7 +213,6 @@ export const generateResultsForSemester = async (criteria, requestingUser) => {
                 ];
 
                 const cgpaData = calculateGradeAverages(allScoresForCgpa);
-                
                 const remarks = determineResultRemark(gpaData.gpa);
                 
                 const resultPayload = {
@@ -265,7 +234,10 @@ export const generateResultsForSemester = async (criteria, requestingUser) => {
                 });
                 return finalResult;
             });
-            generatedResults.push(result);
+
+            if (result) {
+                generatedResults.push(result);
+            }
         }
         return generatedResults;
     } catch (error) {
@@ -282,25 +254,21 @@ export const getResultById = async (id, requestingUser) => {
         const resultId = parseInt(id, 10);
         if (isNaN(resultId)) throw new AppError('Invalid result ID.', 400);
 
-        // --- Fetch Result with all relations ---
-        // resultPublicSelection includes all relations (student, semester, scores, etc.)
         const result = await prisma.result.findUnique({
             where: { id: resultId },
             select: resultPublicSelection
         });
         if (!result) throw new AppError('Result not found.', 404);
 
-        // --- Authorization Checks (Self-contained for this function) ---
         const isAdmin = requestingUser.type === 'admin' || (requestingUser.type === 'ictstaff' && requestingUser.canManageResults);
         const isStudentOwner = requestingUser.type === 'student' && requestingUser.id === result.student.id;
         const isHODForDept = requestingUser.type === 'lecturer' &&
             requestingUser.role === LecturerRole.HOD &&
-            result.department && requestingUser.departmentId === result.department.id; // Added null check for department
+            result.department && requestingUser.departmentId === result.department.id; 
         const isExaminerForDept = requestingUser.type === 'lecturer' &&
             requestingUser.role === LecturerRole.EXAMINER &&
-            result.department && requestingUser.departmentId === result.department.id; // Added null check for department
+            result.department && requestingUser.departmentId === result.department.id; 
         
-        // Student can only see results approved for release
         if (requestingUser.type === 'student' && !result.isApprovedForStudentRelease) {
             throw new AppError('Result not yet published or approved for release.', 403);
         }
@@ -309,13 +277,10 @@ export const getResultById = async (id, requestingUser) => {
             throw new AppError('You are not authorized to view this result.', 403);
         }
         
-        // --- POST-PROCESSING/TRANSFORMATION FIX ---
-        
-        // 1. Map the nested scores into a flat, UI-ready array
         const courseScores = result.scores.map(score => {
             const course = score.studentCourseRegistration.course;
             const totalCA = (score.firstCA || 0) + (score.secondCA || 0);
-            const weightedPoint = score.cuGp; // Use the pre-calculated CUGP
+            const weightedPoint = score.cuGp; 
 
             return {
                 courseCode: course.code,
@@ -331,10 +296,8 @@ export const getResultById = async (id, requestingUser) => {
             };
         });
 
-        // 2. Separate the scores relation from the rest of the result object
         const { scores, ...restOfResult } = result;
 
-        // 3. Return the transformed object
         return {
             ...restOfResult, 
             courseScores: courseScores
@@ -351,7 +314,7 @@ export const getAllResults = async (query, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
         
-        const { studentId, seasonId, semesterId, departmentId, programId, levelId, isApprovedForStudentRelease, page = 1, limit = 200 } = query; // Increased default limit for broadsheet
+        const { studentId, seasonId, semesterId, departmentId, programId, levelId, isApprovedForStudentRelease, page = 1, limit = 200 } = query; 
         
         const where = {};
         const isAdmin = requestingUser.type === 'admin' || (requestingUser.type === 'ictstaff' && requestingUser.canManageResults);
@@ -369,7 +332,6 @@ export const getAllResults = async (query, requestingUser) => {
             throw new AppError('You are not authorized to view this list of results.', 403);
         }
 
-        // Apply Dynamic Filters
         if (departmentId && isAdmin) where.departmentId = parseInt(departmentId, 10);
         if (programId) where.programId = parseInt(programId, 10);
         if (levelId) where.levelId = parseInt(levelId, 10);
@@ -383,8 +345,6 @@ export const getAllResults = async (query, requestingUser) => {
         const limitNum = parseInt(limit, 10);
         const skip = (pageNum - 1) * limitNum;
 
-        console.log(`[Backend Service] Fetching results with final query:`, where);
-
         const rawResults = await prisma.result.findMany({
             where, select: resultPublicSelection,
             orderBy: [{ seasonId: 'desc' }, { semesterId: 'desc' }, { student: { regNo: 'asc' } }],
@@ -392,8 +352,6 @@ export const getAllResults = async (query, requestingUser) => {
         });
         const totalResults = await prisma.result.count({ where });
 
-        // --- NEW TRANSFORMATION LOGIC (THE FIX) ---
-        // Map over the raw results and apply the same transformation as getResultById
         const transformedResults = rawResults.map(result => {
             const courseScores = result.scores.map(score => {
                 const course = score.studentCourseRegistration.course;
@@ -412,20 +370,14 @@ export const getAllResults = async (query, requestingUser) => {
                 };
             });
             
-            // Remove the original nested 'scores' relation
             const { scores, ...restOfResult } = result;
 
-            // Return the result object with the clean, flat 'courseScores' array
             return {
                 ...restOfResult,
                 courseScores
             };
         });
-        // --- END OF TRANSFORMATION LOGIC ---
 
-        console.log(`[Backend Service] Found and transformed ${totalResults} total results.`);
-
-        // Return the transformed results
         return { 
             results: transformedResults, 
             totalPages: Math.ceil(totalResults / limitNum), 
@@ -440,7 +392,7 @@ export const getAllResults = async (query, requestingUser) => {
     }
 };
 
-export const approveResultsForRelease = async (resultIds, adminId) => { // Admin action
+export const approveResultsForRelease = async (resultIds, adminId) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
         if (!Array.isArray(resultIds) || resultIds.length === 0) {
@@ -449,11 +401,10 @@ export const approveResultsForRelease = async (resultIds, adminId) => { // Admin
         const pResultIds = resultIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
         if (pResultIds.length === 0) throw new AppError('Invalid result IDs provided.', 400);
 
-
         const updatedCount = await prisma.result.updateMany({
             where: {
                 id: { in: pResultIds },
-                isApprovedForStudentRelease: false // Only approve those not yet approved
+                isApprovedForStudentRelease: false 
             },
             data: {
                 isApprovedForStudentRelease: true,
@@ -469,12 +420,6 @@ export const approveResultsForRelease = async (resultIds, adminId) => { // Admin
     }
 };
 
-
-
-/**
- * Fetches a list of all result records for a given student.
- * For students, it only returns released results. For staff, it returns all results.
- */
 export const getStudentResultsMinimal = async (studentId, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -482,19 +427,16 @@ export const getStudentResultsMinimal = async (studentId, requestingUser) => {
         const pStudentId = parseInt(studentId, 10);
         if (isNaN(pStudentId)) throw new AppError('Invalid Student ID.', 400);
 
-        // --- DYNAMIC WHERE CLAUSE ---
         const whereClause = {
             studentId: pStudentId,
         };
 
-        // Only filter for released results if the user is a 'student'.
-        // Admins, lecturers, etc., will see ALL results for that student.
         if (requestingUser && requestingUser.type === 'student') {
             whereClause.isApprovedForStudentRelease = true;
         }
 
         const results = await prisma.result.findMany({
-            where: whereClause, // Use the dynamic where clause
+            where: whereClause, 
             select: {
                 id: true,
                 seasonId: true,
@@ -508,7 +450,6 @@ export const getStudentResultsMinimal = async (studentId, requestingUser) => {
             ]
         });
 
-        // Map to the required frontend structure
         return results.map(r => ({
             id: r.id,
             seasonId: r.seasonId,
@@ -524,28 +465,17 @@ export const getStudentResultsMinimal = async (studentId, requestingUser) => {
     }
 };
 
-/**
- * Deletes a single result record by ID.
- *
- * @param {string} resultId - The ID of the result record to delete.
- * @param {object} requestingUser - The user attempting the deletion.
- * @returns {Promise<object>} A success message.
- * @throws {AppError} For authorization, not found, or constraint errors.
- */
 export const deleteResult = async (resultId, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
 
-        // --- 1. Authorization ---
         if (!canUserDeleteResult(requestingUser)) {
             throw new AppError('You are not authorized to delete results.', 403);
         }
 
-        // --- 2. Input Validation ---
         const pResultId = parseInt(resultId, 10);
         if (isNaN(pResultId)) throw new AppError('Invalid result ID format.', 400);
 
-        // --- 3. Check Existence and Status ---
         const resultToDelete = await prisma.result.findUnique({
             where: { id: pResultId },
             select: { isApprovedForStudentRelease: true, student: { select: { regNo: true } } }
@@ -557,14 +487,7 @@ export const deleteResult = async (resultId, requestingUser) => {
             throw new AppError('Cannot delete a result that has already been approved for student release. Consider revoking approval first.', 400);
         }
 
-        // --- 4. Perform Deletion in a Transaction (for safety) ---
-        // Note: Prisma's `onDelete: SetNull` for `resultId` on `Score` model
-        // means associated scores will remain, but their `resultId` will be null.
         await prisma.$transaction(async (tx) => {
-            // First, disconnect the scores from this result (not strictly necessary due to SetNull,
-            // but explicitly ensures the `connect` doesn't interfere, if `set: []` was used to clear)
-            // Simpler: rely on onDelete: SetNull for Scores.
-
             await tx.result.delete({ where: { id: pResultId } });
         });
         
@@ -572,7 +495,7 @@ export const deleteResult = async (resultId, requestingUser) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        if (error.code === 'P2003') { // Foreign key constraint violation (shouldn't happen with SetNull on Scores)
+        if (error.code === 'P2003') { 
             throw new AppError('Cannot delete result due to unexpected existing dependent records.', 400);
         }
         console.error("Error deleting result:", error.message, error.stack);
@@ -580,24 +503,14 @@ export const deleteResult = async (resultId, requestingUser) => {
     }
 };
 
-/**
- * Deletes multiple result records by an array of IDs.
- *
- * @param {number[]} resultIds - An array of result IDs to delete.
- * @param {object} requestingUser - The user attempting the deletion.
- * @returns {Promise<object>} A summary of the deletion operation.
- * @throws {AppError} For authorization or input errors.
- */
 export const deleteManyResults = async (resultIds, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
 
-        // --- 1. Authorization ---
         if (!canUserDeleteResult(requestingUser)) {
             throw new AppError('You are not authorized to delete results.', 403);
         }
 
-        // --- 2. Input Validation ---
         if (!Array.isArray(resultIds) || resultIds.length === 0) {
             throw new AppError('No result IDs provided for batch deletion.', 400);
         }
@@ -606,12 +519,10 @@ export const deleteManyResults = async (resultIds, requestingUser) => {
         if (pResultIds.length === 0) {
             throw new AppError('Invalid result IDs provided for batch deletion.', 400);
         }
-        // Ensure no empty IDs were sent if original array had invalid items
         if (pResultIds.length !== resultIds.length) {
             console.warn(`[Result Service] Some invalid IDs were filtered during batch delete: Original count ${resultIds.length}, Valid count ${pResultIds.length}`);
         }
 
-        // --- 3. Check for Approved Results in the Batch ---
         const approvedResultsInBatch = await prisma.result.findMany({
             where: {
                 id: { in: pResultIds },
@@ -630,11 +541,10 @@ export const deleteManyResults = async (resultIds, requestingUser) => {
             );
         }
 
-        // --- 4. Perform Batch Deletion ---
         const deleteOperation = await prisma.result.deleteMany({
             where: {
                 id: { in: pResultIds },
-                isApprovedForStudentRelease: false // Double-check against approved ones
+                isApprovedForStudentRelease: false 
             }
         });
         
@@ -653,25 +563,12 @@ export const deleteManyResults = async (resultIds, requestingUser) => {
     }
 };
 
-// =================================================================================
-// --- NEW SERVICE FUNCTION: Toggle Result Release Status by Criteria ---
-/**
- * Toggles the 'isApprovedForStudentRelease' status for results based on provided criteria.
- *
- * @param {object} criteria - Object containing filtering criteria (e.g., { seasonId: 1, departmentId: 2 }).
- *                            Can include seasonId, semesterId, facultyId, departmentId, programId, levelId.
- * @param {boolean} releaseStatus - `true` to approve for release, `false` to de-approve.
- * @param {number} adminId - The ID of the admin performing the action.
- * @returns {Promise<{message: string, updatedCount: number}>} - A message and the count of updated results.
- * @throws {AppError} If criteria are invalid, no results found, or Prisma client is unavailable.
- */
 export const toggleResultsReleaseStatusService = async (criteria, releaseStatus, adminId) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
 
         const whereClause = {};
 
-        // Parse and add direct criteria
         if (criteria.seasonId) {
             const pSeasonId = parseInt(criteria.seasonId, 10);
             if (isNaN(pSeasonId)) throw new AppError('Invalid Season ID format.', 400);
@@ -698,7 +595,6 @@ export const toggleResultsReleaseStatusService = async (criteria, releaseStatus,
             whereClause.levelId = pLevelId;
         }
 
-        // Handle facultyId, which requires an extra query
         if (criteria.facultyId) {
             const pFacultyId = parseInt(criteria.facultyId, 10);
             if (isNaN(pFacultyId)) throw new AppError('Invalid Faculty ID format.', 400);
@@ -716,15 +612,13 @@ export const toggleResultsReleaseStatusService = async (criteria, releaseStatus,
             whereClause.departmentId = { in: departmentIds };
         }
 
-        // Ensure at least one filtering criterion is provided
         if (Object.keys(whereClause).length === 0) {
             throw new AppError('At least one valid criterion (season, semester, faculty, department, program, or level) must be provided to toggle results.', 400);
         }
 
-        // Construct the data payload for update
         const updateData = {
             isApprovedForStudentRelease: releaseStatus,
-            updatedAt: new Date(), // Always update the updatedAt timestamp
+            updatedAt: new Date(), 
         };
 
         if (releaseStatus) {
