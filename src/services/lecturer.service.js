@@ -1,20 +1,24 @@
+// src/services/lecturer.service.js
+
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
 import { hashPassword } from '../utils/password.utils.js';
 import { LecturerRole } from '../generated/prisma/index.js';
-import config from '../config/index.js'; // For LECTURER_DEFAULT_PASSWORD
+import config from '../config/index.js';
 
 const lecturerPublicSelection = {
     id: true, staffId: true, title: true, name: true, email: true, phone: true,
     isActive: true, role: true, departmentId: true, profileImg: true,
+    signatureImg: true, // <-- ADDED: Returned on fetch operations
     createdAt: true, updatedAt: true,
     department: { select: { id: true, name: true, faculty: { select: { id: true, name: true } } } }
 };
 
-const lecturerSelfEditableFields = ['title', 'name', 'phone', 'password', 'profileImg'];
+// Added 'signatureImg' to both editable arrays
+const lecturerSelfEditableFields = ['title', 'name', 'phone', 'password', 'profileImg', 'signatureImg'];
 const adminEditableFields = [
     'title', 'name', 'email', 'phone', 'isActive',
-    'password', 'role', 'departmentId', 'profileImg'
+    'password', 'role', 'departmentId', 'profileImg', 'signatureImg'
 ];
 
 export const createLecturer = async (lecturerData) => {
@@ -27,7 +31,7 @@ export const createLecturer = async (lecturerData) => {
 
         const {
             title, name, departmentId, email, phone, role,
-            isActive, password: providedPassword, profileImg
+            isActive, password: providedPassword, profileImg, signatureImg
         } = lecturerData;
 
         // --- Input Validation ---
@@ -81,7 +85,7 @@ export const createLecturer = async (lecturerData) => {
         // --- Password Handling ---
         let passwordToHash = providedPassword && String(providedPassword).trim() !== ''
             ? String(providedPassword).trim()
-            : config.lecturerDefaultPassword; // Use LECTURER_DEFAULT_PASSWORD
+            : config.lecturerDefaultPassword; 
 
         if (!passwordToHash) {
             throw new AppError('Password is required for Lecturer, and no default password (LECTURER_DEFAULT_PASSWORD) is configured in .env.', 400);
@@ -103,16 +107,15 @@ export const createLecturer = async (lecturerData) => {
                     isActive: isActive === undefined ? true : Boolean(isActive),
                     password: hashedPassword,
                     profileImg: profileImg ? String(profileImg).trim() : null,
-                    // staffId is NOT set here initially
+                    signatureImg: signatureImg ? String(signatureImg).trim() : null,
                 },
-                select: { id: true, createdAt: true, departmentId: true } // Also select departmentId for staffId format
+                select: { id: true, createdAt: true, departmentId: true } 
             });
             console.log("[createLecturer DEBUG] Step 1 complete. Created lecturer with temp ID:", createdLecturer.id);
 
             const yearOfCreation = new Date(createdLecturer.createdAt).getFullYear();
-            // Using departmentId and the new record's ID for the sequence part
             const sequencePart = createdLecturer.id.toString().padStart(3, '0');
-            const finalStaffId = `${yearOfCreation}/${createdLecturer.departmentId}/${sequencePart}`; // Format: YEAR/DEPT_ID/SEQUENCE
+            const finalStaffId = `${yearOfCreation}/${createdLecturer.departmentId}/${sequencePart}`; 
             console.log("[createLecturer DEBUG] Step 2: Generated finalStaffId:", finalStaffId);
 
             console.log("[createLecturer DEBUG] Step 3: Updating record with finalStaffId.");
@@ -183,7 +186,6 @@ export const getAllLecturers = async (query, requestingUser) => {
         } else if (requestingUser.type === 'lecturer' && requestingUser.role === LecturerRole.HOD) {
             if (!requestingUser.departmentId) throw new AppError('HOD department info missing.', 500);
             where.departmentId = requestingUser.departmentId;
-            // ... (optional warning if HOD tries to query other dept)
         } else {
             throw new AppError("You are not authorized to view this list of lecturers.", 403);
         }
@@ -208,7 +210,7 @@ export const getAllLecturers = async (query, requestingUser) => {
         const totalLecturers = await prisma.lecturer.count({ where });
         return { lecturers, totalPages: Math.ceil(totalLecturers / limitNum), currentPage: pageNum, totalLecturers };
     } catch (error) {
-        console.error("[LECTURER_SERVICE_ERROR] GetAllLecturers:", error.message, error.stack, error.code ? `Prisma Code: ${error.code}`: '');
+        console.error("[LECTURER_SERVICE_ERROR] GetAllLecturers:", error.message, error.stack);
         if (error instanceof AppError) throw error;
         throw new AppError('Could not retrieve lecturer list.', 500);
     }
@@ -223,9 +225,8 @@ export const updateLecturer = async (id, updateDataFromController, requestingUse
         const lecturerToUpdate = await prisma.lecturer.findUnique({ where: { id: lecturerIdToUpdate } });
         if (!lecturerToUpdate) throw new AppError('Lecturer not found for update.', 404);
 
-        const dataForDb = {}; // This will hold only the fields that are actually being changed
+        const dataForDb = {}; 
 
-        // --- Determine editable fields based on user type and action ---
         let editableFieldsForThisUser = [];
         if (requestingUser.type === 'admin') {
             editableFieldsForThisUser = adminEditableFields;
@@ -235,13 +236,12 @@ export const updateLecturer = async (id, updateDataFromController, requestingUse
             throw new AppError('You are not authorized to update this lecturer profile.', 403);
         }
 
-        // --- HOD/EXAMINER role and department change uniqueness check (only if relevant fields are being updated by admin) ---
         if (requestingUser.type === 'admin' && (updateDataFromController.role || updateDataFromController.departmentId)) {
             const newRoleString = updateDataFromController.role !== undefined ? String(updateDataFromController.role).trim() : lecturerToUpdate.role;
             const newDepartmentIdString = updateDataFromController.departmentId !== undefined ? String(updateDataFromController.departmentId) : lecturerToUpdate.departmentId.toString();
 
-            const finalRoleString = newRoleString; // Already trimmed or existing
-            const finalDepartmentId = parseInt(newDepartmentIdString, 10); // Already int or existing
+            const finalRoleString = newRoleString; 
+            const finalDepartmentId = parseInt(newDepartmentIdString, 10); 
 
             if (updateDataFromController.departmentId !== undefined && isNaN(finalDepartmentId)) {
                 throw new AppError('Invalid new department ID format for update.', 400);
@@ -254,7 +254,7 @@ export const updateLecturer = async (id, updateDataFromController, requestingUse
             const isDepartmentChanging = updateDataFromController.departmentId !== undefined && finalDepartmentId !== lecturerToUpdate.departmentId;
 
             if ((finalRoleString === LecturerRole.HOD || finalRoleString === LecturerRole.EXAMINER) &&
-                (isRoleChanging || isDepartmentChanging) // Check only if role or department is actually changing
+                (isRoleChanging || isDepartmentChanging) 
             ) {
                 const existingSpecialRoleLecturer = await prisma.lecturer.findFirst({
                     where: {
@@ -269,14 +269,20 @@ export const updateLecturer = async (id, updateDataFromController, requestingUse
                 }
             }
         }
-        // --- Process updateDataFromController against editable fields ---
+
         for (const key of editableFieldsForThisUser) {
             if (updateDataFromController.hasOwnProperty(key)) {
                 const value = updateDataFromController[key];
 
-                // Handle each field specifically
                 if (key === 'profileImg') {
                     dataForDb.profileImg = (value === null || String(value).trim() === "") ? null : String(value).trim();
+                } else if (key === 'signatureImg') {
+                    // CRITICAL ROLE CHECK: Only HOD or EXAMINER can modify their signature (unless acted on by Admin)
+                    const activeRole = requestingUser.type === 'admin' ? lecturerToUpdate.role : requestingUser.role;
+                    if (activeRole !== LecturerRole.HOD && activeRole !== LecturerRole.EXAMINER && requestingUser.type !== 'admin') {
+                        throw new AppError('Only lecturers with HOD or Examiner roles are authorized to save a signature.', 403);
+                    }
+                    dataForDb.signatureImg = (value === null || String(value).trim() === "") ? null : String(value).trim();
                 } else if (key === 'email') {
                     const trimmedValue = String(value).trim();
                     if (trimmedValue && trimmedValue !== lecturerToUpdate.email) {
@@ -297,41 +303,33 @@ export const updateLecturer = async (id, updateDataFromController, requestingUse
                     if (value && String(value).trim() !== '') {
                         dataForDb.password = await hashPassword(String(value).trim());
                     }
-                } else if (key === 'role' && requestingUser.type === 'admin') { // Restricted to admin
+                } else if (key === 'role' && requestingUser.type === 'admin') { 
                     const roleValue = String(value).trim();
                     if (!Object.values(LecturerRole).includes(roleValue)) throw new AppError('Invalid role.', 400);
                     dataForDb.role = roleValue;
-                } else if (key === 'departmentId' && requestingUser.type === 'admin') { // Restricted to admin
+                } else if (key === 'departmentId' && requestingUser.type === 'admin') { 
                     const pDeptId = parseInt(String(value), 10);
                     if (isNaN(pDeptId)) throw new AppError('Invalid department ID format.', 400);
                     const dept = await prisma.department.findUnique({ where: { id: pDeptId } });
                     if (!dept) throw new AppError(`Target department (ID: ${pDeptId}) not found.`, 404);
                     dataForDb.departmentId = pDeptId;
-                } else if (key === 'isActive' && requestingUser.type === 'admin') { // Restricted to admin
+                } else if (key === 'isActive' && requestingUser.type === 'admin') { 
                     dataForDb.isActive = typeof value === 'boolean' ? value : String(value).toLowerCase() === 'true';
                 } else if (key === 'name' || key === 'title') {
                     dataForDb[key] = value === null ? null : String(value).trim();
                 }
-                // Note: If a field is in editableFieldsForThisUser but not handled by a specific 'if/else if' above,
-                // it won't be added to dataForDb unless you add a general 'else { dataForDb[key] = value; }'.
-                // This current structure is safer as it only processes explicitly handled fields.
             }
         }
 
-
         if (Object.keys(dataForDb).length === 0) {
             if (Object.keys(updateDataFromController).length === 0) {
-                // Client sent an empty body and no file
                 throw new AppError('No data provided for update.', 400);
             }
-            // If updateDataFromController had keys but none resulted in a change in dataForDb
-            console.warn(`[updateLecturer Service] No effective changes to apply to database for lecturer ${lecturerIdToUpdate}. Values might be same as current.`);
-            // Return current data or throw a specific "no changes" error. For now, return current.
             const currentLecturerData = await prisma.lecturer.findUnique({
                 where: { id: lecturerIdToUpdate },
                 select: lecturerPublicSelection
             });
-            if(!currentLecturerData) throw new AppError('Lecturer not found (should not happen here).', 404); // Should be caught earlier
+            if(!currentLecturerData) throw new AppError('Lecturer not found.', 404); 
             return currentLecturerData;
         }
 
@@ -355,6 +353,7 @@ export const updateLecturer = async (id, updateDataFromController, requestingUse
     }
 };
 
+// ... (deleteLecturer and getDepartmentLecturers remains unchanged) ...
 export const deleteLecturer = async (id) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -366,7 +365,6 @@ export const deleteLecturer = async (id) => {
 
         const staffCourseCount = await prisma.staffCourse.count({ where: { lecturerId: lecturerIdNum } });
         if (staffCourseCount > 0) throw new AppError(`Cannot delete. Lecturer assigned to ${staffCourseCount} course(s).`, 400);
-        // Add other dependency checks (e.g., createdExams, submittedScores) if relations are RESTRICT
 
         await prisma.lecturer.delete({ where: { id: lecturerIdNum } });
         return { message: `Lecturer '${lecturer.name}' deleted.` };
@@ -382,7 +380,6 @@ export const getDepartmentLecturers = async (requestingUser, query) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
 
-        // Authorization Check: Must be HOD or Admin
         if (requestingUser.type !== 'admin' && requestingUser.role !== LecturerRole.HOD) {
             throw new AppError("You are not authorized to view your department's lecturers.", 403);
         }
@@ -395,12 +392,10 @@ export const getDepartmentLecturers = async (requestingUser, query) => {
             page: queryPage = "1", limit: queryLimit = "10"
         } = query;
 
-        // Core filter: Only get lecturers from the requesting user's department
         const where = {
             departmentId: requestingUser.departmentId
         };
 
-        // --- Additional optional filters ---
         if (role && String(role).trim() !== "" && Object.values(LecturerRole).includes(String(role).trim())) {
             where.role = String(role).trim();
         }
@@ -417,14 +412,12 @@ export const getDepartmentLecturers = async (requestingUser, query) => {
             where.title = { contains: String(title).trim(), mode: 'insensitive' };
         }
 
-        // --- Pagination ---
         let pageNum = parseInt(queryPage, 10);
         let limitNum = parseInt(queryLimit, 10);
         if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
         if (isNaN(limitNum) || limitNum < 1) limitNum = 10;
         const skip = (pageNum - 1) * limitNum;
 
-        // --- Database Query ---
         const [lecturers, totalLecturers] = await prisma.$transaction([
             prisma.lecturer.findMany({
                 where,
@@ -449,4 +442,3 @@ export const getDepartmentLecturers = async (requestingUser, query) => {
         throw new AppError('Could not retrieve departmental lecturer list.', 500);
     }
 };
-

@@ -167,7 +167,6 @@ export const generateResultsForSemester = async (criteria, requestingUser) => {
                 const scoresToConnect = []; 
 
                 for (const reg of currentSemesterRegistrations) {
-                    // STRICT CHECK: Only consider scores that are both approved by the Examiner and accepted by HOD
                     const isFullyApproved = reg.score && reg.score.isApprovedByExaminer && reg.score.isAcceptedByHOD;
                     
                     if (isFullyApproved) {
@@ -180,12 +179,10 @@ export const generateResultsForSemester = async (criteria, requestingUser) => {
                     }
                 }
 
-                // If a student has no fully approved and accepted scores, skip generating a result record entirely
                 if (finalScoresForSemester.length === 0) {
                     return null;
                 }
 
-                // --- Correct GPA & CGPA Calculation using only approved scores ---
                 const gpaData = calculateGradeAverages(finalScoresForSemester);
                 
                 const allHistoricalApprovedScores = await tx.score.findMany({
@@ -296,11 +293,33 @@ export const getResultById = async (id, requestingUser) => {
             };
         });
 
+        // --- NEW: Fetch Departmental Signatures (HOD & Examiner) ---
+        const [hodRecord, examinerRecord] = await Promise.all([
+            prisma.lecturer.findFirst({
+                where: { departmentId: result.student.departmentId, role: LecturerRole.HOD, isActive: true },
+                select: { name: true, title: true, signatureImg: true }
+            }),
+            prisma.lecturer.findFirst({
+                where: { departmentId: result.student.departmentId, role: LecturerRole.EXAMINER, isActive: true },
+                select: { name: true, title: true, signatureImg: true }
+            })
+        ]);
+
         const { scores, ...restOfResult } = result;
 
         return {
             ...restOfResult, 
-            courseScores: courseScores
+            courseScores: courseScores,
+            departmentSignatures: {
+                hod: hodRecord ? {
+                    name: `${hodRecord.title || ''} ${hodRecord.name}`.trim(),
+                    signatureImg: hodRecord.signatureImg
+                } : null,
+                examiner: examinerRecord ? {
+                    name: `${examinerRecord.title || ''} ${examinerRecord.name}`.trim(),
+                    signatureImg: examinerRecord.signatureImg
+                } : null
+            }
         };
 
     } catch (error) {
@@ -352,6 +371,24 @@ export const getAllResults = async (query, requestingUser) => {
         });
         const totalResults = await prisma.result.count({ where });
 
+        // --- NEW: Fetch Departmental Signatures for Batch results efficiently ---
+        const uniqueDeptIds = [...new Set(rawResults.map(r => r.student.departmentId).filter(Boolean))];
+
+        const [departmentHods, departmentExaminers] = await Promise.all([
+            prisma.lecturer.findMany({
+                where: { departmentId: { in: uniqueDeptIds }, role: LecturerRole.HOD, isActive: true },
+                select: { departmentId: true, name: true, title: true, signatureImg: true }
+            }),
+            prisma.lecturer.findMany({
+                where: { departmentId: { in: uniqueDeptIds }, role: LecturerRole.EXAMINER, isActive: true },
+                select: { departmentId: true, name: true, title: true, signatureImg: true }
+            })
+        ]);
+
+        // Lookups for quick execution inside mapper
+        const hodMap = new Map(departmentHods.map(h => [h.departmentId, h]));
+        const examinerMap = new Map(departmentExaminers.map(e => [e.departmentId, e]));
+
         const transformedResults = rawResults.map(result => {
             const courseScores = result.scores.map(score => {
                 const course = score.studentCourseRegistration.course;
@@ -370,11 +407,25 @@ export const getAllResults = async (query, requestingUser) => {
                 };
             });
             
+            const studentDeptId = result.student.departmentId;
+            const matchedHod = hodMap.get(studentDeptId);
+            const matchedExaminer = examinerMap.get(studentDeptId);
+
             const { scores, ...restOfResult } = result;
 
             return {
                 ...restOfResult,
-                courseScores
+                courseScores,
+                departmentSignatures: {
+                    hod: matchedHod ? {
+                        name: `${matchedHod.title || ''} ${matchedHod.name}`.trim(),
+                        signatureImg: matchedHod.signatureImg
+                    } : null,
+                    examiner: matchedExaminer ? {
+                        name: `${matchedExaminer.title || ''} ${matchedExaminer.name}`.trim(),
+                        signatureImg: matchedExaminer.signatureImg
+                    } : null
+                }
             };
         });
 
@@ -391,6 +442,8 @@ export const getAllResults = async (query, requestingUser) => {
         throw new AppError('Could not retrieve results.', 500);
     }
 };
+
+// ... (approveResultsForRelease, getStudentResultsMinimal, deleteResult, etc. remain unchanged) ...
 
 export const approveResultsForRelease = async (resultIds, adminId) => {
     try {

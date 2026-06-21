@@ -11464,6 +11464,7 @@ export namespace Prisma {
     isActive: boolean | null
     password: string | null
     profileImg: string | null
+    signatureImg: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -11480,6 +11481,7 @@ export namespace Prisma {
     isActive: boolean | null
     password: string | null
     profileImg: string | null
+    signatureImg: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -11496,6 +11498,7 @@ export namespace Prisma {
     isActive: number
     password: number
     profileImg: number
+    signatureImg: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -11524,6 +11527,7 @@ export namespace Prisma {
     isActive?: true
     password?: true
     profileImg?: true
+    signatureImg?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -11540,6 +11544,7 @@ export namespace Prisma {
     isActive?: true
     password?: true
     profileImg?: true
+    signatureImg?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -11556,6 +11561,7 @@ export namespace Prisma {
     isActive?: true
     password?: true
     profileImg?: true
+    signatureImg?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -11659,6 +11665,7 @@ export namespace Prisma {
     isActive: boolean
     password: string
     profileImg: string | null
+    signatureImg: string | null
     createdAt: Date
     updatedAt: Date
     _count: LecturerCountAggregateOutputType | null
@@ -11694,6 +11701,7 @@ export namespace Prisma {
     isActive?: boolean
     password?: boolean
     profileImg?: boolean
+    signatureImg?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     department?: boolean | DepartmentDefaultArgs<ExtArgs>
@@ -11721,11 +11729,12 @@ export namespace Prisma {
     isActive?: boolean
     password?: boolean
     profileImg?: boolean
+    signatureImg?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type LecturerOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "staffId" | "title" | "name" | "departmentId" | "email" | "phone" | "role" | "isActive" | "password" | "profileImg" | "createdAt" | "updatedAt", ExtArgs["result"]["lecturer"]>
+  export type LecturerOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "staffId" | "title" | "name" | "departmentId" | "email" | "phone" | "role" | "isActive" | "password" | "profileImg" | "signatureImg" | "createdAt" | "updatedAt", ExtArgs["result"]["lecturer"]>
   export type LecturerInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     department?: boolean | DepartmentDefaultArgs<ExtArgs>
     staffCourses?: boolean | Lecturer$staffCoursesArgs<ExtArgs>
@@ -11762,6 +11771,7 @@ export namespace Prisma {
       isActive: boolean
       password: string
       profileImg: string | null
+      signatureImg: string | null
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["lecturer"]>
@@ -12152,6 +12162,7 @@ export namespace Prisma {
     readonly isActive: FieldRef<"Lecturer", 'Boolean'>
     readonly password: FieldRef<"Lecturer", 'String'>
     readonly profileImg: FieldRef<"Lecturer", 'String'>
+    readonly signatureImg: FieldRef<"Lecturer", 'String'>
     readonly createdAt: FieldRef<"Lecturer", 'DateTime'>
     readonly updatedAt: FieldRef<"Lecturer", 'DateTime'>
   }
@@ -73478,6 +73489,7 @@ export namespace Prisma {
     isActive: 'isActive',
     password: 'password',
     profileImg: 'profileImg',
+    signatureImg: 'signatureImg',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -74465,7 +74477,8 @@ export namespace Prisma {
     email: 'email',
     phone: 'phone',
     password: 'password',
-    profileImg: 'profileImg'
+    profileImg: 'profileImg',
+    signatureImg: 'signatureImg'
   };
 
   export type LecturerOrderByRelevanceFieldEnum = (typeof LecturerOrderByRelevanceFieldEnum)[keyof typeof LecturerOrderByRelevanceFieldEnum]
@@ -75540,6 +75553,7 @@ export namespace Prisma {
     isActive?: BoolFilter<"Lecturer"> | boolean
     password?: StringFilter<"Lecturer"> | string
     profileImg?: StringNullableFilter<"Lecturer"> | string | null
+    signatureImg?: StringNullableFilter<"Lecturer"> | string | null
     createdAt?: DateTimeFilter<"Lecturer"> | Date | string
     updatedAt?: DateTimeFilter<"Lecturer"> | Date | string
     department?: XOR<DepartmentScalarRelationFilter, DepartmentWhereInput>
@@ -75564,6 +75578,7 @@ export namespace Prisma {
     isActive?: SortOrder
     password?: SortOrder
     profileImg?: SortOrderInput | SortOrder
+    signatureImg?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     department?: DepartmentOrderByWithRelationInput
@@ -75592,6 +75607,7 @@ export namespace Prisma {
     isActive?: BoolFilter<"Lecturer"> | boolean
     password?: StringFilter<"Lecturer"> | string
     profileImg?: StringNullableFilter<"Lecturer"> | string | null
+    signatureImg?: StringNullableFilter<"Lecturer"> | string | null
     createdAt?: DateTimeFilter<"Lecturer"> | Date | string
     updatedAt?: DateTimeFilter<"Lecturer"> | Date | string
     department?: XOR<DepartmentScalarRelationFilter, DepartmentWhereInput>
@@ -75616,6 +75632,7 @@ export namespace Prisma {
     isActive?: SortOrder
     password?: SortOrder
     profileImg?: SortOrderInput | SortOrder
+    signatureImg?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: LecturerCountOrderByAggregateInput
@@ -75640,6 +75657,7 @@ export namespace Prisma {
     isActive?: BoolWithAggregatesFilter<"Lecturer"> | boolean
     password?: StringWithAggregatesFilter<"Lecturer"> | string
     profileImg?: StringNullableWithAggregatesFilter<"Lecturer"> | string | null
+    signatureImg?: StringNullableWithAggregatesFilter<"Lecturer"> | string | null
     createdAt?: DateTimeWithAggregatesFilter<"Lecturer"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Lecturer"> | Date | string
   }
@@ -81307,6 +81325,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutLecturersInput
@@ -81331,6 +81350,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     staffCourses?: StaffCourseUncheckedCreateNestedManyWithoutLecturerInput
@@ -81352,6 +81372,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutLecturersNestedInput
@@ -81376,6 +81397,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     staffCourses?: StaffCourseUncheckedUpdateManyWithoutLecturerNestedInput
@@ -81399,6 +81421,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -81413,6 +81436,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -81429,6 +81453,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -87472,6 +87497,7 @@ export namespace Prisma {
     isActive?: SortOrder
     password?: SortOrder
     profileImg?: SortOrder
+    signatureImg?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -87493,6 +87519,7 @@ export namespace Prisma {
     isActive?: SortOrder
     password?: SortOrder
     profileImg?: SortOrder
+    signatureImg?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -87509,6 +87536,7 @@ export namespace Prisma {
     isActive?: SortOrder
     password?: SortOrder
     profileImg?: SortOrder
+    signatureImg?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -103206,6 +103234,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     staffCourses?: StaffCourseCreateNestedManyWithoutLecturerInput
@@ -103228,6 +103257,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     staffCourses?: StaffCourseUncheckedCreateNestedManyWithoutLecturerInput
@@ -103563,6 +103593,7 @@ export namespace Prisma {
     isActive?: BoolFilter<"Lecturer"> | boolean
     password?: StringFilter<"Lecturer"> | string
     profileImg?: StringNullableFilter<"Lecturer"> | string | null
+    signatureImg?: StringNullableFilter<"Lecturer"> | string | null
     createdAt?: DateTimeFilter<"Lecturer"> | Date | string
     updatedAt?: DateTimeFilter<"Lecturer"> | Date | string
   }
@@ -103657,6 +103688,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutLecturersInput
@@ -103680,6 +103712,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     notifications?: NotificationUncheckedCreateNestedManyWithoutLecturerInput
@@ -103864,6 +103897,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutLecturersNestedInput
@@ -103887,6 +103921,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     notifications?: NotificationUncheckedUpdateManyWithoutLecturerNestedInput
@@ -108998,6 +109033,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutLecturersInput
@@ -109021,6 +109057,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     staffCourses?: StaffCourseUncheckedCreateNestedManyWithoutLecturerInput
@@ -109092,6 +109129,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutLecturersInput
@@ -109115,6 +109153,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     staffCourses?: StaffCourseUncheckedCreateNestedManyWithoutLecturerInput
@@ -109140,6 +109179,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutLecturersInput
@@ -109163,6 +109203,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     staffCourses?: StaffCourseUncheckedCreateNestedManyWithoutLecturerInput
@@ -109283,6 +109324,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutLecturersNestedInput
@@ -109306,6 +109348,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     staffCourses?: StaffCourseUncheckedUpdateManyWithoutLecturerNestedInput
@@ -109389,6 +109432,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutLecturersNestedInput
@@ -109412,6 +109456,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     staffCourses?: StaffCourseUncheckedUpdateManyWithoutLecturerNestedInput
@@ -109443,6 +109488,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutLecturersNestedInput
@@ -109466,6 +109512,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     staffCourses?: StaffCourseUncheckedUpdateManyWithoutLecturerNestedInput
@@ -113038,6 +113085,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutLecturersInput
@@ -113061,6 +113109,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     staffCourses?: StaffCourseUncheckedCreateNestedManyWithoutLecturerInput
@@ -113181,6 +113230,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutLecturersNestedInput
@@ -113204,6 +113254,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     staffCourses?: StaffCourseUncheckedUpdateManyWithoutLecturerNestedInput
@@ -113468,6 +113519,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutLecturersInput
@@ -113491,6 +113543,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     staffCourses?: StaffCourseUncheckedCreateNestedManyWithoutLecturerInput
@@ -113968,6 +114021,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutLecturersNestedInput
@@ -113991,6 +114045,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     staffCourses?: StaffCourseUncheckedUpdateManyWithoutLecturerNestedInput
@@ -114914,6 +114969,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     department: DepartmentCreateNestedOneWithoutLecturersInput
@@ -114937,6 +114993,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
     staffCourses?: StaffCourseUncheckedCreateNestedManyWithoutLecturerInput
@@ -115169,6 +115226,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     department?: DepartmentUpdateOneRequiredWithoutLecturersNestedInput
@@ -115192,6 +115250,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     staffCourses?: StaffCourseUncheckedUpdateManyWithoutLecturerNestedInput
@@ -122528,6 +122587,7 @@ export namespace Prisma {
     isActive?: boolean
     password: string
     profileImg?: string | null
+    signatureImg?: string | null
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -122759,6 +122819,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     staffCourses?: StaffCourseUpdateManyWithoutLecturerNestedInput
@@ -122781,6 +122842,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     staffCourses?: StaffCourseUncheckedUpdateManyWithoutLecturerNestedInput
@@ -122803,6 +122865,7 @@ export namespace Prisma {
     isActive?: BoolFieldUpdateOperationsInput | boolean
     password?: StringFieldUpdateOperationsInput | string
     profileImg?: NullableStringFieldUpdateOperationsInput | string | null
+    signatureImg?: NullableStringFieldUpdateOperationsInput | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

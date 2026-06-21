@@ -349,7 +349,8 @@ model Lecturer {
   role                   LecturerRole   @default(LECTURER)
   isActive               Boolean        @default(true)
   password               String
-  profileImg             String?
+  profileImg             String?        @db.VarChar(255)
+  signatureImg           String?        @db.VarChar(255) // <-- ADDED: Path to the uploaded 
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
   department             Department     @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)

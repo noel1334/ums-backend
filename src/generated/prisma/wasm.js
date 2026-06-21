@@ -186,6 +186,7 @@ exports.Prisma.LecturerScalarFieldEnum = {
   isActive: 'isActive',
   password: 'password',
   profileImg: 'profileImg',
+  signatureImg: 'signatureImg',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -987,7 +988,8 @@ exports.Prisma.LecturerOrderByRelevanceFieldEnum = {
   email: 'email',
   phone: 'phone',
   password: 'password',
-  profileImg: 'profileImg'
+  profileImg: 'profileImg',
+  signatureImg: 'signatureImg'
 };
 
 exports.Prisma.ICTStaffOrderByRelevanceFieldEnum = {

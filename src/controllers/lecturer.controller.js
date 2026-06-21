@@ -1,13 +1,13 @@
+// src/controllers/lecturer.controller.js
 
 import * as LecturerService from '../services/lecturer.service.js';
 import AppError from '../utils/AppError.js';
-import { LecturerRole } from '../generated/prisma/index.js'; // ADJUST PATH IF NEEDED
-
+import { LecturerRole } from '../generated/prisma/index.js';
 
 export const createLecturer = async (req, res, next) => {
     try {
         const lecturerData = { ...req.body };
-        if (req.fileUrl) { // Check if an image URL was attached by the middleware
+        if (req.fileUrl) { 
             lecturerData.profileImg = req.fileUrl;
         }
 
@@ -27,19 +27,22 @@ export const getLecturerById = async (req, res, next) => {
         const lecturerId = parseInt(req.params.id, 10);
         const lecturer = await LecturerService.getLecturerById(lecturerId);
 
-        // Authorization: Admin, HOD (for their dept), or self
         if (req.user.type === 'admin') {
-            // Admin can view
+            // Authorized
         } else if (req.user.type === 'lecturer') {
             if (req.user.id === lecturerId) {
-                // Self view
+                // Authorized
             } else if (req.user.role === LecturerRole.HOD && req.user.departmentId === lecturer.departmentId) {
-                // HOD viewing lecturer in their department
+                // Authorized
             } else {
                 return next(new AppError('You are not authorized to view this lecturer profile.', 403));
             }
         } else {
-            return next(new AppError('You are not authorized to view this lecturer profile.', 403));
+            // Students can view lecturer profiles to see the signatures and info
+            const allowedStudent = req.user.type === 'student';
+            if (!allowedStudent) {
+                return next(new AppError('You are not authorized to view this lecturer profile.', 403));
+            }
         }
 
         res.status(200).json({ status: 'success', data: { lecturer } });
@@ -50,7 +53,6 @@ export const getLecturerById = async (req, res, next) => {
 
 export const getAllLecturers = async (req, res, next) => {
     try {
-        // Service handles filtering for HOD based on req.user
         const result = await LecturerService.getAllLecturers(req.query, req.user);
         res.status(200).json({ status: 'success', data: result });
     } catch (error) {
@@ -60,14 +62,19 @@ export const getAllLecturers = async (req, res, next) => {
 
 export const updateLecturer = async (req, res, next) => {
     try {
-        if (Object.keys(req.body).length === 0 && !req.fileUrl) { // Also check if only an image is being updated
+        if (Object.keys(req.body).length === 0 && !req.fileUrl) { 
             return next(new AppError('No data or image provided for update.', 400));
         }
         const lecturerId = parseInt(req.params.id, 10);
         const updateData = { ...req.body };
 
-        if (req.fileUrl) { // Check if an image URL was attached
-            updateData.profileImg = req.fileUrl;
+        // Handle profileImg vs signatureImg upload mapping dynamically
+        if (req.fileUrl) { 
+            if (req.file && req.file.fieldname === 'signatureImg') {
+                updateData.signatureImg = req.fileUrl;
+            } else {
+                updateData.profileImg = req.fileUrl;
+            }
         }
 
         const updatedLecturer = await LecturerService.updateLecturer(lecturerId, updateData, req.user);
@@ -101,12 +108,12 @@ export const getMyLecturerProfile = async (req, res, next) => {
 
 export const updateMyLecturerProfile = async (req, res, next) => {
     try {
-        if (Object.keys(req.body).length === 0 && !req.fileUrl) { // Check if only image is updated
+        if (Object.keys(req.body).length === 0 && !req.fileUrl) { 
             return next(new AppError('No data or image provided for update.', 400));
         }
         const updateData = { ...req.body };
 
-        if (req.fileUrl) { // Check if an image URL was attached
+        if (req.fileUrl) { 
             updateData.profileImg = req.fileUrl;
         }
 
@@ -121,9 +128,28 @@ export const updateMyLecturerProfile = async (req, res, next) => {
     }
 };
 
+// --- NEW: Controller to update HOD/Examiner signature ---
+export const updateMySignature = async (req, res, next) => {
+    try {
+        if (!req.fileUrl) {
+            return next(new AppError('No signature image file provided.', 400));
+        }
+
+        const updateData = { signatureImg: req.fileUrl };
+        const updatedLecturer = await LecturerService.updateLecturer(req.user.id, updateData, req.user);
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Your signature has been updated successfully.',
+            data: { lecturer: updatedLecturer }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const getDepartmentLecturers = async (req, res, next) => {
     try {
-        // The service will handle authorization based on req.user
         const result = await LecturerService.getDepartmentLecturers(req.user, req.query);
         res.status(200).json({ status: 'success', data: result });
     } catch (error) {
