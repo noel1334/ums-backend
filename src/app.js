@@ -52,10 +52,27 @@ if (process.env.NODE_ENV !== 'test') {
     createInitialAdmin().catch(err => console.error("Failed to ensure initial admin:", err));
 }
 
-app.use('/', mainRouter);
+
 
 // --- Error Handling Middlewares (Always last) ---
 // Catch-all for 404 Not Found errors
+app.use((req, res, next) => {
+    next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
+});
+
+// ... after middlewares like helmet and cors ...
+
+// Add a root route welcome message
+app.get('/', (req, res) => {
+    res.status(200).json({
+        status: 'success',
+        message: 'Welcome to the UMS API'
+    });
+});
+
+app.use('/', mainRouter);
+
+// --- Error Handling Middlewares (Always last) ---
 app.use((req, res, next) => {
     next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
