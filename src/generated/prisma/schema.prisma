@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -308,6 +308,7 @@ model Student {
   currentSemester       Semester?                      @relation("CurrentSemester", fields: [currentSemesterId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   admissionOfferDetails AdmissionOffer?                @relation("StudentAdmissionOffer")
   studentDetails        StudentDetails?
+  medicalFitness        MedicalFitness?
   registrations         StudentCourseRegistration[]
   results               Result[]
   schoolFees            SchoolFee[]
@@ -348,7 +349,8 @@ model Lecturer {
   role                   LecturerRole   @default(LECTURER)
   isActive               Boolean        @default(true)
   password               String
-  profileImg             String?
+  profileImg             String?        @db.VarChar(255)
+  signatureImg           String?        @db.VarChar(255) // <-- ADDED: Path to the uploaded 
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
   department             Department     @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -1478,4 +1480,22 @@ model UniversitySetting {
   logoUrl   String?  @db.VarChar(255) // <-- ADDED: Path to the uploaded school logo image
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model MedicalFitness {
+  id                Int                  @id @default(autoincrement())
+  studentId         Int                  @unique
+  bloodGroup        String?              @db.VarChar(10) // e.g., "A+", "O-"
+  genotype          String?              @db.VarChar(10) // e.g., "AA", "AS"
+  fileUrl           String?              @db.VarChar(255) // Certificate of fitness document URL
+  status            DocumentUploadStatus @default(NOT_UPLOADED)
+  rejectionReason   String?              @db.Text
+  verifiedByAdminId Int? // ID of the admin who verified
+  verifiedAt        DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([studentId])
 }
