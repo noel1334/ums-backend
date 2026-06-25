@@ -26,11 +26,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// INCREASE THE LIMIT HERE!
 app.use(express.json({ limit: '300kb' }));
 app.use(express.urlencoded({ extended: true, limit: '300kb' }));
 
-// --- Method Override (Should be after body parsers so it can read req.body) ---
 app.use(methodOverride(function (req, res) {
   if (req.body && typeof req.body === 'object' && '_method' in req.body) {
     var method = req.body._method;
@@ -39,30 +37,17 @@ app.use(methodOverride(function (req, res) {
   }
 }));
 
-// --- Other Standard Middlewares ---
 app.use(helmet());
 
-// Development logging
 if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
 }
 
-// Ensure initial admin account exists (if not in test environment)
 if (process.env.NODE_ENV !== 'test') {
     createInitialAdmin().catch(err => console.error("Failed to ensure initial admin:", err));
 }
 
-
-
-// --- Error Handling Middlewares (Always last) ---
-// Catch-all for 404 Not Found errors
-app.use((req, res, next) => {
-    next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
-});
-
-// ... after middlewares like helmet and cors ...
-
-// Add a root route welcome message
+// 1. Root route welcome message
 app.get('/', (req, res) => {
     res.status(200).json({
         status: 'success',
@@ -70,14 +55,15 @@ app.get('/', (req, res) => {
     });
 });
 
+// 2. Mount Main Router
 app.use('/', mainRouter);
 
-// --- Error Handling Middlewares (Always last) ---
+// 3. Catch-all for 404 Not Found errors (Must be placed AFTER all routes)
 app.use((req, res, next) => {
     next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
-// Global error handler
+// 4. Global error handler (Always last)
 app.use(globalErrorHandler);
 
 export default app;
