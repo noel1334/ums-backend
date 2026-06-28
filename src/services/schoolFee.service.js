@@ -1,12 +1,15 @@
 // src/services/schoolFee.service.js
+
 import axios from 'axios';
 import Stripe from 'stripe';
 import prisma from '../config/prisma.js';
-import AppError from '../utils/AppError.js'; // Assuming this is used for custom errors
+import AppError from '../utils/AppError.js'; 
 import config from '../config/index.js';
 import { PaymentStatus, PaymentChannel } from '../generated/prisma/index.js';
 
-const stripe = new Stripe(config.strip);
+// Defensive check for Stripe API keys in different environments
+const stripeSecret = config.stripeSecretKey || config.stripe || config.strip;
+const stripe = new Stripe(stripeSecret || '');
 
 // Helper function to generate a payment reference
 const generatePaymentReference = () => {
@@ -14,8 +17,6 @@ const generatePaymentReference = () => {
     return `UMS-SF-${now.toISOString().replace(/[-:.TZ]/g, "").slice(0, 14)}`;
 };
 
-// Helper function for data selection - EXPANDED SELECTION
-// Helper function for data selection - EXPANDED SELECTION
 const paymentSelection = {
     id: true,
     studentId: true,
@@ -42,7 +43,7 @@ const paymentSelection = {
                     value: true,
                 },
             },
-            program: { // This 'program' is correct, as it's a relation *on the Student model*
+            program: { 
                 select: {
                     id: true,
                     name: true,
@@ -50,7 +51,7 @@ const paymentSelection = {
                     degree:true,
                 },
             },
-            department: { // This 'department' is correct, as it's a relation *on the Student model*
+            department: { 
                 select: {
                     id: true,
                     name: true,
@@ -60,30 +61,29 @@ const paymentSelection = {
     },
     season: { select: { id: true, name: true } },
     semester: { select: { id: true, name: true } },
-    Department: { select: { id: true, name: true } }, // <--- CHANGE THIS FROM 'department' to 'Department'
-    Program: { select: { id: true, name: true } },    // <--- CHANGE THIS FROM 'program' to 'Program'
+    Department: { select: { id: true, name: true } }, 
+    Program: { select: { id: true, name: true } },    
     payments: true,
 };
 
-// Helper to transform a single payment record - EXPANDED TRANSFORMATION
 const transformPaymentRecord = (payment) => {
     return {
         ...payment,
-        studentName: payment.student?.name || 'N/A', // Change this line
+        studentName: payment.student?.name || 'N/A', 
         studentEmail: payment.student?.email || 'N/A',
         jambRegNo: payment.student?.jambRegNo || 'N/A',
-        studentRegNo: payment.student?.regNo || 'N/A',  // Add regNo
-        studentLevel: payment.student?.currentLevel?.name || 'N/A', // Add level name
-        studentLevelValue: payment.student?.currentLevel?.value || null, // Add level value
-        studentProgram: payment.student?.program?.name || 'N/A',  // Add program name
-        studentDegreeType: payment.student?.program?.degreeType || 'N/A', // Add degree type
-        studentDegree: payment.student?.program?.degree || 'N/A',  // Add degree name
-        studentDepartment: payment.student?.department?.name || 'N/A', // Add department name
+        studentRegNo: payment.student?.regNo || 'N/A',  
+        studentLevel: payment.student?.currentLevel?.name || 'N/A', 
+        studentLevelValue: payment.student?.currentLevel?.value || null, 
+        studentProgram: payment.student?.program?.name || 'N/A',  
+        studentDegreeType: payment.student?.program?.degreeType || 'N/A', 
+        studentDegree: payment.student?.program?.degree || 'N/A',  
+        studentDepartment: payment.student?.department?.name || 'N/A', 
         seasonName: payment.season?.name || 'N/A',
         semesterName: payment.semester?.name || 'N/A',
-         departmentName: payment.Department?.name || 'N/A', // <--- CHANGE THIS FROM 'payment.department' to 'payment.Department'
+        departmentName: payment.Department?.name || 'N/A', 
         programName: payment.Program?.name || 'N/A',
-        student: undefined,  // Clean up nested objects
+        student: undefined,  
         season: undefined,
         semester: undefined,
         department: undefined,
@@ -100,9 +100,9 @@ export const getAllSchoolFeePayments = async (query) => {
 
         if (search) {
             filters.push({
-                OR: [                    { student: { name: { contains: search } } }, 
+                OR: [                    
+                    { student: { name: { contains: search } } }, 
                     { student: { email: { contains: search } } },
-                    { student: { matriculationNumber: { contains: search } } },
                     { student: { regNo: { contains: search } } },
                     { description: { contains: search } },
                 ]
@@ -132,14 +132,6 @@ export const getAllSchoolFeePayments = async (query) => {
 
         if (paymentStatus && Object.values(PaymentStatus).includes(paymentStatus)) {
             filters.push({ paymentStatus: paymentStatus });
-        }
-
-        if (paymentChannel && Object.values(PaymentChannel).includes(paymentChannel)) {
-            // This part is tricky as `paymentChannel` doesn't exist in the SchoolFee model.
-            //  We'll need to query the `PaymentReceipt` related model to find the payment
-            // This has not been implemented.
-            console.warn('paymentChannel filter not yet implemented for SchoolFee payments.  Please implement.');
-            // filters.push({ payments: { some: { paymentChannel: paymentChannel } } }); // Example, adjust the relationship as needed.
         }
 
         const where = filters.length > 0 ? { AND: filters } : {};
@@ -187,11 +179,10 @@ export const getSchoolFeePaymentById = async (id) => {
         throw new AppError('Could not retrieve school fee payment details.', 500);
     }
 };
-// It now accepts the full user object for consistency and robustness.
+
 export const getMySchoolFeeRecords = async (requestingUser) => {
     if (!prisma) throw new AppError('Prisma client unavailable', 500);
 
-    // We get the student's ID directly from the secure user object.
     const studentId = requestingUser.id;
     if (!studentId) {
         throw new AppError('Unable to identify the student.', 400);
@@ -219,23 +210,39 @@ export const getMySchoolFeeRecords = async (requestingUser) => {
 
     return schoolFeeRecords;
 };
+
 // --- INITIALIZE STRIPE PAYMENT ---
 export const initializeSchoolFeeStripePayment = async (paymentDetails, feeDetails, userDetails, paymentChannel, purpose) => {
     const { studentId, seasonId, semesterId } = paymentDetails;
     const { amount } = feeDetails;
     const { email } = userDetails;
 
-    // Fetch student's details first for data integrity
+    if (!stripeSecret) {
+        throw new Error("Stripe secret key configuration is missing on the server.");
+    }
+
+    // --- DEFENSIVE VALIDATION ---
     const student = await prisma.student.findUnique({
         where: { id: studentId },
         select: { departmentId: true, programId: true }
     });
     if (!student) {
-        throw new Error(`Student with ID ${studentId} not found.`);
+        throw new AppError(`Student with ID ${studentId} not found.`, 404);
     }
 
-    // Find or create the SchoolFee record. We need this record to exist.
-    // We use a transaction to ensure we get the record atomically.
+    const seasonExists = await prisma.season.findUnique({ where: { id: seasonId } });
+    if (!seasonExists) {
+        throw new AppError(`The selected Academic Session (ID: ${seasonId}) no longer exists. Please sign out and log back in to refresh your student session.`, 400);
+    }
+
+    if (semesterId) {
+        const semesterExists = await prisma.semester.findUnique({ where: { id: semesterId } });
+        if (!semesterExists) {
+            throw new AppError(`The selected Semester (ID: ${semesterId}) no longer exists. Please sign out and log back in to refresh your student session.`, 400);
+        }
+    }
+
+    // Find or create the SchoolFee record atomically
     const schoolFeeRecord = await prisma.$transaction(async (tx) => {
         let fee = await tx.schoolFee.findFirst({
             where: { studentId, seasonId, semesterId: semesterId || null }
@@ -250,7 +257,6 @@ export const initializeSchoolFeeStripePayment = async (paymentDetails, feeDetail
                     description: "School Fees",
                     departmentId: student.departmentId,
                     programId: student.programId,
-                    // The status is PENDING by default
                 }
             });
         }
@@ -266,28 +272,27 @@ export const initializeSchoolFeeStripePayment = async (paymentDetails, feeDetail
         }],
         mode: "payment",
         customer_email: email,
-        // Pass the schoolFeeId and purpose in metadata. This is how we link the payment back.
         metadata: {
             schoolFeeId: schoolFeeRecord.id,
             studentId: studentId,
             seasonId: seasonId,
-            purpose: purpose, // <--- ADD THE 'purpose' TO METADATA
+            purpose: purpose, 
         },
-        // IMPORTANT: Include the 'purpose' in both success and cancel URLs
-        success_url: `${config.studentPortalUrl}/payment-status?session_id={CHECKOUT_SESSION_ID}&purpose=${purpose}`, // <--- MODIFIED
-        cancel_url: `${config.studentPortalUrl}/payment-status?status=cancelled&school_fee_id=${schoolFeeRecord.id}&purpose=${purpose}`, // <--- MODIFIED
+        success_url: `${config.studentPortalUrl}/payment-status?session_id={CHECKOUT_SESSION_ID}&purpose=${purpose}`, 
+        cancel_url: `${config.studentPortalUrl}/payment-status?status=cancelled&school_fee_id=${schoolFeeRecord.id}&purpose=${purpose}`, 
     });
 
-    // We do NOT create a PaymentReceipt here.
     return { sessionId: session.id };
 };
 
 
 // --- COMPLETE STRIPE PAYMENT ---
 export const completeSchoolFeeStripePayment = async (sessionId) => {
+    if (!stripeSecret) {
+        throw new Error("Stripe secret key configuration is missing on the server.");
+    }
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-    // --- THIS IS THE CRUCIAL FIX ---
     const reference = `UMS-STRIPE-${session.id}`;
     const existingReceipt = await prisma.paymentReceipt.findFirst({
         where: { reference: reference }
@@ -297,9 +302,7 @@ export const completeSchoolFeeStripePayment = async (sessionId) => {
         console.log(`Idempotency Key Check: Receipt for reference ${reference} already exists. Returning existing record.`);
         return existingReceipt;
     }
-    // --- END OF THE FIX ---
 
-    // Continue with the rest of the logic ONLY if no receipt was found.
     if (!session.metadata?.schoolFeeId || !session.metadata?.studentId || !session.metadata?.seasonId) {
         throw new Error("Required metadata (schoolFeeId, studentId, seasonId) is missing from the session.");
     }
@@ -309,7 +312,6 @@ export const completeSchoolFeeStripePayment = async (sessionId) => {
     const seasonId = parseInt(session.metadata.seasonId, 10);
 
     if (session.payment_status === "paid") {
-        // Use a transaction to create the receipt and update the school fee.
         const [paymentReceipt] = await prisma.$transaction([
             prisma.paymentReceipt.create({
                 data: {
@@ -318,7 +320,7 @@ export const completeSchoolFeeStripePayment = async (sessionId) => {
                     amountExpected: session.amount_total / 100,
                     amountPaid: session.amount_total / 100,
                     paymentStatus: 'PAID',
-                    reference: reference, // Use the reference we defined earlier
+                    reference: reference, 
                     channel: 'STRIPE',
                     transactionId: session.payment_intent,
                     paymentGatewayResponse: session,
@@ -343,15 +345,12 @@ export const completeSchoolFeeStripePayment = async (sessionId) => {
 export const handleStripeCancellation = async (schoolFeeId) => {
     const feeId = parseInt(schoolFeeId, 10);
 
-    // Use a transaction to ensure this is done safely
     await prisma.$transaction(async (tx) => {
-        // Find the fee record
         const schoolFee = await tx.schoolFee.findUnique({
             where: { id: feeId },
-            include: { payments: true } // Include any related payment receipts
+            include: { payments: true } 
         });
 
-        // If the fee exists, has a PENDING status, AND has zero associated payment receipts, it's safe to delete.
         if (schoolFee && schoolFee.paymentStatus === 'PENDING' && schoolFee.payments.length === 0) {
             await tx.schoolFee.delete({
                 where: { id: feeId }
@@ -368,6 +367,19 @@ export const handleStripeCancellation = async (schoolFeeId) => {
 export const verifyPaystackSchoolFeePayment = async (gatewayReference, paymentDetails) => {
     const { studentId, seasonId, semesterId, amount } = paymentDetails;
 
+    // --- DEFENSIVE VALIDATION ---
+    const seasonExists = await prisma.season.findUnique({ where: { id: seasonId } });
+    if (!seasonExists) {
+        throw new AppError(`The selected Academic Session (ID: ${seasonId}) no longer exists. Please sign out and log back in to refresh your student session.`, 400);
+    }
+
+    if (semesterId) {
+        const semesterExists = await prisma.semester.findUnique({ where: { id: semesterId } });
+        if (!semesterExists) {
+            throw new AppError(`The selected Semester (ID: ${semesterId}) no longer exists. Please sign out and log back in to refresh your student session.`, 400);
+        }
+    }
+
     const response = await axios.get(`https://api.paystack.co/transaction/verify/${gatewayReference}`, {
         headers: { Authorization: `Bearer ${config.paystack}` },
     });
@@ -377,19 +389,15 @@ export const verifyPaystackSchoolFeePayment = async (gatewayReference, paymentDe
         throw new Error("Paystack payment verification failed.");
     }
     
-    // ================== THE FIX STARTS HERE ==================
-
-    // 1. Fetch the student's full details from the database
     const student = await prisma.student.findUnique({
         where: { id: studentId },
-        select: { departmentId: true, programId: true } // Only get the IDs we need
+        select: { departmentId: true, programId: true } 
     });
 
     if (!student) {
         throw new Error(`Student with ID ${studentId} not found.`);
     }
 
-    // 2. Find or Create the SchoolFee bill using the fetched details
     let schoolFeeRecord = await prisma.schoolFee.findUnique({
         where: { unique_student_fee_bill: { studentId, seasonId, semesterId: semesterId || null } }
     });
@@ -402,17 +410,13 @@ export const verifyPaystackSchoolFeePayment = async (gatewayReference, paymentDe
                 semesterId: semesterId || null,
                 amount: amount,
                 description: "School Fees",
-                departmentId: student.departmentId, // <-- ADDED
-                programId: student.programId,       // <-- ADDED
+                departmentId: student.departmentId, 
+                programId: student.programId,       
             }
         });
     }
     
-    // ================== THE FIX ENDS HERE ==================
-
-
-    // --- The rest of the function remains the same ---
-  const paymentReceiptData = {
+    const paymentReceiptData = {
         studentId: studentId,
         schoolFeeId: schoolFeeRecord.id,
         amountExpected: amount,
@@ -423,7 +427,7 @@ export const verifyPaystackSchoolFeePayment = async (gatewayReference, paymentDe
         transactionId: data.reference,
         paymentGatewayResponse: data,
         seasonId: seasonId,
-        description: "School Fee Payment", // <-- ADD THIS LINE
+        description: "School Fee Payment", 
     };
 
     const paymentReceipt = await prisma.paymentReceipt.create({ data: paymentReceiptData });
@@ -438,9 +442,23 @@ export const verifyPaystackSchoolFeePayment = async (gatewayReference, paymentDe
 
     return paymentReceipt;
 };
+
 // --- VERIFY FLUTTERWAVE PAYMENT ---
 export const verifyFlutterwaveSchoolFeePayment = async (transactionId, tx_ref, paymentDetails) => {
     const { studentId, seasonId, semesterId, amount } = paymentDetails;
+
+    // --- DEFENSIVE VALIDATION ---
+    const seasonExists = await prisma.season.findUnique({ where: { id: seasonId } });
+    if (!seasonExists) {
+        throw new AppError(`The selected Academic Session (ID: ${seasonId}) no longer exists. Please sign out and log back in to refresh your student session.`, 400);
+    }
+
+    if (semesterId) {
+        const semesterExists = await prisma.semester.findUnique({ where: { id: semesterId } });
+        if (!semesterExists) {
+            throw new AppError(`The selected Semester (ID: ${semesterId}) no longer exists. Please sign out and log back in to refresh your student session.`, 400);
+        }
+    }
 
     const response = await axios.get(`https://api.flutterwave.com/v3/transactions/${transactionId}/verify`, {
         headers: { Authorization: `Bearer ${config.flutterwave.secretKey}` },
@@ -451,9 +469,6 @@ export const verifyFlutterwaveSchoolFeePayment = async (transactionId, tx_ref, p
         throw new Error("Flutterwave verification failed. Details do not match.");
     }
 
-    // ================== THE FIX STARTS HERE ==================
-
-    // 1. Fetch the student's full details from the database
     const student = await prisma.student.findUnique({
         where: { id: studentId },
         select: { departmentId: true, programId: true }
@@ -463,7 +478,6 @@ export const verifyFlutterwaveSchoolFeePayment = async (transactionId, tx_ref, p
         throw new Error(`Student with ID ${studentId} not found.`);
     }
 
-    // 2. Find or Create the SchoolFee bill using the fetched details
     let schoolFeeRecord = await prisma.schoolFee.findUnique({
         where: { unique_student_fee_bill: { studentId, seasonId, semesterId: semesterId || null } }
     });
@@ -476,17 +490,13 @@ export const verifyFlutterwaveSchoolFeePayment = async (transactionId, tx_ref, p
                 semesterId: semesterId || null,
                 amount: amount,
                 description: "School Fees",
-                departmentId: student.departmentId, // <-- ADDED
-                programId: student.programId,       // <-- ADDED
+                departmentId: student.departmentId, 
+                programId: student.programId,       
             }
         });
     }
 
-    // ================== THE FIX ENDS HERE ==================
-
-
-    // --- The rest of the function remains the same ---
-     const paymentReceiptData = {
+    const paymentReceiptData = {
         studentId: studentId,
         schoolFeeId: schoolFeeRecord.id,
         amountExpected: amount,
@@ -497,7 +507,7 @@ export const verifyFlutterwaveSchoolFeePayment = async (transactionId, tx_ref, p
         transactionId: String(data.id),
         paymentGatewayResponse: data,
         seasonId: seasonId,
-        description: "School Fee Payment", // <-- ADD THIS LINE
+        description: "School Fee Payment", 
     };
 
     const paymentReceipt = await prisma.paymentReceipt.create({ data: paymentReceiptData });
@@ -536,11 +546,10 @@ export const deletePendingSchoolFeeRecord = async (schoolFeeId) => {
     }
 
     const result = await prisma.$transaction(async (tx) => {
-        // 1. Find the SchoolFee record and include its payments
         const schoolFee = await tx.schoolFee.findUnique({
             where: { id: pSchoolFeeId },
             include: {
-                payments: true // Include associated payment receipts to check their status
+                payments: true 
             }
         });
 
@@ -548,12 +557,10 @@ export const deletePendingSchoolFeeRecord = async (schoolFeeId) => {
             throw new AppError('School Fee record not found.', 404);
         }
 
-        // 2. Ensure the SchoolFee record itself is in PENDING status
         if (schoolFee.paymentStatus !== PaymentStatus.PENDING) {
             throw new AppError(`Cannot delete School Fee record. Its status is '${schoolFee.paymentStatus}', not 'PENDING'.`, 400);
         }
 
-        // 3. Check for any associated PAID or PARTIAL PaymentReceipts
         const hasSuccessfulPayments = schoolFee.payments.some(
             payment => payment.paymentStatus === PaymentStatus.PAID || payment.paymentStatus === PaymentStatus.PARTIAL
         );
@@ -562,7 +569,6 @@ export const deletePendingSchoolFeeRecord = async (schoolFeeId) => {
             throw new AppError(`Cannot delete School Fee record. It has associated PAID or PARTIAL payment receipts.`, 400);
         }
 
-        // 4. Delete any associated PENDING PaymentReceipts
         const deletedReceipts = await tx.paymentReceipt.deleteMany({
             where: {
                 schoolFeeId: pSchoolFeeId,
@@ -571,7 +577,6 @@ export const deletePendingSchoolFeeRecord = async (schoolFeeId) => {
         });
         console.log(`[Admin Cleanup] Deleted ${deletedReceipts.count} pending payment receipts for School Fee ID: ${pSchoolFeeId}.`);
 
-        // 5. Delete the SchoolFee record
         await tx.schoolFee.delete({
             where: { id: pSchoolFeeId },
         });
