@@ -224,143 +224,87 @@ export const initializeHostelBookingStripePayment = async (bookingDetails, userD
 
 // --- MODIFIED: completeHostelBookingStripePayment - Capacity check & no isAvailable update ---
 export const completeHostelBookingStripePayment = async (sessionId) => {
-    try {
-        console.log(`[Stripe Completion] Attempting to complete Stripe payment for session ID: ${sessionId}`);
-        const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
 
-        if (!session.metadata) {
-            console.error(`[Stripe Completion] Session metadata missing for session ID: ${sessionId}`);
-            throw new AppError("Session metadata missing. Cannot complete payment.", 400);
-        }
+    // Define unique payment reference key
+    const reference = `UMS-STRIPE-${session.id}`;
+    
+    // --- 1. IDEMPOTENCY CHECK ---
+    // If we already recorded this payment, return the existing record instead of throwing a P2002 error
+    const existingReceipt = await prisma.paymentReceipt.findFirst({
+        where: { reference: reference },
+        include: { hostelBooking: true }
+    });
 
-        const { paymentReference, studentId, hostelId, roomId, seasonId, hostelFeeListId, amountDue: metadataAmountDueStr, paymentPurpose, checkInDate, checkOutDate, paymentDeadline } = session.metadata;
+    if (existingReceipt) {
+        console.log(`Idempotency Check: Receipt for reference ${reference} already exists. Skipping.`);
+        return { booking: existingReceipt.hostelBooking, receipt: existingReceipt };
+    }
 
-        const pStudentId = parseInt(studentId, 10);
-        const pHostelId = parseInt(hostelId, 10);
-        const pRoomId = parseInt(roomId, 10);
-        const pSeasonId = parseInt(seasonId, 10);
-        // Correctly handle optional hostelFeeListId which might be 'null' or empty string from metadata
-        const pHostelFeeListId = hostelFeeListId && hostelFeeListId !== 'null' && hostelFeeListId !== '' ? parseInt(hostelFeeListId, 10) : null;
-        const metadataAmountDue = parseFloat(metadataAmountDueStr);
+    if (!session.metadata?.hostelId || !session.metadata?.roomId || !session.metadata?.seasonId || !session.metadata?.studentId) {
+        throw new Error("Required metadata is missing from the Stripe checkout session.");
+    }
 
-        if (isNaN(pStudentId) || isNaN(pHostelId) || isNaN(pRoomId) || isNaN(pSeasonId) || isNaN(metadataAmountDue) || !paymentReference || paymentPurpose !== "HostelBooking" || (hostelFeeListId && (hostelFeeListId !== 'null' && hostelFeeListId !== '') && isNaN(pHostelFeeListId))) {
-            console.error("[Stripe Completion] Missing or invalid required metadata for HostelBooking completion:", session.metadata);
-            // Re-check specific invalid case for better logging
-            if (hostelFeeListId && (hostelFeeListId !== 'null' && hostelFeeListId !== '') && isNaN(pHostelFeeListId)) {
-                 console.error("[Stripe Completion] Invalid hostelFeeListId in metadata:", hostelFeeListId);
-                 throw new AppError("Required metadata for Hostel Booking is missing or invalid from the session (e.g., hostelFeeListId).", 400);
-            }
-            throw new AppError("Required metadata for Hostel Booking is missing or invalid from the session.", 400);
-        }
+    const hostelId = parseInt(session.metadata.hostelId, 10);
+    const roomId = parseInt(session.metadata.roomId, 10);
+    const seasonId = parseInt(session.metadata.seasonId, 10);
+    const studentId = parseInt(session.metadata.studentId, 10);
+    const hostelFeeListId = session.metadata.hostelFeeListId ? parseInt(session.metadata.hostelFeeListId, 10) : null;
+    const amountDue = session.amount_total / 100;
 
-        if (session.payment_status !== "paid") {
-            console.warn(`[Stripe Completion] Session ${sessionId} was not paid. Status: ${session.payment_status}.`);
-            throw new AppError(`Payment not completed. Status: ${session.payment_status}`, 400);
-        }
-
-        const actualPaidAmount = session.amount_total / 100;
-
-        if (actualPaidAmount < metadataAmountDue) {
-            console.error(`[Stripe Completion] Amount mismatch: Expected ${metadataAmountDue}, Paid ${actualPaidAmount} for session ${sessionId}`);
-            throw new AppError("Payment amount mismatch with expected booking amount.", 400);
-        }
-
-        const transactionId = session.payment_intent || sessionId;
-        const existingPaymentReceipt = await prisma.paymentReceipt.findFirst({
-            where: { transactionId: transactionId, channel: PaymentChannel.STRIPE },
-        });
-        if (existingPaymentReceipt) {
-            console.log(`[Stripe Completion] Transaction ${transactionId} already processed. Returning existing receipt.`);
-            const associatedBooking = await prisma.hostelBooking.findUnique({ where: { id: existingPaymentReceipt.hostelBookingId } });
-            return { ...existingPaymentReceipt, hostelBooking: associatedBooking };
-        }
-
-        const existingPaidBooking = await prisma.hostelBooking.findFirst({
-            where: {
-                studentId: pStudentId,
-                seasonId: pSeasonId,
-                paymentStatus: BookingPaymentStatus.PAID,
-                isActive: true
-            }
-        });
-        if (existingPaidBooking) {
-            console.warn(`[Stripe Completion] Student ${pStudentId} already has an existing PAID booking for season ${pSeasonId}. Preventing duplicate booking creation for session ${sessionId}.`);
-            throw new AppError('An active, paid booking for this student and season already exists. Please check your bookings.', 409);
-        }
-
-        // --- NEW/MODIFIED: Final Room Capacity Check before booking creation ---
-        const room = await prisma.hostelRoom.findUnique({ where: { id: pRoomId } });
-        if (!room) {
-             throw new AppError('Selected room not found during final capacity check.', 404);
-        }
-        if (!room.isAvailable) { // Check physical availability
-             throw new AppError('Selected room is physically not available for booking.', 409);
-        }
-
-        const currentOccupancy = await prisma.hostelBooking.count({
-            where: {
-                roomId: pRoomId,
-                seasonId: pSeasonId,
-                paymentStatus: BookingPaymentStatus.PAID,
-                isActive: true,
-            },
-        });
-        if (currentOccupancy >= room.capacity) {
-            console.error(`[Stripe Completion] Room ${room.roomNumber} is now fully booked for season ${pSeasonId} during payment completion for session ${sessionId}.`);
-            throw new AppError(`The selected room is now fully booked for this season. Payment may have been processed but booking could not be finalized.`, 409);
-        }
-        // --- END NEW/MODIFIED CAPACITY CHECK ---
-
-
-        // --- DATABASE TRANSACTION ---
-        const transactions = await prisma.$transaction(async (tx) => {
-            const newHostelBooking = await tx.hostelBooking.create({
-                data: {
-                    studentId: pStudentId,
-                    hostelId: pHostelId,
-                    roomId: pRoomId,
-                    seasonId: pSeasonId,
-                    hostelFeeListId: pHostelFeeListId,
-                    checkInDate: checkInDate ? new Date(checkInDate) : null,
-                    checkOutDate: checkOutDate ? new Date(checkOutDate) : null,
-                    paymentDeadline: paymentDeadline ? new Date(paymentDeadline) : null,
-                    amountDue: metadataAmountDue,
-                    amountPaid: actualPaidAmount,
-                    paymentStatus: BookingPaymentStatus.PAID,
-                    isActive: true,
-                },
-                select: bookingPublicSelection
+    if (session.payment_status === "paid") {
+        const result = await prisma.$transaction(async (tx) => {
+            // Find or create the HostelBooking record safely
+            let booking = await tx.hostelBooking.findFirst({
+                where: { studentId, seasonId }
             });
-            console.log(`[Stripe Completion] Created HostelBooking ${newHostelBooking.id} for session ${sessionId}.`);
 
-            const paymentReceiptData = {
-                studentId: pStudentId,
-                hostelBookingId: newHostelBooking.id,
-                amountExpected: metadataAmountDue,
-                amountPaid: actualPaidAmount,
-                paymentStatus: PaymentStatus.PAID,
-                reference: paymentReference,
-                channel: PaymentChannel.STRIPE,
-                transactionId: transactionId,
-                paymentGatewayResponse: session,
-                seasonId: pSeasonId,
-            };
-            const newPaymentReceipt = await tx.paymentReceipt.create({ data: paymentReceiptData });
-            console.log(`[Stripe Completion] Created PaymentReceipt ${newPaymentReceipt.id} for session ${sessionId}.`);
+            if (!booking) {
+                booking = await tx.hostelBooking.create({
+                    data: {
+                        studentId,
+                        hostelId,
+                        roomId,
+                        seasonId,
+                        hostelFeeListId,
+                        amountDue,
+                        amountPaid: amountDue,
+                        paymentStatus: 'PAID',
+                    }
+                });
+            } else {
+                booking = await tx.hostelBooking.update({
+                    where: { id: booking.id },
+                    data: {
+                        amountPaid: { increment: amountDue },
+                        paymentStatus: 'PAID'
+                    }
+                });
+            }
 
-            return { newPaymentReceipt, newHostelBooking };
+            // Create the PaymentReceipt safely linked to the booking
+            const receipt = await tx.paymentReceipt.create({
+                data: {
+                    studentId,
+                    hostelBookingId: booking.id,
+                    amountExpected: amountDue,
+                    amountPaid: amountDue,
+                    paymentStatus: 'PAID',
+                    reference,
+                    channel: 'STRIPE',
+                    transactionId: session.payment_intent,
+                    paymentGatewayResponse: session,
+                    seasonId,
+                    description: "Hostel Accommodation Payment",
+                }
+            });
+
+            return { booking, receipt };
         });
 
-        const { newPaymentReceipt, newHostelBooking } = transactions;
-        return { ...newPaymentReceipt, hostelBooking: newHostelBooking };
-
-    } catch (error) {
-        if (error instanceof AppError) {
-            console.error(`[Stripe Completion] AppError during completion for session ${sessionId}: ${error.message}`, error);
-            throw error;
-        }
-        console.error(`[Stripe Completion] UNEXPECTED SERVER ERROR during completion for session ${sessionId}:`, error.message, error.stack);
-        throw new AppError(error.message || 'An unexpected error occurred during Stripe payment completion.', 500);
+        return result;
+    } else {
+        throw new Error(`Payment is not yet confirmed. Status: ${session.payment_status}`);
     }
 };
 
