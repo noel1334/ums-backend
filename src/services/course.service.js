@@ -1,6 +1,8 @@
+// src/services/course.service.js
+
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
-import { CourseType, SemesterType } from '../generated/prisma/index.js'; 
+import { CourseType, SemesterType, LecturerRole } from '../generated/prisma/index.js'; 
 
 // --- Selection Objects ---
 const coursePublicSelection = {
@@ -14,7 +16,7 @@ const coursePublicSelection = {
     isActive: true,
     createdAt: true,
     updatedAt: true,
-    department: { select: { id: true, name: true, facultyId: true } }, // Ensure facultyId is selected for frontend Edit form
+    department: { select: { id: true, name: true, facultyId: true } }, 
     prerequisites: {
         where: { prerequisite: { isActive: true } },
         select: { prerequisite: { select: { id: true, code: true, title: true, isActive: true } } }
@@ -38,9 +40,6 @@ const courseAdminSelection = {
     }
 };
 
-
-
-
 export const createCourse = async (courseData) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -50,17 +49,15 @@ export const createCourse = async (courseData) => {
             title,
             creditUnit,
             departmentId,
-            preferredSemesterType, // CHANGED from semesterId
+            preferredSemesterType, 
             courseType,
             isActive
         } = courseData;
 
-        // Validate required fields
         if (!code || !title || creditUnit === undefined || !departmentId) {
             throw new AppError('Code, title, credit unit, and department ID are required.', 400);
         }
 
-        // Validate enums
         if (courseType && !Object.values(CourseType).includes(courseType)) {
             throw new AppError(`Invalid course type: '${courseType}'.`, 400);
         }
@@ -68,8 +65,7 @@ export const createCourse = async (courseData) => {
             throw new AppError(`Invalid preferred semester type: '${preferredSemesterType}'.`, 400);
         }
 
-        // Parse and validate numeric inputs
-        const pCreditUnit = parseInt(String(creditUnit), 10); // Ensure string conversion before parseInt
+        const pCreditUnit = parseInt(String(creditUnit), 10); 
         if (isNaN(pCreditUnit) || pCreditUnit <= 0) {
             throw new AppError('Credit unit must be a positive integer.', 400);
         }
@@ -78,13 +74,10 @@ export const createCourse = async (courseData) => {
             throw new AppError('Invalid department ID format.', 400);
         }
 
-        // Check existence of related department
         const departmentExists = await prisma.department.findUnique({ where: { id: pDepartmentId } });
         if (!departmentExists) {
             throw new AppError(`Department with ID ${pDepartmentId} not found.`, 404);
         }
-
-        // No longer need to check for Semester existence for this field
 
         const dataToCreate = {
             code,
@@ -92,8 +85,8 @@ export const createCourse = async (courseData) => {
             creditUnit: pCreditUnit,
             departmentId: pDepartmentId,
             preferredSemesterType: (preferredSemesterType === "" || preferredSemesterType === undefined) ? null : preferredSemesterType,
-            courseType: courseType || CourseType.CORE, // Default if not provided
-            isActive: isActive === undefined ? true : Boolean(isActive), // Default if not provided
+            courseType: courseType || CourseType.CORE, 
+            isActive: isActive === undefined ? true : Boolean(isActive), 
         };
 
         const newCourse = await prisma.course.create({
@@ -120,7 +113,6 @@ export const getCourseById = async (id, requestingUser) => {
             throw new AppError('Invalid course ID format.', 400);
         }
 
-        // Determine selection based on user role/permissions
         const selection = (requestingUser?.type === 'admin' || (requestingUser?.type === 'ictstaff' && requestingUser?.canManageCourses))
             ? courseAdminSelection
             : coursePublicSelection;
@@ -134,7 +126,6 @@ export const getCourseById = async (id, requestingUser) => {
             throw new AppError('Course not found.', 404);
         }
 
-        // For non-privileged users, hide inactive courses
         if (selection === coursePublicSelection && !course.isActive) {
             throw new AppError('Course not found or is inactive.', 404);
         }
@@ -161,14 +152,13 @@ export const getAllCourses = async (query, requestingUser) => {
             isActive: queryIsActive,
             page = 1,
             limit = 10,
-            all // NEW: Destructure the 'all' parameter from the query
+            all 
         } = query;
 
         const where = {};
         const filters = [];
 
-        // ... (all your existing filter logic for department, search, etc. remains the same)
-        // --- Start of existing filter logic ---
+        // --- 1. Dynamic Visibility Check ---
         const canSeeInactive = requestingUser?.type === 'admin' || (requestingUser?.type === 'ictstaff' && requestingUser?.canManageCourses);
         if (canSeeInactive) {
             if (queryIsActive !== undefined && queryIsActive !== "") {
@@ -177,11 +167,25 @@ export const getAllCourses = async (query, requestingUser) => {
         } else {
             filters.push({ isActive: true });
         }
+
+        // --- 2. Dynamic Departmental Filtering for HODs ---
+        const isHOD = requestingUser?.type === 'lecturer' && requestingUser?.role === LecturerRole.HOD;
+        if (isHOD) {
+            if (!requestingUser.departmentId) {
+                throw new AppError('HOD department information is missing from the user session.', 500);
+            }
+            // Automatically restrict HODs to courses of their own department
+            filters.push({ departmentId: requestingUser.departmentId });
+        } else {
+            // Admins or other users can filter by any selected department
+            if (departmentId && departmentId !== 'all') {
+                filters.push({ departmentId: parseInt(departmentId, 10) });
+            }
+        }
+
+        // --- 3. Relational Academic Filters ---
         if (facultyId && facultyId !== 'all') {
             filters.push({ department: { facultyId: parseInt(facultyId, 10) } });
-        }
-        if (departmentId && departmentId !== 'all') {
-            filters.push({ departmentId: parseInt(departmentId, 10) });
         }
         if (programId && programId !== 'all') {
             filters.push({ programCourses: { some: { programId: parseInt(programId, 10) } } });
@@ -201,16 +205,16 @@ export const getAllCourses = async (query, requestingUser) => {
         }
         if (search && String(search).trim() !== "") {
             const searchTerm = String(search).trim();
-            filters.push({ OR: [{ code: { contains: searchTerm } }, { title: { contains: searchTerm } }] });
+            filters.push({ OR: [{ code: { contains: searchTerm, mode: 'insensitive' } }, { title: { contains: searchTerm, mode: 'insensitive' } }] });
         }
+        
         if (filters.length > 0) {
             where.AND = filters;
         }
-        // --- End of existing filter logic ---
 
         const selection = canSeeInactive ? courseAdminSelection : coursePublicSelection;
 
-        // NEW: Add logic to handle the 'all' flag
+        // If the 'all' flag is active, return full catalog matching criteria (no pagination)
         if (all === 'true' || all === true) {
             const allCourses = await prisma.course.findMany({
                 where,
@@ -218,7 +222,6 @@ export const getAllCourses = async (query, requestingUser) => {
                 orderBy: { code: 'asc' },
             });
 
-            // Return a structure that matches what the frontend expects
             return {
                 courses: allCourses,
                 totalCourses: allCourses.length,
@@ -227,9 +230,8 @@ export const getAllCourses = async (query, requestingUser) => {
             };
         }
 
-        // --- This is your original pagination logic, which now only runs if 'all' is not true ---
-        const pageNum = parseInt(String(page), 10);
-        const limitNum = parseInt(String(limit), 10);
+        const pageNum = parseInt(String(page), 10) || 1;
+        const limitNum = parseInt(String(limit), 10) || 10;
         const skip = (pageNum - 1) * limitNum;
 
         const courses = await prisma.course.findMany({
@@ -255,7 +257,7 @@ export const getAllCourses = async (query, requestingUser) => {
     }
 };
 
-export const updateCourse = async (id, updateData, requestingUser) => { // Added requestingUser for auth if needed
+export const updateCourse = async (id, updateData) => { 
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
         const courseId = parseInt(id, 10);
@@ -268,15 +270,10 @@ export const updateCourse = async (id, updateData, requestingUser) => { // Added
             throw new AppError('Course not found for update.', 404);
         }
 
-        // Add authorization check here if not all admins/managers can update all courses
-        // if (!await canUserManageCourse(requestingUser, courseId)) { // Example
-        //     throw new AppError('You are not authorized to update this course.', 403);
-        // }
-
         const dataForDb = {};
         const {
             code, title, creditUnit, departmentId,
-            preferredSemesterType, // CHANGED from semesterId
+            preferredSemesterType, 
             courseType, isActive
         } = updateData;
 
@@ -301,8 +298,7 @@ export const updateCourse = async (id, updateData, requestingUser) => { // Added
             dataForDb.departmentId = pDepartmentId;
         }
 
-        // Handle preferredSemesterType update
-        if (updateData.hasOwnProperty('preferredSemesterType')) { // Check if key exists, even if value is null/empty
+        if (updateData.hasOwnProperty('preferredSemesterType')) { 
             const newPreferredSemesterType = updateData.preferredSemesterType;
             if (newPreferredSemesterType && newPreferredSemesterType !== "" && !Object.values(SemesterType).includes(newPreferredSemesterType)) {
                 throw new AppError(`Invalid preferred semester type: '${newPreferredSemesterType}'.`, 400);
@@ -355,7 +351,6 @@ export const setCourseActiveStatus = async (id, desiredStatus) => {
                 where: { id: courseId },
                 data: { isActive: desiredStatus },
             });
-            // Synchronize ProgramCourse.isActive status
             await tx.programCourse.updateMany({
                 where: { courseId: courseId },
                 data: { isActive: desiredStatus },
@@ -391,14 +386,11 @@ export const deleteCourse = async (id) => {
         if (course._count.staffCourses > 0) throw new AppError(`Cannot delete. Course assigned to ${course._count.staffCourses} staff.`, 400);
         if (course._count.registrations > 0) throw new AppError(`Cannot delete. Course has ${course._count.registrations} student registrations.`, 400);
 
-        // CoursePrerequisite records linked to this course will be cascade deleted
-        // due to onDelete: Cascade in the CoursePrerequisite model.
-
         await prisma.course.delete({ where: { id: courseId } });
         return { message: `Course '${course.code}' (ID: ${courseId}) and its prerequisite links permanently deleted.` };
     } catch (error) {
         if (error instanceof AppError) throw error;
-        if (error.code === 'P2003') { // Foreign key constraint failed
+        if (error.code === 'P2003') { 
             throw new AppError('Cannot delete course. It is still referenced by other records (e.g., exams). Resolve dependencies first.', 400);
         }
         console.error("Error deleting course:", error.message, error.stack);
