@@ -291,7 +291,6 @@ export const createStudent = async (studentData) => {
             finalEntryLevelId = entryLevelRecord.id;
         }
 
-
         // --- Uniqueness Checks (Email, JambRegNo, Phone in details) ---
         const trimmedEmail = String(studentEmail).trim();
         const trimmedJambRegNo = jambRegNo ? String(jambRegNo).trim() : null;
@@ -305,6 +304,13 @@ export const createStudent = async (studentData) => {
         if (existingByEmail) throw new AppError(`A student with email '${trimmedEmail}' already exists.`, 409);
         if (existingByJambRegNo) throw new AppError(`A student with JAMB RegNo '${trimmedJambRegNo}' already exists.`, 409);
         if (existingByDetailsPhone) throw new AppError(`A student with phone number '${trimmedPhone}' in details already exists.`, 409);
+
+        // --- Pre-fetch University acronym outside of transactional block to clear lock dependencies ---
+        const setting = await prisma.universitySetting.findFirst({
+            select: { acronym: true }
+        });
+        const schoolAcronym = setting?.acronym ? setting.acronym.trim().toUpperCase() : '';
+        const acronymPrefix = schoolAcronym ? `${schoolAcronym}/` : '';
 
         console.log("[createStudent DEBUG] Proceeding to transaction for RegNo generation.");
         const newStudent = await prisma.$transaction(async (tx) => {
@@ -350,28 +356,18 @@ export const createStudent = async (studentData) => {
                 select: { id: true, yearOfAdmission: true, entryMode: true, departmentId: true, programId: true } 
             });
 
-            // --- Step 2: Generate Registration Number (MODIFIED LOGIC) ---
+            // --- Step 2: Generate Registration Number ---
             const yearAbbr = String(createdStudent.yearOfAdmission).slice(-2);
             const entryModeAbbr = getEntryModeAbbreviation(createdStudent.entryMode);
             const sequencePart = createdStudent.id.toString().padStart(5, '0');
-            
-            // Get department abbreviation (first 3 letters of name)
-            const currentDepartmentRecord = departmentRecord; 
-            const departmentIdentifier = String(currentDepartmentRecord.id); // Use the numerical department ID
-            
-            // Get degree type abbreviation for prefix
-            const currentProgramRecord = programRecord;
-            const degreeTypeAbbr = getDegreeTypeAbbreviation(currentProgramRecord.degreeType); 
+            const departmentIdentifier = String(createdStudent.departmentId); 
+            const degreeTypeAbbr = getDegreeTypeAbbreviation(programRecord.degreeType); 
             
             let finalRegNo;
             if (degreeTypeAbbr) {
-                // For ND, NCE, HND, PGD, M, PHD, CERTIFICATE, DIPLOMA - concat abbreviation
-                // Format: YY/SEQ_MODE/DEPT_ID/DEGREE_TYPE_ABBR (e.g., 25/00001D/1/ND)
-                finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}/${degreeTypeAbbr}`;
+                finalRegNo = `${acronymPrefix}${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}/${degreeTypeAbbr}`;
             } else {
-                // For Undergraduate - existing format
-                // Format: YY/SEQ_MODE/DEPT_ID (e.g., 25/00002U/1)
-                finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}`;
+                finalRegNo = `${acronymPrefix}${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}`;
             }
             
             const existingRegNoCheck = await tx.student.findUnique({
@@ -400,6 +396,8 @@ export const createStudent = async (studentData) => {
             });
 
             return studentWithRegNo;
+        }, {
+            timeout: 20000 // Set transaction execution window buffer to prevent starvation errors
         });
 
         console.log(`[STUDENT_CREATE] Student '${newStudent.name}' (RegNo: ${newStudent.regNo}) created successfully and Admission Offer updated.`);
@@ -1236,6 +1234,13 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
     const successfulCreations = [];
     const failedCreations = [];
 
+    // Pre-fetch university setting once outside the loop to avoid redundant database calls inside loop
+    const universitySetting = await prisma.universitySetting.findFirst({
+        select: { acronym: true }
+    });
+    const schoolAcronym = universitySetting?.acronym ? universitySetting.acronym.trim().toUpperCase() : '';
+    const acronymPrefix = schoolAcronym ? `${schoolAcronym}/` : '';
+
     // Pre-fetch all levels, departments, programs, seasons, semesters for efficiency and validation
     const [allLevels, allDepartments, allPrograms, allSeasons, allSemesters] = await Promise.all([
         prisma.level.findMany({ select: { id: true, name: true, value: true, degreeType: true, order: true } }), // Select degreeType, order
@@ -1269,12 +1274,26 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
     // Loop through each student record to create them individually within a transaction
     for (const [index, studentData] of studentDataArray.entries()) {
         try {
+            // --- Password Hashing (LIFTED OUT OF THE TRANSACTION BLOCK TO AVOID Expired Transaction / Timeout errors) ---
+            const { password: providedPassword } = studentData;
+            let passwordToHash;
+            if (providedPassword && String(providedPassword).trim() !== '') {
+                passwordToHash = String(providedPassword).trim();
+            } else if (config.studentDefaultPassword) {
+                passwordToHash = config.studentDefaultPassword;
+            }
+            
+            let hashedPassword;
+            if (passwordToHash) {
+                hashedPassword = await hashPassword(passwordToHash);
+            }
+
             const studentCreationResult = await prisma.$transaction(async (tx) => {
                 const {
                     applicationProfileId,
                     jambRegNo, name, email: studentEmail, entryMode,
                     yearOfAdmission, admissionSeasonId, admissionSemesterId,
-                    departmentId, programId, password: providedPassword, profileImg,
+                    departmentId, programId, profileImg,
                     isActive, isGraduated,
                     dob, gender, address, phone, guardianName, guardianPhone,
                     entryLevelId: entryLevelIdInput 
@@ -1390,21 +1409,8 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                 }
                 if (!finalEntryLevelId) rowErrors.push('Entry Level could not be determined.');
 
-
-                // --- Password Handling ---
-                let passwordToHash;
-                if (providedPassword && String(providedPassword).trim() !== '') {
-                    passwordToHash = String(providedPassword).trim();
-                } else if (config.studentDefaultPassword) {
-                    passwordToHash = config.studentDefaultPassword;
-                } else {
-                    rowErrors.push('Password is required for student, and no default student password is configured.');
-                }
-                let hashedPassword;
-                if (passwordToHash) {
-                    hashedPassword = await hashPassword(passwordToHash);
-                } else {
-                    rowErrors.push('Failed to hash password.');
+                if (!hashedPassword) {
+                    rowErrors.push('Password configuration is missing or invalid.');
                 }
 
                 if (rowErrors.length > 0) {
@@ -1463,7 +1469,7 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                 existingEmails.add(createdStudent.email);
                 if (createdStudent.jambRegNo) existingJambRegNos.add(createdStudent.jambRegNo);
 
-                // --- Step 2: Generate Registration Number (MODIFIED LOGIC) ---
+                // --- Step 2: Generate Registration Number ---
                 const yearAbbr = String(createdStudent.yearOfAdmission).slice(-2);
                 const entryModeAbbr = getEntryModeAbbreviation(createdStudent.entryMode);
                 const sequencePart = createdStudent.id.toString().padStart(5, '0');
@@ -1476,13 +1482,9 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                 
                 let finalRegNo;
                 if (degreeTypeAbbr) {
-                    // For ND, NCE, HND, PGD, M, PHD, CERTIFICATE, DIPLOMA - concat abbreviation
-                    // Format: YY/SEQ_MODE/DEPT_ID/DEGREE_TYPE_ABBR (e.g., 25/00001D/1/ND)
-                    finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}/${degreeTypeAbbr}`;
+                    finalRegNo = `${acronymPrefix}${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}/${degreeTypeAbbr}`;
                 } else {
-                    // For Undergraduate - existing format
-                    // Format: YY/SEQ_MODE/DEPT_ID (e.g., 25/00002U/1)
-                    finalRegNo = `${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}`;
+                    finalRegNo = `${acronymPrefix}${yearAbbr}/${sequencePart}${entryModeAbbr}/${departmentIdentifier}`;
                 }
                 
                 if (existingRegNos.has(finalRegNo)) {
@@ -1517,6 +1519,8 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                 }
 
                 return studentWithRegNo;
+            }, {
+                timeout: 20000 // Set transaction execution window buffer to prevent starvation errors
             });
             successfulCreations.push(studentCreationResult);
         } catch (error) {

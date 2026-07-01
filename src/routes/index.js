@@ -49,6 +49,7 @@ import applicantRoutes from './applicant.routes.js'
 import registrationControlRoutes from './registrationControl.routes.js';
 import adminManagementRoutes from './adminManagement.routes.js';
 import universitySettingRoutes from './universitySetting.routes.js';
+import studentHistoryOnboardingRoutes from './studentHistoryOnboarding.route.js';
 
 const router = Router();
 const apiVersion = '/api/v1';
@@ -61,6 +62,7 @@ router.use(`${apiVersion}/seasons`, seasonRoutes);
 router.use(`${apiVersion}/semesters`, semesterRoutes);
 router.use(`${apiVersion}/programs`, programRoutes);
 router.use(`${apiVersion}/students`, studentRoutes);
+router.use(`${apiVersion}/student-onboarding`, studentHistoryOnboardingRoutes); 
 router.use(`${apiVersion}/ict-staff`, ictStaffRoutes);
 router.use(`${apiVersion}/lecturers`, lecturerRoutes);
 router.use(`${apiVersion}/staff-courses`, staffCourseRoutes);
