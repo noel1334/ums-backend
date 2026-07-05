@@ -5,10 +5,10 @@ const programCoursePublicSelection = {
     id: true, isElective: true, isActive: true,
     createdAt: true, updatedAt: true,
     program: { select: { id: true, name: true, programCode: true } },
-    course: { select: { id: true, code: true, title: true, isActive: true } }, // Include course.isActive
+    course: { select: { id: true, code: true, title: true, isActive: true } }, 
     level: { select: { id: true, name: true } }
 };
-const programCourseAdminSelection = { ...programCoursePublicSelection }; // For now, admin sees same as public for simplicity
+const programCourseAdminSelection = { ...programCoursePublicSelection }; 
 
 export const addCourseToProgram = async (data) => {
     try {
@@ -23,18 +23,18 @@ export const addCourseToProgram = async (data) => {
 
         const [program, course, level] = await Promise.all([
             prisma.program.findUnique({ where: { id: pPId } }),
-            prisma.course.findUnique({ where: { id: pCId, isActive: true } }), // Ensure course is active
+            prisma.course.findUnique({ where: { id: pCId, isActive: true } }), 
             prisma.level.findUnique({ where: { id: pLId } })
         ]);
         if (!program) throw new AppError(`Program ID ${pPId} not found.`, 404);
-        if (!course) throw new AppError(`Active Course ID ${pCId} not found. Cannot map an inactive course.`, 404); // Clarified error
+        if (!course) throw new AppError(`Active Course ID ${pCId} not found. Cannot map an inactive course.`, 404); 
         if (!level) throw new AppError(`Level ID ${pLId} not found.`, 404);
 
         const newProgramCourse = await prisma.programCourse.create({
             data: {
                 programId: pPId, courseId: pCId, levelId: pLId,
                 isElective: isElective === undefined ? false : Boolean(isElective),
-                isActive: isActive === undefined ? true : Boolean(isActive), // Mapping's own active status
+                isActive: isActive === undefined ? true : Boolean(isActive), 
             },
             select: programCourseAdminSelection
         });
@@ -63,7 +63,6 @@ export const getProgramCourseById = async (id, requestingUser) => {
 
         if (!programCourse) throw new AppError('Program course mapping not found.', 404);
 
-        // For non-admins/managers, if the mapping is inactive OR the course itself is inactive, don't show.
         if (selection === programCoursePublicSelection && (!programCourse.isActive || !programCourse.course.isActive)) {
             throw new AppError('Program course mapping not available.', 404);
         }
@@ -84,10 +83,10 @@ export const getAllProgramCourses = async (query, requestingUser) => {
         const canSeeInactive = requestingUser.type === 'admin' || (requestingUser.type === 'ictstaff' && requestingUser.canManageCourses);
 
         if (canSeeInactive) {
-            if (queryIsActive !== undefined) where.isActive = queryIsActive === 'true'; // Filter by mapping's isActive
+            if (queryIsActive !== undefined) where.isActive = queryIsActive === 'true'; 
         } else {
-            where.isActive = true; // Mapping must be active
-            where.course = { isActive: true }; // And the underlying course must be active
+            where.isActive = true; 
+            where.course = { isActive: true }; 
         }
 
         if (programId) where.programId = parseInt(programId, 10);
@@ -121,31 +120,53 @@ export const updateProgramCourse = async (id, updateData) => {
 
         const existingPC = await prisma.programCourse.findUnique({
             where: { id: pcId },
-            include: { course: { select: { isActive: true, code: true } } } // Include course to check its status
+            include: { course: { select: { isActive: true, code: true } } } 
         });
         if (!existingPC) throw new AppError('Program course mapping not found.', 404);
 
         const dataForDb = {};
-        const { isElective, isActive } = updateData; // Only these fields are typically updatable for a mapping
+        const { isElective, isActive, programId, courseId, levelId } = updateData;
 
-        // Prevent changing programId, courseId, levelId after creation
-        if (updateData.programId && parseInt(updateData.programId, 10) !== existingPC.programId) {
-            throw new AppError('Cannot change programId for an existing mapping.', 400);
+        // --- Validate and assign updatable IDs ---
+        if (programId !== undefined) {
+            const pId = parseInt(programId, 10);
+            if (isNaN(pId)) throw new AppError('Invalid programId format.', 400);
+            if (pId !== existingPC.programId) {
+                const programExists = await prisma.program.findUnique({ where: { id: pId } });
+                if (!programExists) throw new AppError(`Target Program ID ${pId} does not exist.`, 404);
+                dataForDb.programId = pId;
+            }
         }
-        if (updateData.courseId && parseInt(updateData.courseId, 10) !== existingPC.courseId) {
-            throw new AppError('Cannot change courseId for an existing mapping.', 400);
+
+        if (courseId !== undefined) {
+            const cId = parseInt(courseId, 10);
+            if (isNaN(cId)) throw new AppError('Invalid courseId format.', 400);
+            if (cId !== existingPC.courseId) {
+                const courseExists = await prisma.course.findUnique({ where: { id: cId, isActive: true } });
+                if (!courseExists) throw new AppError(`Target Active Course ID ${cId} does not exist.`, 404);
+                dataForDb.courseId = cId;
+            }
         }
-        if (updateData.levelId && parseInt(updateData.levelId, 10) !== existingPC.levelId) {
-            throw new AppError('Cannot change levelId for an existing mapping.', 400);
+
+        if (levelId !== undefined) {
+            const lId = parseInt(levelId, 10);
+            if (isNaN(lId)) throw new AppError('Invalid levelId format.', 400);
+            if (lId !== existingPC.levelId) {
+                const levelExists = await prisma.level.findUnique({ where: { id: lId } });
+                if (!levelExists) throw new AppError(`Target Level ID ${lId} does not exist.`, 404);
+                dataForDb.levelId = lId;
+            }
         }
 
         if (isElective !== undefined) dataForDb.isElective = Boolean(isElective);
 
         if (isActive !== undefined) {
             const newIsActive = Boolean(isActive);
-            // If trying to activate this mapping, but the underlying course is inactive, prevent it.
-            if (newIsActive === true && !existingPC.course.isActive) {
-                throw new AppError(`Cannot activate mapping for inactive course '${existingPC.course.code}'. Activate the course first.`, 400);
+            const activeCourseId = dataForDb.courseId || existingPC.courseId;
+            const targetCourse = await prisma.course.findUnique({ where: { id: activeCourseId }, select: { isActive: true, code: true } });
+
+            if (newIsActive === true && (!targetCourse || !targetCourse.isActive)) {
+                throw new AppError(`Cannot activate mapping for inactive course '${targetCourse?.code || 'unknown'}'. Activate the course first.`, 400);
             }
             dataForDb.isActive = newIsActive;
         }
@@ -153,17 +174,21 @@ export const updateProgramCourse = async (id, updateData) => {
         if (Object.keys(dataForDb).length === 0) throw new AppError('No valid fields provided for update.', 400);
 
         const updatedProgramCourse = await prisma.programCourse.update({
-            where: { id: pcId }, data: dataForDb, select: programCourseAdminSelection
+            where: { id: pcId }, 
+            data: dataForDb, 
+            select: programCourseAdminSelection
         });
         return updatedProgramCourse;
     } catch (error) {
         if (error instanceof AppError) throw error;
+        if (error.code === 'P2002') {
+            throw new AppError('A mapping for this course already exists in the target program at this level.', 409);
+        }
         console.error("Error updating program course:", error.message, error.stack);
         throw new AppError('Could not update program course mapping.', 500);
     }
 };
 
-// NEW FUNCTION: To set the active status of a ProgramCourse mapping
 export const setProgramCourseActiveStatus = async (id, desiredStatus) => {
     try {
         if (!prisma) throw new AppError('Prisma client not available.', 500);
@@ -176,16 +201,15 @@ export const setProgramCourseActiveStatus = async (id, desiredStatus) => {
 
         const programCourseToUpdate = await prisma.programCourse.findUnique({
             where: { id: pcId },
-            include: { // Include related entities for context in messages or checks
+            include: { 
                 program: { select: { name: true } },
-                course: { select: { code: true, isActive: true } }, // Important: check course's own status
+                course: { select: { code: true, isActive: true } }, 
                 level: { select: { name: true } }
             }
         });
 
         if (!programCourseToUpdate) throw new AppError('Program course mapping not found.', 404);
 
-        // Business Logic: Cannot activate a ProgramCourse mapping if the underlying Course is inactive.
         if (desiredStatus === true && !programCourseToUpdate.course.isActive) {
             throw new AppError(
                 `Cannot activate mapping for course '${programCourseToUpdate.course.code}' because the course itself is inactive. Activate the course first.`,
@@ -196,7 +220,7 @@ export const setProgramCourseActiveStatus = async (id, desiredStatus) => {
         const updatedProgramCourse = await prisma.programCourse.update({
             where: { id: pcId },
             data: { isActive: desiredStatus },
-            select: programCourseAdminSelection // Return the updated mapping
+            select: programCourseAdminSelection 
         });
 
         const actionMessage = desiredStatus ? 'activated' : 'deactivated';
@@ -211,8 +235,6 @@ export const setProgramCourseActiveStatus = async (id, desiredStatus) => {
     }
 };
 
-
-// RENAMED & UPDATED: Permanent delete
 export const deleteProgramCourseMappingPermanently = async (id) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -221,7 +243,7 @@ export const deleteProgramCourseMappingPermanently = async (id) => {
 
         const existingPC = await prisma.programCourse.findUnique({
             where: { id: pcId },
-            include: { // Include for a richer message, not strictly for delete blocking
+            include: { 
                 program: { select: { name: true } },
                 course: { select: { code: true } },
                 level: { select: { name: true } }
@@ -229,20 +251,12 @@ export const deleteProgramCourseMappingPermanently = async (id) => {
         });
         if (!existingPC) throw new AppError('Program course mapping not found for deletion.', 404);
 
-        // Check for dependencies if any. For ProgramCourse, direct dependencies are less common.
-        // StudentCourseRegistration links to Course, Level, Semester, Season, not directly to ProgramCourse.id.
-        // If you add relations from other tables to ProgramCourse.id with ON DELETE RESTRICT,
-        // you'd need to check them here or rely on Prisma's P2003 error.
-
         await prisma.programCourse.delete({ where: { id: pcId } });
         return {
             message: `Program course mapping (ID: ${pcId}, Course: ${existingPC.course.code} for Program: ${existingPC.program.name} at Level: ${existingPC.level.name}) permanently deleted.`
         };
     } catch (error) {
         if (error instanceof AppError) throw error;
-        // P2003 is a foreign key constraint error.
-        // It means something else in your database is still referencing this ProgramCourse record
-        // AND that foreign key relationship has an ON DELETE RESTRICT rule.
         if (error.code === 'P2003') {
             throw new AppError('Cannot delete this program course mapping. It is still referenced by other critical records in the system.', 400);
         }
