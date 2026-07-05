@@ -62,7 +62,7 @@ router.use(`${apiVersion}/seasons`, seasonRoutes);
 router.use(`${apiVersion}/semesters`, semesterRoutes);
 router.use(`${apiVersion}/programs`, programRoutes);
 router.use(`${apiVersion}/students`, studentRoutes);
-router.use(`${apiVersion}/student-onboarding`, studentHistoryOnboardingRoutes); 
+router.use(`${apiVersion}/student-history-onboarding`, studentHistoryOnboardingRoutes);
 router.use(`${apiVersion}/ict-staff`, ictStaffRoutes);
 router.use(`${apiVersion}/lecturers`, lecturerRoutes);
 router.use(`${apiVersion}/staff-courses`, staffCourseRoutes);
