@@ -4,11 +4,10 @@ import {
     authenticateToken,
     authorizeAdmin, // Already defined as authorize(['admin'])
     authorize,
-    // authorizeAnyLecturer // This can be removed if canViewStudentsInAssignedCourses is used instead
 } from '../middlewares/auth.middleware.js';
+import uploadImageMiddleware from '../middlewares/uploadImage.middleware.js'; // Imported
 import AppError from '../utils/AppError.js';
 import { LecturerRole } from '../generated/prisma/index.js'; // To correctly use HOD enum
-
 
 const router = Router();
 
@@ -21,10 +20,10 @@ const canAccessOwnStudentProfile = authorize(['student']);
 const canCreateStudent = authorize(['admin', 'ictstaff']);
 
 // For admins and HODs who can view all students or departmental students
-const canViewAllOrDepartmentalStudents = authorize(['admin', 'HOD']); // Using the string 'HOD' is fine if consistent
+const canViewAllOrDepartmentalStudents = authorize(['admin', 'ictstaff', 'HOD']); 
 
 // For lecturers (including HOD/Examiner) to view students in their assigned courses
-const canViewStudentsInAssignedCourses = authorize(['lecturer', 'HOD', 'EXAMINER']);
+const canViewStudentsInAssignedCourses = authorize(['lecturer', 'HOD', 'ictstaff', 'EXAMINER']);
 
 
 // --- Custom Authorization Middlewares ---
@@ -40,6 +39,9 @@ const authorizeSelfOrAdminOrHODForStudentView = async (req, res, next) => {
         const { user } = req;
         // Check 1: Admin can view any student
         if (user.type === 'admin') {
+            return next();
+        }
+        if (user.type === 'ictstaff') {
             return next();
         }
         // Check 2: Student can view their own profile
@@ -69,6 +71,9 @@ const authorizeSelfOrAdminForStudentUpdate = (req, res, next) => {
         if (req.user.type === 'admin') {
             return next();
         }
+        if (req.user.type === 'ictstaff') {
+            return next();
+        }
         // Check 2: Student can update their own
         if (req.user.type === 'student' && studentIdParam === req.user.id) {
             return next();
@@ -86,7 +91,8 @@ const authorizeSelfOrAdminForStudentUpdate = (req, res, next) => {
 // Routes for the logged-in user's own profile and data
 router.route('/me')
     .get(authenticateToken, canAccessOwnStudentProfile, StudentController.getMyProfile)
-    .put(authenticateToken, canAccessOwnStudentProfile, StudentController.updateMyProfile);
+    // INJECTED: uploadImageMiddleware for student profile photo updates
+    .put(authenticateToken, canAccessOwnStudentProfile, uploadImageMiddleware('profileImg', 'single'), StudentController.updateMyProfile);
 
 router.get(
     '/me/registrable-courses',
@@ -108,7 +114,7 @@ router.route('/lecturer/my-courses/students')
 
 // Routes for general student list and creation (Admin/HOD access)
 router.route('/')
-    .post(authenticateToken, canCreateStudent, StudentController.createStudent)
+    .post(authenticateToken, canCreateStudent, uploadImageMiddleware('profileImg', 'single'), StudentController.createStudent)
     .get(authenticateToken, canViewAllOrDepartmentalStudents, StudentController.getAllStudents);
 
 router.post('/batch-create',
@@ -128,18 +134,19 @@ router.get(
 router.route('/:id')
     .get(
         authenticateToken,
-        // REMOVED: canViewStudentsInAssignedCourses, // This was the cause of the error
-        authorizeSelfOrAdminOrHODForStudentView, // This middleware correctly handles all required checks
+        authorizeSelfOrAdminOrHODForStudentView, 
         StudentController.getStudentById
     )
     .put(
         authenticateToken,
-        authorizeSelfOrAdminForStudentUpdate, // This correctly handles update permissions
+        // INJECTED: uploadImageMiddleware for admin updates on specific student photos
+        uploadImageMiddleware('profileImg', 'single'), 
+        authorizeSelfOrAdminForStudentUpdate, 
         StudentController.updateStudent
     )
     .delete(
         authenticateToken,
-        authorizeAdmin, // Only an admin can delete a student
+        authorizeAdmin, 
         StudentController.deleteStudent
     );
 

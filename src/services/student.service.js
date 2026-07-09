@@ -46,7 +46,7 @@ const studentPublicSelection = {
 
 const studentFullSelection = {
     ...studentPublicSelection, 
-    medicalFitness: true, // <-- ADDED: Include the MedicalFitness relationship in details query
+    medicalFitness: true, // Include the MedicalFitness relationship in details query
     admissionOfferDetails: {
         select: {
             id: true,
@@ -75,9 +75,33 @@ const studentFullSelection = {
                             firstName: true, lastName: true, gender: true, dateOfBirth: true
                         }
                     },
-                    contactInfo: true,
-                    nextOfKin: true,
-                    guardianInfo: true,
+                    contactInfo: {
+                        select: {
+                            countryOfResidence: true,
+                            stateOfResidence: true,
+                            lgaOfResidence: true,
+                            residentialAddress: true
+                        }
+                    },
+                    nextOfKin: {
+                        select: {
+                            fullName: true,
+                            relationship: true,
+                            phone: true,
+                            email: true,
+                            address: true
+                        }
+                    },
+                    guardianInfo: {
+                        select: {
+                            fullName: true,
+                            relationship: true,
+                            phone: true,
+                            email: true,
+                            address: true,
+                            occupation: true
+                        }
+                    },
                     oLevelResults: {
                         include: { subjects: true },
                         orderBy: { sittingNumber: 'asc' }
@@ -133,7 +157,7 @@ const adminEditableStudentFields = [
     'graduationSeasonId', 'graduationSemesterId'
 ];
 
-// --- NEW HELPER: Get program-specific abbreviation for RegNo ---
+// --- HELPERS ---
 const getDegreeTypeAbbreviation = (degreeType) => {
     switch (degreeType) {
         case DegreeType.ND: return 'ND';
@@ -144,7 +168,7 @@ const getDegreeTypeAbbreviation = (degreeType) => {
         case DegreeType.PHD: return 'PHD';
         case DegreeType.CERTIFICATE: return 'CRT';
         case DegreeType.DIPLOMA: return 'DIP';
-        case DegreeType.UNDERGRADUATE: return ''; // No specific abbreviation for UG in RegNo
+        case DegreeType.UNDERGRADUATE: return ''; 
         default: return ''; 
     }
 };
@@ -161,7 +185,7 @@ const getEntryModeAbbreviation = (entryMode) => {
 };
 const studentSelfEditableMedicalFields = ['bloodGroup', 'genotype', 'fileUrl'];
 
-// --- MODIFIED createStudent function (single creation) ---
+// --- createStudent function ---
 export const createStudent = async (studentData) => {
     console.log("[createStudent Service] Called with data:", studentData);
     try {
@@ -195,7 +219,7 @@ export const createStudent = async (studentData) => {
         console.log(`[createStudent DEBUG] Password to be hashed: "${passwordToHash ? '******' : 'N/A'}"`);
 
         // --- Core Validations ---
-        let errors = []; // Use a local array for collecting errors
+        let errors = []; 
         if (!name) errors.push('Name is missing.');
         if (!studentEmail) errors.push('Email is missing.');
         if (!entryMode) errors.push('Entry Mode is missing.');
@@ -268,7 +292,7 @@ export const createStudent = async (studentData) => {
                 case DegreeType.PHD:
                 case DegreeType.CERTIFICATE:
                 case DegreeType.DIPLOMA:
-                    targetLevelIdentifier = 1; // Order of the level (first year)
+                    targetLevelIdentifier = 1; 
                     levelSearchCriteria = { 
                         unique_level_order_per_degree_type: { order: targetLevelIdentifier, degreeType: programDegreeType } 
                     };
@@ -291,7 +315,7 @@ export const createStudent = async (studentData) => {
             finalEntryLevelId = entryLevelRecord.id;
         }
 
-        // --- Uniqueness Checks (Email, JambRegNo, Phone in details) ---
+        // --- Uniqueness Checks ---
         const trimmedEmail = String(studentEmail).trim();
         const trimmedJambRegNo = jambRegNo ? String(jambRegNo).trim() : null;
         const trimmedPhone = phone ? String(phone).trim() : null;
@@ -397,7 +421,7 @@ export const createStudent = async (studentData) => {
 
             return studentWithRegNo;
         }, {
-            timeout: 20000 // Set transaction execution window buffer to prevent starvation errors
+            timeout: 20000 
         });
 
         console.log(`[STUDENT_CREATE] Student '${newStudent.name}' (RegNo: ${newStudent.regNo}) created successfully and Admission Offer updated.`);
@@ -450,8 +474,88 @@ export const getStudentById = async (id, requestingUser) => {
             }
         }
 
+        // --- SYNTHESIZE VIRTUAL ADMISSION OFFER DETAILS FOR ONBOARDED LEGACY/OLD STUDENTS ---
+        let admissionOfferDetails = student.admissionOfferDetails;
+        if (!admissionOfferDetails) {
+            const nameParts = student.name ? student.name.trim().split(/\s+/) : [];
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+
+            admissionOfferDetails = {
+                id: null,
+                hasPaidAcceptanceFee: true,
+                admissionLetterUrl: null,
+                isAccepted: true,
+                acceptanceDate: student.createdAt,
+                offeredProgram: student.program ? {
+                    id: student.program.id,
+                    name: student.program.name,
+                    programCode: student.program.programCode,
+                    degreeType: student.program.degreeType,
+                    duration: student.program.duration,
+                    modeOfStudy: student.program.modeOfStudy,
+                    department: student.department ? {
+                        id: student.department.id,
+                        name: student.department.name,
+                        faculty: student.department.faculty ? {
+                            id: student.department.faculty.id,
+                            name: student.department.faculty.name
+                        } : null
+                    } : null
+                } : null,
+                offeredLevel: student.currentLevel ? {
+                    id: student.currentLevel.id,
+                    name: student.currentLevel.name,
+                    value: student.currentLevel.value,
+                    degreeType: student.currentLevel.degreeType,
+                    order: student.currentLevel.order
+                } : null,
+                admissionSeason: student.admissionSeason ? {
+                    id: student.admissionSeason.id,
+                    name: student.admissionSeason.name
+                } : null,
+                admissionSemester: student.admissionSemester ? {
+                    id: student.admissionSemester.id,
+                    name: student.admissionSemester.name
+                } : null,
+                applicationProfile: {
+                    id: null,
+                    jambRegNo: student.jambRegNo,
+                    email: student.email,
+                    phone: student.studentDetails?.phone || null,
+                    bioData: {
+                        nationality: "Nigerian",
+                        firstName: firstName,
+                        lastName: lastName,
+                        gender: student.studentDetails?.gender || null,
+                        dateOfBirth: student.studentDetails?.dob || null
+                    },
+                    contactInfo: {
+                        countryOfResidence: "Nigeria",
+                        stateOfResidence: "",
+                        lgaOfResidence: "",
+                        residentialAddress: student.studentDetails?.address || null
+                    },
+                    nextOfKin: null,
+                    guardianInfo: {
+                        fullName: student.studentDetails?.guardianName || null,
+                        relationship: "Guardian",
+                        phone: student.studentDetails?.guardianPhone || null,
+                        email: null,
+                        address: null,
+                        occupation: null
+                    },
+                    oLevelResults: [],
+                    tertiaryQualifications: [],
+                    uploadedDocuments: [],
+                    onlineScreeningList: null
+                }
+            };
+        }
+
         const studentInfo = {
             ...student,
+            admissionOfferDetails,
             profileImg: finalProfileImg,
             avatarLetter: avatarLetter
         };
@@ -605,8 +709,6 @@ export const updateStudent = async (id, updateData, requestingUser) => {
         });
         if (!studentToUpdate) throw new AppError('Student not found for update.', 404);
 
-        const programDegreeType = studentToUpdate.program.degreeType; 
-
         const studentDataForDb = {};
         const studentDetailsDataForDb = {};
         const medicalFitnessDataForDb = {};
@@ -750,19 +852,20 @@ export const updateStudent = async (id, updateData, requestingUser) => {
             }
 
         } else if (isSelfUpdate) {
-            for (const key of Object.keys(updateData)) {
-                let isAllowed = false; 
-                const value = updateData[key];
-
+            for (const [key, value] of Object.entries(updateData)) {
                 if (studentSelfEditableStudentFields.includes(key)) {
-                    isAllowed = true;
                     if (key === 'password' && value && String(value).trim()) {
                         studentDataForDb.password = await hashPassword(String(value).trim());
                     } else if (key === 'profileImg') {
-                        studentDataForDb.profileImg = value ? String(value).trim() : null;
+                        if (value && String(value).startsWith('data:image/')) {
+                            const uploadedUrl = await processBase64ProfileImage(String(value), studentIdToUpdate);
+                            if (!uploadedUrl) throw new AppError('Failed to upload Base64 profile image.', 400);
+                            studentDataForDb.profileImg = uploadedUrl;
+                        } else {
+                            studentDataForDb.profileImg = value ? String(value).trim() : null;
+                        }
                     }
                 } else if (studentSelfEditableDetailsFields.includes(key)){
-                    isAllowed = true;
                     if (key === 'dob') studentDetailsDataForDb.dob = value ? new Date(String(value)) : null;
                     else if (key === 'gender') { 
                         studentDetailsDataForDb.gender = String(value) || studentToUpdate.studentDetails?.gender || undefined; 
@@ -777,7 +880,6 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                         studentDetailsDataForDb[key] = (value === '' || value === null) ? null : String(value); 
                     }
                 } else if (studentSelfEditableMedicalFields.includes(key)) {
-                    isAllowed = true;
                     if (key === 'fileUrl') {
                         medicalFitnessDataForDb.fileUrl = value ? String(value).trim() : null;
                         medicalFitnessDataForDb.status = value ? 'UPLOADED' : 'NOT_UPLOADED';
@@ -785,23 +887,19 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                         medicalFitnessDataForDb[key] = value ? String(value).trim() : null;
                     }
                 }
-
-                // If updating sub-models directly as fields
-                if (['bioData', 'contactInfo', 'nextOfKin', 'guardianInfo'].includes(key)) {
-                    isAllowed = true;
-                }
-
-                if (updateData.hasOwnProperty(key) && !isAllowed) throw new AppError(`Not allowed to update '${key}'.`, 403);
             }
         }
 
-        if (Object.keys(studentDetailsDataForDb).length > 0 && !studentDetailsDataForDb.gender && !studentToUpdate.studentDetails?.gender) {
-            throw new AppError('Gender required for student details.', 400);
+        const finalDetailsData = { ...studentDetailsDataForDb };
+        if (!finalDetailsData.gender && studentToUpdate.studentDetails?.gender) {
+            finalDetailsData.gender = studentToUpdate.studentDetails.gender;
+        } else if (!finalDetailsData.gender && !studentToUpdate.studentDetails?.gender) {
+            finalDetailsData.gender = Gender.MALE; 
         }
 
-        // --- 3. Transaction Execution ---
+        // --- PHASE A: CORE ATOMIC TRANSACTION ---
+        // Run updates on main student account tables in a quick transaction.
         await prisma.$transaction(async (tx) => {
-            // Update Student base record
             if (Object.keys(studentDataForDb).length > 0) {
                 await tx.student.update({ 
                     where: { id: studentIdToUpdate }, 
@@ -809,15 +907,7 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                 });
             }
 
-            // Upsert Student Details
-            if (Object.keys(studentDetailsDataForDb).length > 0) {
-                const finalDetailsData = { ...studentDetailsDataForDb };
-                if (!finalDetailsData.gender && studentToUpdate.studentDetails?.gender) {
-                    finalDetailsData.gender = studentToUpdate.studentDetails.gender;
-                } else if (!finalDetailsData.gender && !studentToUpdate.studentDetails?.gender) {
-                    throw new AppError('Gender is required to initialize student details.', 400);
-                }
-
+            if (Object.keys(studentDetailsDataForDb).length > 0 || !studentToUpdate.studentDetails) {
                 await tx.studentDetails.upsert({
                     where: { studentId: studentIdToUpdate },
                     create: { 
@@ -829,7 +919,6 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                 });
             }
 
-            // Upsert Medical Fitness record
             if (Object.keys(medicalFitnessDataForDb).length > 0) {
                 await tx.medicalFitness.upsert({
                     where: { studentId: studentIdToUpdate },
@@ -840,23 +929,132 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                     update: medicalFitnessDataForDb
                 });
             }
+        });
 
-            // Sync Profile Image & Sub-models with Application Profile (if links exist)
-            const studentWithOffer = await tx.student.findUnique({
-                where: { id: studentIdToUpdate },
-                select: {
-                    admissionOfferDetails: {
-                        select: { applicationProfileId: true }
+        // --- PHASE B: PRE-ADMISSION RELATIONAL STAGING (NON-TRANSACTIONAL) ---
+        // Run safely outside the main transaction to prevent transaction abort/lock crashes on legacy profiles.
+        const studentWithOffer = await prisma.student.findUnique({
+            where: { id: studentIdToUpdate },
+            select: {
+                jambRegNo: true,
+                email: true,
+                password: true,
+                name: true,
+                profileImg: true,
+                admissionSeasonId: true,
+                admissionSemesterId: true,
+                programId: true,
+                currentLevelId: true,
+                regNo: true,
+                admissionOfferDetails: {
+                    select: { id: true, applicationProfileId: true }
+                }
+            }
+        });
+
+        let applicationProfileId = studentWithOffer?.admissionOfferDetails?.applicationProfileId;
+
+        if (!applicationProfileId) {
+            try {
+                let verifiedJambRegNo = null;
+                if (studentWithOffer.jambRegNo) {
+                    const exists = await prisma.jambApplicant.findUnique({
+                        where: { jambRegNo: studentWithOffer.jambRegNo },
+                        select: { jambRegNo: true }
+                    });
+                    if (exists) {
+                        verifiedJambRegNo = studentWithOffer.jambRegNo;
                     }
                 }
-            });
 
-            const applicationProfileId = studentWithOffer?.admissionOfferDetails?.applicationProfileId;
+                let screeningList = await prisma.onlineScreeningList.findUnique({
+                    where: { email: studentWithOffer.email }
+                });
 
-            if (applicationProfileId) {
-                // Sync profileImg directly with ApplicantDocument (type PROFILE_PHOTO)
-                if (studentDataForDb.profileImg) {
-                    await tx.applicantDocument.upsert({
+                if (!screeningList && verifiedJambRegNo) {
+                    screeningList = await prisma.onlineScreeningList.findUnique({
+                        where: { jambRegNo: verifiedJambRegNo }
+                    });
+                }
+
+                if (!screeningList) {
+                    screeningList = await prisma.onlineScreeningList.create({
+                        data: {
+                            email: studentWithOffer.email,
+                            jambRegNo: verifiedJambRegNo,
+                            password: studentWithOffer.password,
+                            isActive: true
+                        }
+                    });
+                }
+
+                let appProfile = await prisma.applicationProfile.findUnique({
+                    where: { email: studentWithOffer.email }
+                });
+
+                if (!appProfile && verifiedJambRegNo) {
+                    appProfile = await prisma.applicationProfile.findUnique({
+                        where: { jambRegNo: verifiedJambRegNo }
+                    });
+                }
+
+                if (!appProfile) {
+                    appProfile = await prisma.applicationProfile.create({
+                        data: {
+                            onlineScreeningListId: screeningList.id,
+                            email: studentWithOffer.email,
+                            jambRegNo: studentWithOffer.jambRegNo || null,
+                            applicationStatus: 'ENROLLED',
+                            targetProgramId: studentWithOffer.programId,
+                            hasPaidScreeningFee: true
+                        }
+                    });
+                }
+
+                applicationProfileId = appProfile.id;
+
+                let admissionOffer = await prisma.admissionOffer.findUnique({
+                    where: { applicationProfileId: applicationProfileId }
+                });
+
+                if (!admissionOffer) {
+                    await prisma.admissionOffer.create({
+                        data: {
+                            applicationProfileId: applicationProfileId,
+                            offeredProgramId: studentWithOffer.programId,
+                            offeredLevelId: studentWithOffer.currentLevelId,
+                            admissionSeasonId: studentWithOffer.admissionSeasonId,
+                            admissionSemesterId: studentWithOffer.admissionSemesterId,
+                            isAccepted: true,
+                            acceptanceDate: new Date(),
+                            hasPaidAcceptanceFee: true,
+                            createdStudentId: studentIdToUpdate,
+                            generatedStudentRegNo: studentWithOffer.regNo
+                        }
+                    });
+                } else {
+                    await prisma.admissionOffer.update({
+                        where: { id: admissionOffer.id },
+                        data: {
+                            createdStudentId: studentIdToUpdate,
+                            generatedStudentRegNo: studentWithOffer.regNo,
+                            isAccepted: true,
+                            acceptanceDate: new Date(),
+                            hasPaidAcceptanceFee: true,
+                        }
+                    });
+                }
+            } catch (chainInitError) {
+                console.warn(`[STUDENT_SERVICE_WARNING] Skipping relational pre-admission setup for legacy student (ID: ${studentIdToUpdate}):`, chainInitError.message);
+            }
+        }
+
+        // Sync additional child sub-models safely using non-transactional calls
+        if (applicationProfileId) {
+            try {
+                const finalProfileImg = studentDataForDb.profileImg || studentWithOffer.profileImg;
+                if (finalProfileImg) {
+                    await prisma.applicantDocument.upsert({
                         where: {
                             applicant_document_unique_constraint: {
                                 applicationProfileId,
@@ -866,48 +1064,74 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                         create: {
                             applicationProfileId,
                             documentType: 'PROFILE_PHOTO',
-                            fileUrl: studentDataForDb.profileImg,
+                            fileUrl: finalProfileImg,
                             status: 'VERIFIED'
                         },
                         update: {
-                            fileUrl: studentDataForDb.profileImg,
+                            fileUrl: finalProfileImg,
                             status: 'VERIFIED'
                         }
                     });
                 }
 
-                // Update associated pre-admission sub-models if populated
-                if (Object.keys(bioDataUpdate).length > 0) {
-                    await tx.applicantBioData.update({
-                        where: { applicationProfileId },
-                        data: bioDataUpdate
-                    });
-                }
+                const nameParts = studentWithOffer.name ? studentWithOffer.name.trim().split(/\s+/) : [];
+                const defaultFirstName = nameParts[0] || 'Student';
+                const defaultLastName = nameParts.slice(1).join(' ') || 'Legacy';
+                const defaultGender = studentToUpdate.studentDetails?.gender || Gender.MALE;
 
-                if (Object.keys(contactInfoUpdate).length > 0) {
-                    await tx.applicantContactInfo.update({
-                        where: { applicationProfileId },
-                        data: contactInfoUpdate
-                    });
-                }
+                await prisma.applicantBioData.upsert({
+                    where: { applicationProfileId },
+                    create: {
+                        applicationProfileId,
+                        firstName: defaultFirstName,
+                        lastName: defaultLastName,
+                        gender: defaultGender,
+                        nationality: "Nigerian",
+                        ...bioDataUpdate
+                    },
+                    update: bioDataUpdate
+                });
 
-                if (Object.keys(nextOfKinUpdate).length > 0) {
-                    await tx.applicantNextOfKin.update({
-                        where: { applicationProfileId },
-                        data: nextOfKinUpdate
-                    });
-                }
+                await prisma.applicantContactInfo.upsert({
+                    where: { applicationProfileId },
+                    create: {
+                        applicationProfileId,
+                        stateOfResidence: "",
+                        lgaOfResidence: "",
+                        residentialAddress: studentToUpdate.studentDetails?.address || "",
+                        ...contactInfoUpdate
+                    },
+                    update: contactInfoUpdate
+                });
 
-                if (Object.keys(guardianInfoUpdate).length > 0) {
-                    await tx.applicantGuardianInfo.update({
-                        where: { applicationProfileId },
-                        data: guardianInfoUpdate
-                    });
-                }
+                await prisma.applicantNextOfKin.upsert({
+                    where: { applicationProfileId },
+                    create: {
+                        applicationProfileId,
+                        fullName: nextOfKinUpdate.fullName || "",
+                        relationship: nextOfKinUpdate.relationship || "",
+                        phone: nextOfKinUpdate.phone || "",
+                        ...nextOfKinUpdate
+                    },
+                    update: nextOfKinUpdate
+                });
+
+                await prisma.applicantGuardianInfo.upsert({
+                    where: { applicationProfileId },
+                    create: {
+                        applicationProfileId,
+                        fullName: guardianInfoUpdate.fullName || studentToUpdate.studentDetails?.guardianName || "",
+                        relationship: guardianInfoUpdate.relationship || "Guardian",
+                        phone: guardianInfoUpdate.phone || studentToUpdate.studentDetails?.guardianPhone || "",
+                        ...guardianInfoUpdate
+                    },
+                    update: guardianInfoUpdate
+                });
+            } catch (subModelError) {
+                console.warn(`[STUDENT_SERVICE_WARNING] Skipping sub-model sync for student (ID: ${studentIdToUpdate}):`, subModelError.message);
             }
-        });
+        }
 
-        // Return updated student profile complete with all relations
         return prisma.student.findUnique({ 
             where: { id: studentIdToUpdate }, 
             select: studentFullSelection 
@@ -1519,8 +1743,6 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                 }
 
                 return studentWithRegNo;
-            }, {
-                timeout: 20000 // Set transaction execution window buffer to prevent starvation errors
             });
             successfulCreations.push(studentCreationResult);
         } catch (error) {
@@ -1551,4 +1773,5 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
             failedCreations
         }
     };
+
 };

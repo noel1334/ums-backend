@@ -9,7 +9,11 @@ import catchAsync from '../utils/catchAsync.js';
 // Admin creates student
 export const createStudent = async (req, res, next) => {
     try {
-        const newStudent = await StudentService.createStudent(req.body);
+        const studentData = { ...req.body };
+        if (req.fileUrl) {
+            studentData.profileImg = req.fileUrl;
+        }
+        const newStudent = await StudentService.createStudent(studentData);
         res.status(201).json({
             status: 'success',
             message: 'Student created successfully',
@@ -36,7 +40,6 @@ export const deleteStudent = async (req, res, next) => {
 // Student gets their own profile
 export const getMyProfile = async (req, res, next) => {
     try {
-        // FIXED: Added req.user as the second argument to match the service signature
         const student = await StudentService.getStudentById(req.user.id, req.user); 
         res.status(200).json({
             status: 'success',
@@ -50,10 +53,15 @@ export const getMyProfile = async (req, res, next) => {
 // Student updates their own profile (limited fields)
 export const updateMyProfile = async (req, res, next) => {
     try {
-        if (Object.keys(req.body).length === 0) {
+        const updateData = { ...req.body };
+        if (req.fileUrl) {
+            updateData.profileImg = req.fileUrl; // Map uploaded ImgBB URL
+        }
+
+        if (Object.keys(updateData).length === 0) {
             return next(new AppError('No data provided for update.', 400));
         }
-        const updatedStudent = await StudentService.updateStudent(req.user.id, req.body, req.user);
+        const updatedStudent = await StudentService.updateStudent(req.user.id, updateData, req.user);
         res.status(200).json({
             status: 'success',
             message: 'Your profile has been updated successfully.',
@@ -79,10 +87,9 @@ export const getStudentById = async (req, res, next) => {
         const studentId = parseInt(req.params.id, 10);
         if (isNaN(studentId)) return next(new AppError('Invalid student ID format.', 400));
 
-        // FIXED: Added req.user as the second argument to match the service signature
         const student = await StudentService.getStudentById(studentId, req.user); 
 
-        // Authorization checks (re-checked here for robust error messages)
+        // Authorization checks
         const { user } = req; 
         if (user.type === 'admin' || (user.type === 'student' && user.id === studentId)) {
             // Allowed
@@ -99,11 +106,16 @@ export const getStudentById = async (req, res, next) => {
 
 export const updateStudent = async (req, res, next) => {
     try {
-        if (Object.keys(req.body).length === 0) {
+        const updateData = { ...req.body };
+        if (req.fileUrl) {
+            updateData.profileImg = req.fileUrl; // Map uploaded ImgBB URL
+        }
+
+        if (Object.keys(updateData).length === 0) {
             return next(new AppError('No data provided for update.', 400));
         }
         const studentId = parseInt(req.params.id, 10);
-        const updatedStudent = await StudentService.updateStudent(studentId, req.body, req.user);
+        const updatedStudent = await StudentService.updateStudent(studentId, updateData, req.user);
         res.status(200).json({
             status: 'success',
             message: 'Student updated successfully',
