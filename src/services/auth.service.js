@@ -7,6 +7,8 @@ import AppError from '../utils/AppError.js';
 import { ExamStatus } from '../generated/prisma/index.js'; 
 import { getMyApplicationProfile } from './applicationProfile.service.js';
 import { toZonedTime } from 'date-fns-tz';
+import { sendEmail } from '../utils/email.js';
+
 export const createInitialAdmin = async () => {
     try {
         if (!prisma) {
@@ -474,4 +476,241 @@ export const logout = async (token) => {
     // For stateless JWT auth, logout is typically handled client-side by deleting the token.
     // If you need to invalidate tokens server-side, consider a token blacklist or similar mechanism.
     return { message: 'Logged out successfully.' };
+};
+
+// --- PASSWORD RESET SERVICE FUNCTIONS ---
+
+/**
+ * Scan all models for a registered identifier, generate a secure token, and email a reset link.
+ * Uses dynamic university configurations for branding and dynamic redirection.
+ */
+export const requestPasswordReset = async (identifier) => {
+    try {
+        if (!prisma) throw new AppError('Prisma client is not available.', 500);
+
+        const trimmed = String(identifier).trim();
+        if (!trimmed) throw new AppError('Identifier is required.', 400);
+
+        let user = null;
+        let userType = null;
+        let emailAddress = null;
+
+        // 1. Scan Admin (by Email)
+        if (trimmed.includes('@')) {
+            user = await prisma.admin.findUnique({ where: { email: trimmed } });
+            if (user) {
+                userType = 'admin';
+                emailAddress = user.email;
+            }
+        }
+
+        // 2. Scan Student (by Email, RegNo, or JAMB RegNo)
+        if (!user) {
+            user = await prisma.student.findFirst({
+                where: {
+                    OR: [
+                        { email: trimmed },
+                        { regNo: trimmed },
+                        { jambRegNo: trimmed }
+                    ]
+                }
+            });
+            if (user) {
+                userType = 'student';
+                emailAddress = user.email;
+            }
+        }
+
+        // 3. Scan Lecturer (by Email or StaffID)
+        if (!user) {
+            user = await prisma.lecturer.findFirst({
+                where: {
+                    OR: [
+                        { email: trimmed },
+                        { staffId: trimmed }
+                    ]
+                }
+            });
+            if (user) {
+                userType = 'lecturer';
+                emailAddress = user.email;
+            }
+        }
+
+        // 4. Scan ICTStaff (by Email or StaffID)
+        if (!user) {
+            user = await prisma.iCTStaff.findFirst({
+                where: {
+                    OR: [
+                        { email: trimmed },
+                        { staffId: trimmed }
+                    ]
+                }
+            });
+            if (user) {
+                userType = 'ictstaff';
+                emailAddress = user.email;
+            }
+        }
+
+        // 5. Scan OnlineScreeningList - Applicants (by Email or JAMB RegNo)
+        if (!user) {
+            user = await prisma.onlineScreeningList.findFirst({
+                where: {
+                    OR: [
+                        { email: trimmed },
+                        { jambRegNo: trimmed }
+                    ]
+                }
+            });
+            if (user) {
+                userType = 'applicant';
+                emailAddress = user.email;
+            }
+        }
+
+        if (!user) {
+            throw new AppError('No account found matching the provided details.', 404);
+        }
+        if (!emailAddress) {
+            throw new AppError('This account does not have a registered email address. Please contact support.', 400);
+        }
+
+        // --- FETCH DYNAMIC UNIVERSITY SETTINGS ---
+        const uniSettings = await prisma.universitySetting.findFirst();
+        const uniName = uniSettings?.name || 'Royalty College of Education, Health Sciences and Technology';
+        const uniAcronym = uniSettings?.acronym || 'RCOEHST';
+        const uniEmail = uniSettings?.email || 'info@royaltycollege.edu.ng';
+        const uniPhone = uniSettings?.phone || '';
+        const uniAddress = uniSettings?.address || '';
+        const uniLogo = uniSettings?.logoUrl || '';
+
+        // Create a stateless reset token using the current password hash as part of the secret.
+        const tokenSecret = config.jwtSecret + user.password;
+        const payload = {
+            userId: user.id,
+            email: emailAddress,
+            type: userType
+        };
+
+        const token = jwt.sign(payload, tokenSecret, { expiresIn: '15m' });
+
+        // Build target portal redirect paths
+        let portalUrl = '';
+        if (userType === 'student') {
+            portalUrl = config.studentPortalUrl.replace('/student-login', '') + '/reset-password';
+        } else if (userType === 'applicant') {
+            portalUrl = config.screeningPortalUrl.replace('/screening-login', '') + '/reset-password';
+        } else if (userType === 'lecturer') {
+            portalUrl = (process.env.LECTURER_URL || 'http://localhost:8081') + '/reset-password';
+        } else if (userType === 'ictstaff') {
+            portalUrl = (process.env.ICT_URL || 'http://localhost:8082') + '/reset-password';
+        } else {
+            portalUrl = (process.env.ADMIN_URL || 'http://localhost:8083') + '/reset-password';
+        }
+
+        const resetLink = `${portalUrl}?token=${token}`;
+
+        // Build dynamic header logo if available
+        const headerLogoHtml = uniLogo 
+            ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${uniLogo}" alt="${uniAcronym}" style="max-height: 80px; object-fit: contain;" /></div>`
+            : '';
+
+        // Construct HTML email notification
+        const subject = `${uniAcronym} Portal - Password Reset Request`;
+        const text = `Hello ${user.name || 'User'},\n\nYou requested to reset your password for your account at ${uniName}. Click the link below to set a new password:\n\n${resetLink}\n\nThis link is valid for 15 minutes. If you did not request this, please ignore this email.`;
+        
+        const html = `
+            <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 25px; border-radius: 8px;">
+                ${headerLogoHtml}
+                <h2 style="color: #2c3e50; text-align: center; margin-top: 0;">${uniName}</h2>
+                <p>Hello <strong>${user.name || 'User'}</strong>,</p>
+                <p>You requested a password reset for your portal account. Click the button below to set your new password:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="${resetLink}" style="background-color: #3498db; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Reset Password</a>
+                </div>
+                <p style="color: #7f8c8d; font-size: 0.9em; text-align: center;">This link will expire in 15 minutes. If you did not request a password reset, please ignore this email.</p>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;" />
+                <div style="color: #95a5a6; font-size: 0.85em; text-align: center; line-height: 1.5;">
+                    <strong>${uniName}</strong><br />
+                    ${uniAddress ? `${uniAddress}<br />` : ''}
+                    ${uniPhone ? `Tel: ${uniPhone} | ` : ''} Email: ${uniEmail}
+                </div>
+            </div>
+        `;
+
+        await sendEmail({
+            from: `${uniAcronym} Support <${config.email.from}>`, // Custom dynamic sender display name
+            to: emailAddress,
+            subject,
+            text,
+            html
+        });
+
+        return { message: 'A secure password reset link has been sent to your registered email address.' };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("[AUTH_SERVICE_ERROR] requestPasswordReset:", error.message, error.stack);
+        throw new AppError('Could not process password reset request due to an internal error.', 500);
+    }
+};
+
+/**
+ * Verify token authenticity, decode type, and securely hash/update the target password.
+ */
+export const resetPassword = async (token, newPassword) => {
+    try {
+        if (!prisma) throw new AppError('Prisma client is not available.', 500);
+
+        const decoded = jwt.decode(token);
+        if (!decoded || !decoded.userId || !decoded.type) {
+            throw new AppError('The password reset token is invalid or malformed.', 400);
+        }
+
+        let user = null;
+        if (decoded.type === 'admin') {
+            user = await prisma.admin.findUnique({ where: { id: decoded.userId } });
+        } else if (decoded.type === 'student') {
+            user = await prisma.student.findUnique({ where: { id: decoded.userId } });
+        } else if (decoded.type === 'lecturer') {
+            user = await prisma.lecturer.findUnique({ where: { id: decoded.userId } });
+        } else if (decoded.type === 'ictstaff') {
+            user = await prisma.iCTStaff.findUnique({ where: { id: decoded.userId } });
+        } else if (decoded.type === 'applicant') {
+            user = await prisma.onlineScreeningList.findUnique({ where: { id: decoded.userId } });
+        }
+
+        if (!user) {
+            throw new AppError('The account associated with this token was not found.', 404);
+        }
+
+        const tokenSecret = config.jwtSecret + user.password;
+        try {
+            jwt.verify(token, tokenSecret);
+        } catch (err) {
+            throw new AppError('The password reset link has expired or has already been used.', 400);
+        }
+
+        const hashedPassword = await hashPassword(newPassword);
+
+        if (decoded.type === 'admin') {
+            await prisma.admin.update({ where: { id: decoded.userId }, data: { password: hashedPassword } });
+        } else if (decoded.type === 'student') {
+            await prisma.student.update({ where: { id: decoded.userId }, data: { password: hashedPassword } });
+        } else if (decoded.type === 'lecturer') {
+            await prisma.lecturer.update({ where: { id: decoded.userId }, data: { password: hashedPassword } });
+        } else if (decoded.type === 'ictstaff') {
+            await prisma.iCTStaff.update({ where: { id: decoded.userId }, data: { password: hashedPassword } });
+        } else if (decoded.type === 'applicant') {
+            await prisma.onlineScreeningList.update({ where: { id: decoded.userId }, data: { password: hashedPassword } });
+        }
+
+        return { message: 'Your password has been successfully updated.' };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("[AUTH_SERVICE_ERROR] resetPassword:", error.message, error.stack);
+        throw new AppError('Could not reset password. Please try requesting a new link.', 500);
+    }
 };

@@ -1,14 +1,16 @@
+// src/utils/email.js
+
 import nodemailer from 'nodemailer';
 import AppError from './AppError.js';
-import config from '../config/index.js'
+import config from '../config/index.js';
 
 const transporter = nodemailer.createTransport({
-    host: config.email.host,       // Use config.email.host
-    port: config.email.port,       // Use config.email.port
+    host: config.email.host,       
+    port: config.email.port,       
     secure: config.email.port == 465,
     auth: {
-        user: config.email.user,   // Use config.email.user
-        pass: config.email.pass,   // Use config.email.pass
+        user: config.email.user,   
+        pass: config.email.pass,   
     },
     connectionTimeout: 10000,
     greetingTimeout: 10000,
@@ -16,12 +18,19 @@ const transporter = nodemailer.createTransport({
 });
 
 export const verifyEmailConnection = async () => {
-    // ... (This function remains the same)
+    // try {
+    //     await transporter.verify();
+    //     return true;
+    // } catch (error) {
+    //     console.error("Email transporter verification failed:", error);
+    //     return false;
+    // }
 };
 
 export const sendEmail = async (options) => {
     const mailOptions = {
-        from: `UniCT Hub Admissions <${config.email.from}>`, // Use config.email.from
+        // ALLOW DYNAMIC SENDER OVERRIDE:
+        from: options.from || `UniCT Hub Admissions <${config.email.from}>`, 
         to: options.to,
         subject: options.subject,
         html: options.html,
