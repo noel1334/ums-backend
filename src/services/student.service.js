@@ -2,6 +2,7 @@ import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
 import { hashPassword } from '../utils/password.utils.js'; 
 import { EntryMode, Gender, LecturerRole, DocumentType, DegreeType } from '../generated/prisma/index.js'; 
+import { uploadImageToImgBBFromBuffer } from '../utils/imageUpload.util.js'; 
 
 import { SemesterType, CourseType } from '../generated/prisma/index.js'; 
 import config from '../config/index.js'; 
@@ -46,7 +47,7 @@ const studentPublicSelection = {
 
 const studentFullSelection = {
     ...studentPublicSelection, 
-    medicalFitness: true, // Include the MedicalFitness relationship in details query
+    medicalFitness: true, 
     admissionOfferDetails: {
         select: {
             id: true,
@@ -185,6 +186,28 @@ const getEntryModeAbbreviation = (entryMode) => {
 };
 const studentSelfEditableMedicalFields = ['bloodGroup', 'genotype', 'fileUrl'];
 
+// Helper to decode and save base64 images directly to ImgBB
+const processBase64ProfileImage = async (base64Str, studentId) => {
+    try {
+        const matches = base64Str.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) return null;
+
+        const imageType = matches[1]; 
+        const imageBuffer = Buffer.from(matches[2], 'base64');
+        
+        let extension = 'png';
+        if (imageType.includes('jpeg') || imageType.includes('jpg')) extension = 'jpg';
+        else if (imageType.includes('gif')) extension = 'gif';
+        else if (imageType.includes('webp')) extension = 'webp';
+
+        const filename = `profile-${studentId}-${Date.now()}.${extension}`;
+        return await uploadImageToImgBBFromBuffer(imageBuffer, filename);
+    } catch (error) {
+        console.error("[processBase64ProfileImage_ERROR]:", error);
+        return null;
+    }
+};
+
 // --- createStudent function ---
 export const createStudent = async (studentData) => {
     console.log("[createStudent Service] Called with data:", studentData);
@@ -315,7 +338,7 @@ export const createStudent = async (studentData) => {
             finalEntryLevelId = entryLevelRecord.id;
         }
 
-        // --- Uniqueness Checks ---
+        // --- Uniqueness Checks (Email, JambRegNo, Phone in details) ---
         const trimmedEmail = String(studentEmail).trim();
         const trimmedJambRegNo = jambRegNo ? String(jambRegNo).trim() : null;
         const trimmedPhone = phone ? String(phone).trim() : null;
@@ -589,7 +612,9 @@ export const getAllStudents = async (query, requestingUser) => {
 
         const where = {};
 
-        if (requestingUser.type === 'admin') {
+        const isAdministrativeUser = requestingUser.type === 'admin' || requestingUser.type === 'ictstaff';
+
+        if (isAdministrativeUser) {
             if (queryDeptId && String(queryDeptId).trim()) {
                 const pDeptId = parseInt(String(queryDeptId), 10);
                 if (!isNaN(pDeptId)) where.departmentId = pDeptId;
@@ -709,6 +734,8 @@ export const updateStudent = async (id, updateData, requestingUser) => {
         });
         if (!studentToUpdate) throw new AppError('Student not found for update.', 404);
 
+        const programDegreeType = studentToUpdate.program.degreeType; 
+
         const studentDataForDb = {};
         const studentDetailsDataForDb = {};
         const medicalFitnessDataForDb = {};
@@ -720,9 +747,9 @@ export const updateStudent = async (id, updateData, requestingUser) => {
         const guardianInfoUpdate = {};
 
         const isSelfUpdate = requestingUser.type === 'student' && requestingUser.id === studentIdToUpdate;
-        const isAdmin = requestingUser.type === 'admin';
+        const isAdministrativeUser = requestingUser.type === 'admin' || requestingUser.type === 'ictstaff';
 
-        if (!isAdmin && !isSelfUpdate) {
+        if (!isAdministrativeUser && !isSelfUpdate) {
             throw new AppError('Not authorized to update this student profile.', 403);
         }
 
@@ -739,8 +766,8 @@ export const updateStudent = async (id, updateData, requestingUser) => {
             if (nationality !== undefined) bioDataUpdate.nationality = nationality;
             if (placeOfBirth !== undefined) bioDataUpdate.placeOfBirth = placeOfBirth;
 
-            // Only Admin can modify legal names
-            if (isAdmin) {
+            // Only Admin or ICT staff can modify legal names
+            if (isAdministrativeUser) {
                 if (firstName !== undefined) bioDataUpdate.firstName = String(firstName).trim();
                 if (lastName !== undefined) bioDataUpdate.lastName = String(lastName).trim();
             }
@@ -778,7 +805,7 @@ export const updateStudent = async (id, updateData, requestingUser) => {
 
         // --- 2. Parse Base & Detail Fields ---
 
-        if (isAdmin) {
+        if (isAdministrativeUser) {
             for (const key of adminEditableStudentFields) {
                 if (updateData.hasOwnProperty(key)) {
                     const value = updateData[key];
@@ -898,7 +925,6 @@ export const updateStudent = async (id, updateData, requestingUser) => {
         }
 
         // --- PHASE A: CORE ATOMIC TRANSACTION ---
-        // Run updates on main student account tables in a quick transaction.
         await prisma.$transaction(async (tx) => {
             if (Object.keys(studentDataForDb).length > 0) {
                 await tx.student.update({ 
@@ -932,7 +958,6 @@ export const updateStudent = async (id, updateData, requestingUser) => {
         });
 
         // --- PHASE B: PRE-ADMISSION RELATIONAL STAGING (NON-TRANSACTIONAL) ---
-        // Run safely outside the main transaction to prevent transaction abort/lock crashes on legacy profiles.
         const studentWithOffer = await prisma.student.findUnique({
             where: { id: studentIdToUpdate },
             select: {
@@ -981,7 +1006,7 @@ export const updateStudent = async (id, updateData, requestingUser) => {
                     screeningList = await prisma.onlineScreeningList.create({
                         data: {
                             email: studentWithOffer.email,
-                            jambRegNo: verifiedJambRegNo,
+                            jambRegNo: verifiedJambRegNo, 
                             password: studentWithOffer.password,
                             isActive: true
                         }
@@ -1049,7 +1074,6 @@ export const updateStudent = async (id, updateData, requestingUser) => {
             }
         }
 
-        // Sync additional child sub-models safely using non-transactional calls
         if (applicationProfileId) {
             try {
                 const finalProfileImg = studentDataForDb.profileImg || studentWithOffer.profileImg;
@@ -1158,7 +1182,7 @@ export const deleteStudent = async (id) => {
         if (isNaN(studentIdNum)) throw new AppError('Invalid student ID format.', 400);
         const student = await prisma.student.findUnique({ where: { id: studentIdNum } });
         if (!student) throw new AppError('Student not found for deletion.', 404);
-        // Add more dependency checks based on ON DELETE RESTRICT rules
+        
         const regCount = await prisma.studentCourseRegistration.count({ where: { studentId: studentIdNum } });
         if (regCount > 0) throw new AppError(`Cannot delete. Student has ${regCount} course registrations.`, 400);
 
@@ -1179,7 +1203,6 @@ export const getMyCourseStudentsList = async (requestingLecturer, query) => {
 
         const lecturerId = requestingLecturer.id;
 
-        // 1. Find courses assigned to this lecturer matching the filters
         const staffCourseWhere = { lecturerId: lecturerId };
         if (courseId) staffCourseWhere.courseId = parseInt(String(courseId), 10);
         if (semesterId) staffCourseWhere.semesterId = parseInt(String(semesterId), 10);
@@ -1194,7 +1217,6 @@ export const getMyCourseStudentsList = async (requestingLecturer, query) => {
             return { students: [], totalPages: 0, currentPage: 1, limit: parseInt(limit, 10), totalStudents: 0 };
         }
 
-        // 2. Build Registration Query
         const registrationWhereClause = {
             OR: staffCourses.map(sc => ({
                 courseId: sc.courseId,
@@ -1208,7 +1230,6 @@ export const getMyCourseStudentsList = async (requestingLecturer, query) => {
             }
         };
 
-        // 3. Fetch Registrations
         const [registrations, totalStudents] = await prisma.$transaction([
             prisma.studentCourseRegistration.findMany({
                 where: registrationWhereClause,
@@ -1233,7 +1254,6 @@ export const getMyCourseStudentsList = async (requestingLecturer, query) => {
             })
         ]);
 
-        // 4. Map Output to Frontend Format
         const students = registrations.map(reg => ({
             ...reg.student, 
             studentCourseRegistration: {
@@ -1261,18 +1281,8 @@ export const getDepartmentStudents = async (requestingUser, query) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
 
-        // 1. Authorization Check: Must be HOD or Admin
-        if (requestingUser.type !== 'admin' && requestingUser.role !== LecturerRole.HOD) {
-            throw new AppError("You are not authorized to view your department's students.", 403);
-        }
-        
-        // 2. Data Integrity Check
-        if (!requestingUser.departmentId) {
-            throw new AppError("Your user profile is missing department information.", 500);
-        }
-
-        // 3. Destructure Query Parameters
         const {
+            departmentId: queryDeptId,
             programId, 
             currentLevelId, 
             isActive, 
@@ -1283,12 +1293,24 @@ export const getDepartmentStudents = async (requestingUser, query) => {
             limit: queryLimit = "20"
         } = query;
 
-        // 4. Base Filter: Only students in the user's department
-        const where = {
-            departmentId: requestingUser.departmentId
-        };
+        const where = {};
 
-        // --- FILTER LOGIC ---
+        const isAdministrativeUser = requestingUser.type === 'admin' || requestingUser.type === 'ictstaff';
+
+        if (isAdministrativeUser) {
+            const targetDeptId = queryDeptId || requestingUser.departmentId;
+            if (targetDeptId) {
+                where.departmentId = parseInt(String(targetDeptId), 10);
+            }
+        } else if (requestingUser.type === 'lecturer' && requestingUser.role === LecturerRole.HOD) {
+            if (!requestingUser.departmentId) {
+                throw new AppError("Your user profile is missing department information.", 500);
+            }
+            where.departmentId = requestingUser.departmentId;
+        } else {
+            throw new AppError("You are not authorized to view department student records.", 403);
+        }
+
         if (programId && String(programId).trim()) {
             const pId = parseInt(String(programId), 10);
             if (!isNaN(pId)) where.programId = pId;
@@ -1304,7 +1326,6 @@ export const getDepartmentStudents = async (requestingUser, query) => {
             where.isActive = isActiveBool;
         }
 
-        // --- SEARCH LOGIC ---
         if (search && String(search).trim()) {
             const searchStr = String(search).trim();
             where.OR = [
@@ -1321,7 +1342,6 @@ export const getDepartmentStudents = async (requestingUser, query) => {
             }
         }
 
-        // 5. Pagination Logic
         let pageNum = parseInt(queryPage, 10);
         let limitNum = parseInt(queryLimit, 10);
         
@@ -1330,7 +1350,6 @@ export const getDepartmentStudents = async (requestingUser, query) => {
         
         const skip = (pageNum - 1) * limitNum;
 
-        // 6. Database Transaction (Fetch Data + Count)
         const [students, totalItems] = await prisma.$transaction([
             prisma.student.findMany({
                 where,
@@ -1342,7 +1361,6 @@ export const getDepartmentStudents = async (requestingUser, query) => {
             prisma.student.count({ where })
         ]);
 
-        // 7. Return Response
         return {
             students,
             totalPages: Math.ceil(totalItems / limitNum),
@@ -1368,7 +1386,6 @@ export const getStudentsForAssignedCourse = async (requestingLecturer, query) =>
             page = "1", limit = "20"
         } = query;
 
-        // --- 1. Input Validation ---
         if (!courseId || !semesterId || !seasonId) {
             throw new AppError('courseId, semesterId, and seasonId are required query parameters.', 400);
         }
@@ -1381,7 +1398,6 @@ export const getStudentsForAssignedCourse = async (requestingLecturer, query) =>
             throw new AppError('Invalid ID format for course, semester, or season.', 400);
         }
 
-        // --- 2. Authorization Check ---
         const staffAssignment = await prisma.staffCourse.findFirst({
             where: {
                 lecturerId: requestingLecturer.id,
@@ -1395,7 +1411,6 @@ export const getStudentsForAssignedCourse = async (requestingLecturer, query) =>
             throw new AppError("You are not assigned to teach this course for the specified semester and season, or the assignment does not exist.", 403);
         }
 
-        // --- 3. Data Fetching ---
         const whereClause = {
             courseId: pCourseId,
             semesterId: pSemesterId,
@@ -1405,7 +1420,6 @@ export const getStudentsForAssignedCourse = async (requestingLecturer, query) =>
             }
         };
 
-        // --- Pagination ---
         let pageNum = parseInt(page, 10);
         let limitNum = parseInt(limit, 10);
         if (isNaN(pageNum) || pageNum < 1) pageNum = 1;
@@ -1448,7 +1462,7 @@ export const getStudentsForAssignedCourse = async (requestingLecturer, query) =>
     }
 };
 
-// --- NEW SERVICE FUNCTION: Batch create students and update admission offers ---
+// --- batchCreateStudents function ---
 export const batchCreateStudents = async (studentDataArray, requestingUser) => {
     if (!prisma) throw new AppError('Prisma client unavailable', 500);
     if (!Array.isArray(studentDataArray) || studentDataArray.length === 0) {
@@ -1458,34 +1472,26 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
     const successfulCreations = [];
     const failedCreations = [];
 
-    // Pre-fetch university setting once outside the loop to avoid redundant database calls inside loop
     const universitySetting = await prisma.universitySetting.findFirst({
         select: { acronym: true }
     });
     const schoolAcronym = universitySetting?.acronym ? universitySetting.acronym.trim().toUpperCase() : '';
     const acronymPrefix = schoolAcronym ? `${schoolAcronym}/` : '';
 
-    // Pre-fetch all levels, departments, programs, seasons, semesters for efficiency and validation
     const [allLevels, allDepartments, allPrograms, allSeasons, allSemesters] = await Promise.all([
-        prisma.level.findMany({ select: { id: true, name: true, value: true, degreeType: true, order: true } }), // Select degreeType, order
+        prisma.level.findMany({ select: { id: true, name: true, value: true, degreeType: true, order: true } }),
         prisma.department.findMany({ select: { id: true, name: true } }),
-        prisma.program.findMany({ select: { id: true, name: true, departmentId: true, degreeType: true } }), // Select degreeType for programs
+        prisma.program.findMany({ select: { id: true, name: true, departmentId: true, degreeType: true } }),
         prisma.season.findMany({ select: { id: true, name: true } }),
         prisma.semester.findMany({ select: { id: true, name: true, seasonId: true } }),
     ]);
 
-    // Create maps for quick lookups
     const levelMapById = new Map(allLevels.map(level => [level.id, level]));
-    const levelMapByCompoundNameAndDegree = new Map(allLevels.map(level => [`${level.name}-${level.degreeType}`, level.id]));
-    const levelMapByCompoundOrderAndDegree = new Map(allLevels.map(level => [`${level.order}-${level.degreeType}`, level.id]));
-
-    const departmentMapById = new Map(allDepartments.map(dept => [dept.id, dept])); // Store full department object
-    const programMapById = new Map(allPrograms.map(prog => [prog.id, prog])); // Store full program object
+    const departmentMapById = new Map(allDepartments.map(dept => [dept.id, dept])); 
+    const programMapById = new Map(allPrograms.map(prog => [prog.id, prog])); 
     const seasonMapById = new Map(allSeasons.map(season => [season.id, season]));
     const semesterMapById = new Map(allSemesters.map(semester => [semester.id, semester]));
 
-
-    // Pre-fetch existing students/details to check for unique constraint violations (email, jambRegNo, phone, regNo)
     const existingStudentUniques = await prisma.student.findMany({
         select: { jambRegNo: true, email: true, regNo: true, studentDetails: { select: { phone: true } } }
     });
@@ -1494,11 +1500,8 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
     const existingRegNos = new Set(existingStudentUniques.map(s => s.regNo).filter(Boolean));
     const existingPhones = new Set(existingStudentUniques.map(s => s.studentDetails?.phone).filter(Boolean));
 
-
-    // Loop through each student record to create them individually within a transaction
     for (const [index, studentData] of studentDataArray.entries()) {
         try {
-            // --- Password Hashing (LIFTED OUT OF THE TRANSACTION BLOCK TO AVOID Expired Transaction / Timeout errors) ---
             const { password: providedPassword } = studentData;
             let passwordToHash;
             if (providedPassword && String(providedPassword).trim() !== '') {
@@ -1574,7 +1577,6 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                 
                 const programDegreeType = programRecord?.degreeType;
 
-                // --- Determine Entry Level ID ---
                 let finalEntryLevelId;
                 if (entryLevelIdInput !== undefined && entryLevelIdInput !== null && String(entryLevelIdInput).trim() !== '') {
                     finalEntryLevelId = parseInt(String(entryLevelIdInput), 10);
@@ -1604,7 +1606,7 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                         case DegreeType.PHD:
                         case DegreeType.CERTIFICATE:
                         case DegreeType.DIPLOMA:
-                            targetLevelIdentifier = 1; // Order of the level
+                            targetLevelIdentifier = 1; 
                             levelSearchCriteria = { 
                                 unique_level_order_per_degree_type: { order: targetLevelIdentifier, degreeType: programDegreeType } 
                             };
@@ -1632,10 +1634,7 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                     }
                 }
                 if (!finalEntryLevelId) rowErrors.push('Entry Level could not be determined.');
-
-                if (!hashedPassword) {
-                    rowErrors.push('Password configuration is missing or invalid.');
-                }
+                if (!hashedPassword) rowErrors.push('Password configuration is missing or invalid.');
 
                 if (rowErrors.length > 0) {
                     throw new AppError(rowErrors.join('; '), 400); 
@@ -1693,15 +1692,12 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                 existingEmails.add(createdStudent.email);
                 if (createdStudent.jambRegNo) existingJambRegNos.add(createdStudent.jambRegNo);
 
-                // --- Step 2: Generate Registration Number ---
                 const yearAbbr = String(createdStudent.yearOfAdmission).slice(-2);
                 const entryModeAbbr = getEntryModeAbbreviation(createdStudent.entryMode);
                 const sequencePart = createdStudent.id.toString().padStart(5, '0');
-                
-                // Use the numerical department ID (as per initial undergraduate format)
                 const departmentIdentifier = createdStudent.departmentId; 
                 
-                const currentProgramRecord = programRecord; // Use the already fetched full program record
+                const currentProgramRecord = programRecord; 
                 const degreeTypeAbbr = getDegreeTypeAbbreviation(currentProgramRecord.degreeType); 
                 
                 let finalRegNo;
@@ -1715,7 +1711,6 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
                     throw new AppError(`Generated registration number '${finalRegNo}' already exists. Please try again or manually assign.`, 409);
                 }
                 existingRegNos.add(finalRegNo);
-
 
                 const studentWithRegNo = await tx.student.update({
                     where: { id: createdStudent.id },
@@ -1773,5 +1768,4 @@ export const batchCreateStudents = async (studentDataArray, requestingUser) => {
             failedCreations
         }
     };
-
 };

@@ -1,6 +1,7 @@
+// src/services/studentCourseRegistration.service.js
+
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
-// Ensure all necessary enums are imported
 import { LecturerRole, GradeLetter, SemesterType, CourseType } from '../generated/prisma/index.js';
 
 // Reusable selection for common public registration details
@@ -13,9 +14,9 @@ const registrationPublicSelection = {
             name: true,
             departmentId: true,
             programId: true,
-            currentLevelId: true, // Needed for HOD context
+            currentLevelId: true, 
             department: { select: { name: true } },
-            program: { select: { name: true } }, // Ensure program.id is selected if needed by other functions using this selection
+            program: { select: { name: true } }, 
         }
     },
     course: {
@@ -24,7 +25,6 @@ const registrationPublicSelection = {
             code: true,
             title: true,
             creditUnit: true,
-            // courseType: true, // REMOVED: This will be dynamically added
             preferredSemesterType: true
         }
     },
@@ -43,13 +43,11 @@ const registrationPublicSelection = {
 };
 
 
-
 // Grades considered "passing" for prerequisite checks
-const passingGrades = [GradeLetter.A, GradeLetter.B, GradeLetter.C, GradeLetter.D, GradeLetter.E, GradeLetter.P]; // 'F' is failing, 'I' is Incomplete (usually not passing)
+const passingGrades = [GradeLetter.A, GradeLetter.B, GradeLetter.C, GradeLetter.D, GradeLetter.E, GradeLetter.P];
 
 
 // --- Helper function to validate a single course for registration/update ---
-// It uses a transaction client 'tx' for atomicity or direct 'prisma' client.
 async function validateCourseForRegistration(tx, studentId, courseId, semesterId, levelId, seasonId, currentSemester, currentLevel, studentProgramId, currentSeason, isAddingNewCourse = false, currentProposedCourses = []) {
     const pCourseId = parseInt(courseId, 10);
     if (isNaN(pCourseId)) throw new AppError(`Invalid course ID format: ${courseId}.`, 400);
@@ -81,7 +79,7 @@ async function validateCourseForRegistration(tx, studentId, courseId, semesterId
             throw new AppError(`Credit unit limits are not configured for this program at Level ${currentLevel.name} for ${currentSemester.type} Semester. Please contact academic affairs.`, 400);
         }
 
-        const currentTotalUnitsInProposedSet = currentProposedCourses.reduce((sum, c) => sum + (c.course?.creditUnit || 0), 0); // Safely access creditUnit
+        const currentTotalUnitsInProposedSet = currentProposedCourses.reduce((sum, c) => sum + (c.course?.creditUnit || 0), 0); 
         const potentialTotalUnits = currentTotalUnitsInProposedSet + course.creditUnit;
 
         if (potentialTotalUnits > unitRequirement.maximumCreditUnits) {
@@ -108,14 +106,12 @@ async function validateCourseForRegistration(tx, studentId, courseId, semesterId
                 where: {
                     studentId: studentId,
                     courseId: prerequisite.prerequisite.id,
-                    score: { is: { grade: { in: passingGrades } } }, // Check for passing grade
-                    // Ensure prerequisite was taken in a PRIOR academic period
+                    score: { is: { grade: { in: passingGrades } } }, 
                     AND: [
                         {
-                            seasonId: { lt: currentSeason.id } // Prereq season is less than current season
+                            seasonId: { lt: currentSeason.id } 
                         },
                         {
-                            // Or same season but prior semester
                             seasonId: currentSeason.id,
                             semester: { semesterNumber: { lt: currentSemester.semesterNumber } }
                         }
@@ -138,11 +134,9 @@ async function validateCourseForRegistration(tx, studentId, courseId, semesterId
 
 
 // --- Service Function: registerStudentForCourse ---
-// This function handles registration of one course. It's used by the controller for batch registration too.
 export const registerStudentForCourse = async (registrationData, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
-        // All these IDs MUST be provided by the frontend payload, regardless of user type
         const { studentId, courseId, semesterId, levelId, seasonId } = registrationData;
 
         if (!studentId || !courseId || !semesterId || !levelId || !seasonId) {
@@ -158,18 +152,17 @@ export const registerStudentForCourse = async (registrationData, requestingUser)
             throw new AppError('Invalid ID format for one or more parameters.', 400);
         }
 
-        // --- AUTHORIZATION CHECK for Registering ---
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageCourseRegistration;
         const isSelfStudent = requestingUser.type === 'student' && requestingUser.id === pStudentId;
         const isLecturer = requestingUser.type === 'lecturer';
 
-        if (!isAdmin && !isPermittedICT && !isSelfStudent && !isLecturer) { // Initial broad check
+        if (!isAdmin && !isPermittedICT && !isSelfStudent && !isLecturer) { 
              throw new AppError('You are not authorized to register courses.', 403);
         }
 
         const [student, currentSemester, currentLevel, currentSeason] = await Promise.all([
-            prisma.student.findUnique({ where: { id: pStudentId }, select: { id: true, isActive: true, programId: true, departmentId: true } }), // Added departmentId for HOD check
+            prisma.student.findUnique({ where: { id: pStudentId }, select: { id: true, isActive: true, programId: true, departmentId: true } }), 
             prisma.semester.findUnique({ where: { id: pSemesterId }, select: { id: true, isActive: true, areStudentEditsLocked: true, type: true, semesterNumber: true, seasonId: true } }),
             prisma.level.findUnique({ where: { id: pLevelId }, select: { id: true, name: true } }),
             prisma.season.findUnique({ where: { id: pSeasonId }, select: { id: true, name: true } })
@@ -181,11 +174,12 @@ export const registerStudentForCourse = async (registrationData, requestingUser)
         if (!currentLevel) throw new AppError(`Level ID ${pLevelId} not found.`, 404);
         if (!currentSeason) throw new AppError(`Season ID ${pSeasonId} not found.`, 404);
 
-        if (!currentSemester.isActive) throw new AppError('Course registration is not open for this semester (semester inactive).', 400);
+        const isAdministrativeUser = isAdmin || isPermittedICT;
+        if (!currentSemester.isActive && !isAdministrativeUser) {
+            throw new AppError('Course registration is not open for this semester (semester inactive).', 400);
+        }
         
-        // Check if registration period is locked. If so, only Admin/ICT can bypass.
         if (currentSemester.areStudentEditsLocked && !isAdmin && !isPermittedICT) {
-             // If locked for students, and requesting user is student/lecturer, they cannot register.
              if (requestingUser.type === 'student') {
                 throw new AppError('Course registration/modification period for students is currently locked for this semester.', 400);
              } else if (isLecturer) {
@@ -193,9 +187,6 @@ export const registerStudentForCourse = async (registrationData, requestingUser)
              }
         }
         
-        // =======================================================================
-        // --- NEW: SCHOOL FEE PAYMENT VALIDATION ---
-        // =======================================================================
         const schoolFeeRecord = await prisma.schoolFee.findFirst({
             where: {
                 studentId: pStudentId,
@@ -206,24 +197,15 @@ export const registerStudentForCourse = async (registrationData, requestingUser)
             }
         });
 
-        // Check if a record exists and if it is NOT marked as 'PAID'.
-        // To allow PARTIAL or WAIVED, you would change the condition to:
-        // !['PAID', 'PARTIAL', 'WAIVED'].includes(schoolFeeRecord.paymentStatus)
         if (!schoolFeeRecord || schoolFeeRecord.paymentStatus !== 'PAID') {
-            // Students get a direct error. Staff get an error that explains why they can't proceed.
             if (isSelfStudent) {
                 throw new AppError(`Course registration is blocked. You have an outstanding school fee for the ${currentSeason.name} session. Please complete your payment.`, 403);
             } else {
                 throw new AppError(`Cannot register courses for this student. They have an outstanding school fee for the ${currentSeason.name} session.`, 403);
             }
         }
-        // =======================================================================
-        // --- END OF NEW VALIDATION ---
-        // =======================================================================
 
-
-        // HOD/Examiner specific authorization for registering other students
-        if (isLecturer && !isAdmin && !isPermittedICT) { // Only check if not already authorized as Admin/ICT
+        if (isLecturer && !isAdmin && !isPermittedICT) { 
             const isHODForStudentDept = requestingUser.role === LecturerRole.HOD && requestingUser.departmentId === student.departmentId;
             const isExaminerForCourse = requestingUser.role === LecturerRole.EXAMINER && await prisma.staffCourse.findFirst({
                 where: { lecturerId: requestingUser.id, courseId: pCourseId, semesterId: pSemesterId, seasonId: pSeasonId }
@@ -240,13 +222,11 @@ export const registerStudentForCourse = async (registrationData, requestingUser)
             throw new AppError('Student is already registered for this course in this semester and season.', 409);
         }
 
-        // Fetch existing registrations for credit unit check during ADD
         const existingRegistrationsForPeriod = await prisma.studentCourseRegistration.findMany({
             where: { studentId: pStudentId, semesterId: pSemesterId, seasonId: pSeasonId },
             select: { course: { select: { creditUnit: true } }, courseId: true, id: true }
         });
 
-        // Validate the course (program-course link, prerequisites, max units)
         const course = await validateCourseForRegistration(prisma, pStudentId, pCourseId, pSemesterId, pLevelId, pSeasonId, currentSemester, currentLevel, student.programId, currentSeason, true, existingRegistrationsForPeriod);
 
         const newRegistration = await prisma.studentCourseRegistration.create({
@@ -272,8 +252,7 @@ export const registerStudentForCourse = async (registrationData, requestingUser)
     }
 };
 
-// --- Service Function: updateStudentCourseRegistration (for individual updates like changing a course) ---
-// This is used for changing ONE course within a registration for a student (e.g. by admin)
+// --- Service Function: updateStudentCourseRegistration ---
 export const updateStudentCourseRegistration = async (id, updateData, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -282,7 +261,7 @@ export const updateStudentCourseRegistration = async (id, updateData, requesting
 
         const registration = await prisma.studentCourseRegistration.findUnique({
             where: { id: regId },
-            select: { // Select needed fields for validation and response
+            select: { 
                 id: true,
                 isScoreRecorded: true,
                 semester: { select: { id: true, type: true, areStudentEditsLocked: true, seasonId: true, semesterNumber: true, isActive: true } },
@@ -298,23 +277,20 @@ export const updateStudentCourseRegistration = async (id, updateData, requesting
             throw new AppError('Cannot update registration after score has been recorded.', 400);
         }
 
-        // --- AUTHORIZATION CHECK for Updating ---
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageCourseRegistration;
         const isSelfStudent = requestingUser.type === 'student' && requestingUser.id === registration.student.id;
         const isLecturer = requestingUser.type === 'lecturer';
 
-        // Check if registration period is locked. If so, only Admin/ICT can bypass.
         if (registration.semester.areStudentEditsLocked && !isAdmin && !isPermittedICT) {
              if (requestingUser.type === 'student') {
                 throw new AppError('Course registration/modification period for students is locked for this semester.', 400);
             }
-            if (isLecturer) { // Lecturers cannot update if locked
+            if (isLecturer) { 
                 throw new AppError('Course registration/modification period is locked for this semester. Only Admin/ICT can update.', 403);
             }
         }
         
-        // HOD/Examiner specific authorization for updating other students' registrations
         if (isLecturer && !isAdmin && !isPermittedICT) {
             const isHODForStudentDept = requestingUser.role === LecturerRole.HOD && requestingUser.departmentId === registration.student.departmentId;
             const isExaminerForCourse = requestingUser.role === LecturerRole.EXAMINER && await prisma.staffCourse.findFirst({
@@ -324,8 +300,7 @@ export const updateStudentCourseRegistration = async (id, updateData, requesting
                 throw new AppError('As a Lecturer, you are not authorized to update this course registration.', 403);
             }
         }
-        // Students cannot use this route to update. They use PUT /me route for comprehensive period updates.
-        if (isSelfStudent) { // Removed !isAdmin && !isPermittedICT && !isLecturer as those are already covered
+        if (isSelfStudent) { 
              throw new AppError('Students cannot directly update individual course registrations here. Please use the Add/Drop feature if available for this period.', 403);
         }
 
@@ -333,7 +308,6 @@ export const updateStudentCourseRegistration = async (id, updateData, requesting
         const dataForDb = {};
         const { courseId } = updateData;
 
-        // Logic for changing the course in a registration
         if (courseId !== undefined && courseId !== null && parseInt(courseId, 10) !== registration.course.id) {
             const pCourseId = parseInt(courseId, 10);
             if (isNaN(pCourseId)) throw new AppError('Invalid course ID for update.', 400);
@@ -345,7 +319,6 @@ export const updateStudentCourseRegistration = async (id, updateData, requesting
             ]);
             if (!currentSemester || !currentLevel || !currentSeason) throw new AppError('Associated academic period data missing for registration update.', 500);
 
-            // Fetch existing registrations for unit/prerequisite checks, excluding the current one
             const existingRegistrationsForPeriod = await prisma.studentCourseRegistration.findMany({
                 where: { studentId: registration.student.id, semesterId: registration.semester.id, seasonId: registration.season.id, id: { not: regId } },
                 select: { course: { select: { creditUnit: true } }, courseId: true, id: true }
@@ -353,25 +326,22 @@ export const updateStudentCourseRegistration = async (id, updateData, requesting
             const newCourseData = await prisma.course.findUnique({ where: { id: pCourseId }, select: { id: true, creditUnit: true, code: true, title: true }});
             if (!newCourseData) throw new AppError(`New Course ID ${pCourseId} not found.`, 404);
             
-            // Create a virtual list of proposed courses including the new one for validation
-            const virtualExistingRegs = [...existingRegistrationsForPeriod, { id: 0, courseId: newCourseData.id, course: newCourseData }]; // id:0 is a dummy
+            const virtualExistingRegs = [...existingRegistrationsForPeriod, { id: 0, courseId: newCourseData.id, course: newCourseData }]; 
             
-            // Validate the new course against student's program, level, prerequisites, and max units
             await validateCourseForRegistration(prisma, registration.student.id, pCourseId, registration.semester.id, registration.level.id, registration.season.id, currentSemester, currentLevel, registration.student.programId, currentSeason, true, virtualExistingRegs);
 
-            // Check for unique conflict if the student is already registered for this new course (in another registration for the period)
             const existingConflict = await prisma.studentCourseRegistration.findFirst({
                 where: {
                     studentId: registration.student.id,
                     courseId: pCourseId,
                     semesterId: registration.semester.id,
                     seasonId: registration.season.id,
-                    id: { not: regId } // Exclude current registration itself
+                    id: { not: regId } 
                 }
             });
             if (existingConflict) throw new AppError('Student is already registered for the new target course in this semester/season.', 409);
 
-            dataForDb.courseId = pCourseId; // Update the course ID
+            dataForDb.courseId = pCourseId; 
         }
 
         if (Object.keys(dataForDb).length === 0) {
@@ -395,7 +365,7 @@ export const updateStudentCourseRegistration = async (id, updateData, requesting
 };
 
 
-// --- Service Function: deleteStudentCourseRegistration (for individual deletion) ---
+// --- Service Function: deleteStudentCourseRegistration ---
 export const deleteStudentCourseRegistration = async (id, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -404,11 +374,11 @@ export const deleteStudentCourseRegistration = async (id, requestingUser) => {
 
         const registration = await prisma.studentCourseRegistration.findUnique({
             where: { id: regId },
-            select: { // Select needed fields for validation and response
+            select: { 
                 id: true,
                 isScoreRecorded: true,
                 semester: { select: { id: true, type: true, areStudentEditsLocked: true, seasonId: true, semesterNumber: true } },
-                student: { select: { id: true, programId: true, currentLevelId: true, departmentId: true } }, // Added departmentId
+                student: { select: { id: true, programId: true, currentLevelId: true, departmentId: true } }, 
                 course: { select: { id: true, creditUnit: true, code: true, title: true } },
                 level: { select: { id: true, name: true } },
                 season: { select: { id: true } },
@@ -420,23 +390,20 @@ export const deleteStudentCourseRegistration = async (id, requestingUser) => {
         if (registration.score) {
             throw new AppError(`Cannot delete course '${registration.course.code}'. A score has already been recorded.`, 400);
         }
-        // Admin/ICT can delete even if locked. Other roles cannot.
         if (registration.semester.areStudentEditsLocked && !(requestingUser.type === 'admin' || (requestingUser.type === 'ictstaff' && requestingUser.canManageCourseRegistration))) {
             throw new AppError(`Cannot delete course '${registration.course.code}'. Registration period is locked for this semester.`, 400);
         }
 
-        // --- AUTHORIZATION CHECK for Deleting ---
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageCourseRegistration;
         const isSelfStudent = requestingUser.type === 'student' && requestingUser.id === registration.student.id;
         const isLecturer = requestingUser.type === 'lecturer';
 
-        if (!isAdmin && !isPermittedICT && !isSelfStudent && !isLecturer) { // If not authorized by these basic types
+        if (!isAdmin && !isPermittedICT && !isSelfStudent && !isLecturer) { 
             throw new AppError('You are not authorized to delete this course registration.', 403);
         }
 
-        // HOD/Examiner specific authorization for deleting other students' registrations
-        if (isLecturer && !isAdmin && !isPermittedICT) { // Only check if not already authorized as Admin/ICT
+        if (isLecturer && !isAdmin && !isPermittedICT) { 
              const isHODForStudentDept = requestingUser.role === LecturerRole.HOD && requestingUser.departmentId === registration.student.departmentId;
              const isExaminerForCourse = requestingUser.role === LecturerRole.EXAMINER && await prisma.staffCourse.findFirst({
                  where: { lecturerId: requestingUser.id, courseId: registration.course.id, semesterId: registration.semester.id, seasonId: registration.season.id }
@@ -446,7 +413,6 @@ export const deleteStudentCourseRegistration = async (id, requestingUser) => {
              }
         }
 
-        // Minimum Credit Unit Check for Deletion (only for students, when dropping a course)
         if (isSelfStudent) {
             const unitRequirement = await prisma.programCourseUnitRequirement.findUnique({
                 where: {
@@ -465,7 +431,7 @@ export const deleteStudentCourseRegistration = async (id, requestingUser) => {
                         studentId: registration.student.id,
                         semesterId: registration.semester.id,
                         seasonId: registration.season.id,
-                        id: { not: regId } // Exclude the course being dropped
+                        id: { not: regId } 
                     },
                     select: {
                         course: { select: { creditUnit: true } }
@@ -494,7 +460,7 @@ export const deleteStudentCourseRegistration = async (id, requestingUser) => {
     }
 };
 
-// --- Service Function: deleteMultipleStudentCourseRegistrations (for bulk deletion) ---
+// --- Service Function: deleteMultipleStudentCourseRegistrations ---
 export const deleteMultipleStudentCourseRegistrations = async (registrationIds, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -507,24 +473,24 @@ export const deleteMultipleStudentCourseRegistrations = async (registrationIds, 
             throw new AppError('Invalid ID format in the provided list of registration IDs.', 400);
         }
 
-        // --- AUTHORIZATION CHECK for Bulk Deletion ---
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageCourseRegistration;
         const isStudent = requestingUser.type === 'student';
         const isLecturer = requestingUser.type === 'lecturer';
         
-        if (!isAdmin && !isPermittedICT && !isStudent && !isLecturer) { // Basic check for allowed types
+        if (!isAdmin && !isPermittedICT && !isStudent && !isLecturer) { 
             throw new AppError('You are not authorized to delete multiple course registrations.', 403);
         }
 
+        // --- INCREASED BATCH TRANSACTION TIMEOUT ---
         return await prisma.$transaction(async (tx) => {
             const registrationsToDelete = await tx.studentCourseRegistration.findMany({
                 where: { id: { in: parsedIds } },
-                select: { // Select needed fields for validation
+                select: { 
                     id: true,
                     isScoreRecorded: true,
                     semester: { select: { id: true, type: true, areStudentEditsLocked: true, seasonId: true, semesterNumber: true } },
-                    student: { select: { id: true, programId: true, currentLevelId: true, departmentId: true } }, // Added departmentId
+                    student: { select: { id: true, programId: true, currentLevelId: true, departmentId: true } }, 
                     course: { select: { id: true, creditUnit: true, code: true, title: true } },
                     level: { select: { id: true, name: true } },
                     season: { select: { id: true } },
@@ -536,7 +502,6 @@ export const deleteMultipleStudentCourseRegistrations = async (registrationIds, 
                 throw new AppError('One or more selected registrations were not found or you are not authorized to delete them.', 404);
             }
 
-            // Get initial values from the first registration for consistency checks
             const firstReg = registrationsToDelete[0];
             const currentSemesterId = firstReg.semester.id;
             const currentSeasonId = firstReg.season.id;
@@ -550,22 +515,18 @@ export const deleteMultipleStudentCourseRegistrations = async (registrationIds, 
                 if (reg.score) {
                     throw new AppError(`Cannot delete course '${reg.course.code}' (ID: ${reg.id}). A score has already been recorded.`, 400);
                 }
-                // Admin/ICT can delete even if locked. Other roles cannot.
                 if (reg.semester.areStudentEditsLocked && !(isAdmin || isPermittedICT)) {
                     throw new AppError(`Cannot delete course '${reg.course.code}' (ID: ${reg.id}). Registration period is locked for this semester.`, 400);
                 }
                 
-                // Consistency check: ensure all selected registrations are for the same student and academic period
                 if (reg.semester.id !== currentSemesterId || reg.season.id !== currentSeasonId || reg.student.id !== affectedStudentId) {
                      throw new AppError('Bulk deletion is only allowed for registrations belonging to the same student and academic period.', 400);
                 }
 
-                // Authorization for student deleting their own registrations
                 if (isStudent && reg.student.id !== requestingUser.id) {
                     throw new AppError(`Authorization error: Cannot delete registrations not belonging to your account.`, 403);
                 }
-                // Authorization for lecturers
-                if (isLecturer && !isAdmin && !isPermittedICT) { // Only check if not already authorized as Admin/ICT
+                if (isLecturer && !isAdmin && !isPermittedICT) { 
                     const isHODForStudentDept = requestingUser.role === LecturerRole.HOD && requestingUser.departmentId === reg.student.departmentId;
                     const isExaminerForCourse = requestingUser.role === LecturerRole.EXAMINER && await tx.staffCourse.findFirst({
                         where: { lecturerId: requestingUser.id, courseId: reg.course.id, semesterId: reg.semester.id, seasonId: reg.season.id }
@@ -576,48 +537,12 @@ export const deleteMultipleStudentCourseRegistrations = async (registrationIds, 
                 }
             }
 
-            // Minimum Credit Unit Check for Bulk Deletion (only for students)
-            // if (isStudent) { // Only perform this check if the requester is a student
-            //     const unitRequirement = await prisma.programCourseUnitRequirement.findUnique({
-            //         where: {
-            //             programId_levelId_semesterType: {
-            //                 programId: studentProgramId,
-            //                 levelId: studentLevelId,
-            //                 semesterType: semesterType,
-            //             },
-            //             isActive: true,
-            //         },
-            //     });
-
-            //     if (unitRequirement) {
-            //         const allExistingRegistrationsForPeriod = await prisma.studentCourseRegistration.findMany({
-            //             where: {
-            //                 studentId: affectedStudentId,
-            //                 semesterId: currentSemesterId,
-            //                 seasonId: currentSeasonId,
-            //             },
-            //             select: { id: true, course: { select: { creditUnit: true } } }
-            //         });
-
-            //         const totalCreditUnitsBeingRemoved = registrationsToDelete.reduce((sum, reg) => sum + reg.course.creditUnit, 0);
-            //         const totalUnitsCurrentlyRegistered = allExistingRegistrationsForPeriod.reduce((sum, reg) => sum + reg.course.creditUnit, 0);
-            //         const remainingUnitsAfterRemoval = totalUnitsCurrentlyRegistered - totalCreditUnitsBeingRemoved;
-
-            //         if (remainingUnitsAfterRemoval < unitRequirement.minimumCreditUnits) {
-            //             throw new AppError(
-            //                 `Cannot delete selected courses. Remaining credit units (${remainingUnitsAfterRemoval}) would fall below the minimum allowed (${unitRequirement.minimumCreditUnits} units) for student's program, Level ${firstReg.level.name}, ${firstReg.semester.type} Semester.`,
-            //                 400
-            //             );
-            //         }
-            //     }
-            // }
-
             const deleteResult = await tx.studentCourseRegistration.deleteMany({
                 where: { id: { in: parsedIds } }
             });
 
             return { message: `Successfully deleted ${deleteResult.count} course registrations.` };
-        });
+        }, { timeout: 30000 });
 
     } catch (error) {
         if (error instanceof AppError) throw error;
@@ -626,7 +551,7 @@ export const deleteMultipleStudentCourseRegistrations = async (registrationIds, 
     }
 };
 
-// --- Service Function: getStudentRegisteredCourses (for student's self-view, no authorization needed here beyond self-ID) ---
+// --- Service Function: getStudentRegisteredCourses ---
 export const getStudentRegisteredCourses = async (studentId, query) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -702,7 +627,6 @@ export const getStudentRegisteredCourses = async (studentId, query) => {
 };
 
 // --- Service Function: getStudentCourseRegistrationById ---
-// This is used for viewing a single registration's details.
 export const getStudentCourseRegistrationById = async (id, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -711,7 +635,7 @@ export const getStudentCourseRegistrationById = async (id, requestingUser) => {
 
         const registration = await prisma.studentCourseRegistration.findUnique({
             where: { id: regId },
-            select: { // Ensure full data needed for UI and permissions
+            select: { 
                 ...registrationPublicSelection,
                 student: {
                     select: {
@@ -723,7 +647,6 @@ export const getStudentCourseRegistrationById = async (id, requestingUser) => {
         });
         if (!registration) throw new AppError('Course registration not found.', 404);
 
-        // --- AUTHORIZATION CHECK for Viewing by ID ---
         const isAdmin = requestingUser.type === 'admin';
         const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageCourseRegistration;
         const isSelf = requestingUser.type === 'student' && requestingUser.id === registration.student.id;
@@ -739,7 +662,7 @@ export const getStudentCourseRegistrationById = async (id, requestingUser) => {
             }
         }
         
-        if (isAdmin || isPermittedICT || isSelf) { // If any of these, allow viewing
+        if (isAdmin || isPermittedICT || isSelf) { 
             return registration;
         }
         throw new AppError('You are not authorized to view this course registration.', 403);
@@ -750,8 +673,7 @@ export const getStudentCourseRegistrationById = async (id, requestingUser) => {
     }
 };
 
-// --- Service Function: getAllStudentCourseRegistrations (for listing all registrations) ---
-
+// --- Service Function: getAllStudentCourseRegistrations ---
 export const getAllStudentCourseRegistrations = async (query, requestingUser) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -761,7 +683,7 @@ export const getAllStudentCourseRegistrations = async (query, requestingUser) =>
             departmentId: queryDeptId,
             programId,
             search,
-            page = 1, limit = 100 // Default limit to 100 for history tab
+            page = 1, limit = 100 
         } = query;
 
         const where = {};
@@ -773,34 +695,22 @@ export const getAllStudentCourseRegistrations = async (query, requestingUser) =>
         
         const isStudent = requestingUser.type === 'student';
 
-        // --- CORRECTED LOGIC: Prioritize the specific studentId filter ---
-
         if (queryStudentId) {
-            // If a specific studentId is passed in the query (like for the history tab),
-            // it should be the primary filter.
-            // Authorization middleware should ensure the lecturer is allowed to see this student.
             const parsedStudentId = parseInt(queryStudentId, 10);
             if (!isNaN(parsedStudentId)) {
                 filters.push({ studentId: parsedStudentId });
             }
         } else if (isStudent) {
-            // If the user is a student, they can only see their own data.
             filters.push({ studentId: requestingUser.id });
         } else if (requestingUser.type === 'lecturer' && requestingUser.role === 'HOD') {
-            // If no specific student is requested and the user is an HOD,
-            // then filter by their entire department for a general view.
             filters.push({ student: { departmentId: requestingUser.departmentId } });
         }
-        // ... (you can add other general 'else if' blocks for other lecturer roles here) ...
 
-
-        // --- Add all other common filters ---
         if (seasonId) filters.push({ seasonId: parseInt(seasonId, 10) });
         if (semesterId) filters.push({ semesterId: parseInt(semesterId, 10) });
         if (levelId) filters.push({ levelId: parseInt(levelId, 10) });
         if (courseId) filters.push({ courseId: parseInt(courseId, 10) });
 
-        // Add department/program filters if used by admin for broad searches
         if (!queryStudentId && queryDeptId) filters.push({ student: { departmentId: parseInt(queryDeptId, 10) } });
         if (!queryStudentId && programId) filters.push({ student: { programId: parseInt(programId, 10) } });
         
@@ -813,16 +723,13 @@ export const getAllStudentCourseRegistrations = async (query, requestingUser) =>
             });
         }
 
-        // Apply all collected filters
         if (filters.length > 0) {
             where.AND = filters;
         }
 
-        // Execute the final query to get raw registrations
         const [items, totalItems] = await prisma.$transaction([
             prisma.studentCourseRegistration.findMany({
                 where,
-                // Explicitly select the fields needed for the frontend and for the post-processing
                 select: {
                     id: true, registeredAt: true, isScoreRecorded: true,
                     student: {
@@ -831,7 +738,7 @@ export const getAllStudentCourseRegistrations = async (query, requestingUser) =>
                             regNo: true,
                             name: true,
                             departmentId: true,
-                            programId: true, // Crucial for ProgramCourse lookup
+                            programId: true, 
                             currentLevelId: true,
                             department: { select: { name: true } },
                             program: { select: { id: true, name: true } },
@@ -843,7 +750,6 @@ export const getAllStudentCourseRegistrations = async (query, requestingUser) =>
                             code: true,
                             title: true,
                             creditUnit: true,
-                            // DO NOT select courseType here directly from Course model
                             preferredSemesterType: true
                         }
                     },
@@ -856,27 +762,25 @@ export const getAllStudentCourseRegistrations = async (query, requestingUser) =>
                         seasonId: true,
                         isActive: true
                     } },
-                    level: { select: { id: true, name: true, value: true } }, // Crucial for ProgramCourse lookup
+                    level: { select: { id: true, name: true, value: true } }, 
                     season: { select: { id: true, name: true } },
                     score: { select: { id: true, totalScore: true, grade: true } }
                 },
-                orderBy: { course: { code: 'asc' } }, // Order by course code
+                orderBy: { course: { code: 'asc' } }, 
                 skip,
                 take: limitNum
             }),
             prisma.studentCourseRegistration.count({ where })
         ]);
 
-        // Post-process to correctly determine if a course is CORE or ELECTIVE
         const enhancedItems = await Promise.all(items.map(async (reg) => {
-            let courseType = 'CORE'; // Default to CORE
+            let courseType = 'CORE'; 
 
-            // Find the ProgramCourse entry that matches this registration
             const programCourse = await prisma.programCourse.findFirst({
                 where: {
-                    programId: reg.student.program.id, // Student's program
-                    levelId: reg.level.id,             // Level the course was registered for
-                    courseId: reg.course.id,           // The specific course
+                    programId: reg.student.program.id, 
+                    levelId: reg.level.id,             
+                    courseId: reg.course.id,           
                 },
                 select: {
                     isElective: true,
@@ -891,13 +795,13 @@ export const getAllStudentCourseRegistrations = async (query, requestingUser) =>
                 ...reg,
                 course: {
                     ...reg.course,
-                    courseType: courseType, // Add the dynamically determined courseType
+                    courseType: courseType, 
                 },
             };
         }));
 
         return {
-            items: enhancedItems, // Return the enhanced items with correct courseType
+            items: enhancedItems, 
             totalPages: Math.ceil(totalItems / limitNum),
             currentPage: pageNum,
             totalItems
@@ -925,11 +829,10 @@ export const getCourseRegistrationCompletionCount = async (query) => {
             whereClause.semesterId = parseInt(semesterId, 10);
             if (isNaN(whereClause.semesterId)) throw new AppError('Invalid Semester ID.', 400);
         }
-        // Filters by student's related entities
         const studentWhere = {};
         if (departmentId) studentWhere.departmentId = parseInt(departmentId, 10);
         if (programId) studentWhere.programId = parseInt(programId, 10);
-        if (levelId) studentWhere.currentLevelId = parseInt(levelId, 10); // Use currentLevelId for student model
+        if (levelId) studentWhere.currentLevelId = parseInt(levelId, 10); 
 
         if (Object.keys(studentWhere).length > 0) {
             whereClause.student = studentWhere;
@@ -960,7 +863,7 @@ export const getCourseRegistrationCompletionCount = async (query) => {
     }
 };
 
-// --- Service Function: updateMyRegistrationsForPeriod (for comprehensive student self-update) ---
+// --- Service Function: updateMyRegistrationsForPeriod ---
 export const updateMyRegistrationsForPeriod = async (studentId, seasonId, semesterId, levelId, desiredCourses, requestingUser) => {
     if (!prisma) throw new AppError('Prisma client is not available.', 500);
     const pStudentId = parseInt(studentId, 10);
@@ -975,7 +878,6 @@ export const updateMyRegistrationsForPeriod = async (studentId, seasonId, semest
         throw new AppError('Desired courses must be an array.', 400);
     }
 
-    // --- AUTHORIZATION CHECK for MyRegistrationsForPeriod ---
     const isAdmin = requestingUser.type === 'admin';
     const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageCourseRegistration;
     const isSelfStudent = requestingUser.type === 'student' && requestingUser.id === pStudentId;
@@ -984,6 +886,7 @@ export const updateMyRegistrationsForPeriod = async (studentId, seasonId, semest
         throw new AppError('You are not authorized to modify these course registrations.', 403);
     }
 
+    // --- INCREASING TIMEOUT LIMIT ---
     return await prisma.$transaction(async (tx) => {
         const [student, currentSemester, currentLevel, currentSeason] = await Promise.all([
             tx.student.findUnique({ where: { id: pStudentId }, select: { id: true, isActive: true, programId: true } }),
@@ -998,8 +901,12 @@ export const updateMyRegistrationsForPeriod = async (studentId, seasonId, semest
         if (!currentLevel) throw new AppError(`Level ID ${pLevelId} not found.`, 404);
         if (!currentSeason) throw new AppError(`Season ID ${pSeasonId} not found.`, 404);
 
-        if (!currentSemester.isActive) throw new AppError('Course registration period is not open for this semester (semester inactive).', 400);
-        if (currentSemester.areStudentEditsLocked && !isAdmin && !isPermittedICT) { // If locked, only Admin/ICT can bypass
+        const isAdministrativeUser = isAdmin || isPermittedICT;
+        if (!currentSemester.isActive && !isAdministrativeUser) {
+            throw new AppError('Course registration period is not open for this semester (semester inactive).', 400);
+        }
+        
+        if (currentSemester.areStudentEditsLocked && !isAdmin && !isPermittedICT) { 
             throw new AppError('Course registration/modification period is currently locked for this semester.', 400);
         }
 
@@ -1074,7 +981,6 @@ export const updateMyRegistrationsForPeriod = async (studentId, seasonId, semest
             changesMade += registrationsToCreate.length;
         }
 
-        // Final check for minimum credit units for the reconciled set of courses
         const unitRequirement = await tx.programCourseUnitRequirement.findUnique({
             where: {
                 programId_levelId_semesterType: {
@@ -1105,11 +1011,10 @@ export const updateMyRegistrationsForPeriod = async (studentId, seasonId, semest
             addedCount: registrationsToCreate.length,
             removedCount: registrationsToDeleteIds.length
         };
-    });
+    }, { timeout: 30000 }); // Custom timeout
 };
 
-// --- NEW SERVICE FUNCTION: updateStudentRegistrationsForPeriodByStaff ---
-// Allows Admin/ICT/HOD/Examiner to update a specific student's registrations for a period.
+// --- Service Function: updateStudentRegistrationsForPeriodByStaff ---
 export const updateStudentRegistrationsForPeriodByStaff = async (targetStudentId, seasonId, semesterId, levelId, desiredCourses, requestingUser) => {
     if (!prisma) throw new AppError('Prisma client is not available.', 500);
     const pTargetStudentId = parseInt(targetStudentId, 10);
@@ -1124,18 +1029,18 @@ export const updateStudentRegistrationsForPeriodByStaff = async (targetStudentId
         throw new AppError('Desired courses must be an array.', 400);
     }
 
-    // --- AUTHORIZATION CHECK for Staff-initiated comprehensive update ---
     const isAdmin = requestingUser.type === 'admin';
     const isPermittedICT = requestingUser.type === 'ictstaff' && requestingUser.canManageCourseRegistration;
     const isLecturer = requestingUser.type === 'lecturer';
 
-    if (!isAdmin && !isPermittedICT && !isLecturer) { // Basic check
+    if (!isAdmin && !isPermittedICT && !isLecturer) { 
         throw new AppError('You are not authorized to modify course registrations for other students.', 403);
     }
 
+    // --- INCREASING TIMEOUT LIMIT ---
     return await prisma.$transaction(async (tx) => {
         const [student, currentSemester, currentLevel, currentSeason] = await Promise.all([
-            tx.student.findUnique({ where: { id: pTargetStudentId }, select: { id: true, isActive: true, programId: true, departmentId: true } }), // Get departmentId for HOD check
+            tx.student.findUnique({ where: { id: pTargetStudentId }, select: { id: true, isActive: true, programId: true, departmentId: true } }), 
             tx.semester.findUnique({ where: { id: pSemesterId }, select: { id: true, isActive: true, areStudentEditsLocked: true, type: true, semesterNumber: true, seasonId: true } }),
             tx.level.findUnique({ where: { id: pLevelId }, select: { id: true, name: true } }),
             tx.season.findUnique({ where: { id: pSeasonId }, select: { id: true, name: true } })
@@ -1147,25 +1052,26 @@ export const updateStudentRegistrationsForPeriodByStaff = async (targetStudentId
         if (!currentLevel) throw new AppError(`Level ID ${pLevelId} not found.`, 404);
         if (!currentSeason) throw new AppError(`Season ID ${pSeasonId} not found.`, 404);
 
-        if (!currentSemester.isActive) throw new AppError('Course registration period is not open for this semester (semester inactive).', 400);
-        // Even if locked, Admin/ICT/HOD/Examiner can proceed
+        const isAdministrativeUser = isAdmin || isPermittedICT;
+        if (!currentSemester.isActive && !isAdministrativeUser) {
+             throw new AppError('Course registration period is not open for this semester (semester inactive).', 400);
+        }
+        
         if (currentSemester.areStudentEditsLocked && !isAdmin && !isPermittedICT) {
              throw new AppError('Course registration/modification period is currently locked for this semester. Only Admin/ICT can modify.', 403);
         }
 
-        // HOD/Examiner specific authorization (if not Admin/ICT)
         if (isLecturer && !isAdmin && !isPermittedICT) {
             const isHODForStudentDept = requestingUser.role === LecturerRole.HOD && requestingUser.departmentId === student.departmentId;
             const hasAuthForCourses = await Promise.all(desiredCourses.map(async (dc) => {
                 const courseIdNum = parseInt(dc.courseId, 10);
-                if (isNaN(courseIdNum)) return false; // Invalid course ID, treat as not authorized for it
+                if (isNaN(courseIdNum)) return false; 
                 return !!(await tx.staffCourse.findFirst({
                     where: { lecturerId: requestingUser.id, courseId: courseIdNum, semesterId: pSemesterId, seasonId: pSeasonId }
                 }));
             }));
-            const isExaminerForRelevantCourse = hasAuthForCourses.some(auth => auth); // True if authorized for at least one course
+            const isExaminerForRelevantCourse = hasAuthForCourses.some(auth => auth); 
 
-            // If they are not HOD for student's department, and not examiner for any of the courses, deny
             if (!isHODForStudentDept && !isExaminerForRelevantCourse) { 
                 throw new AppError('As a Lecturer, you are not authorized to modify registrations for this student or these courses.', 403);
             }
@@ -1242,7 +1148,6 @@ export const updateStudentRegistrationsForPeriodByStaff = async (targetStudentId
             changesMade += registrationsToCreate.length;
         }
 
-        // Final check for minimum credit units for the reconciled set of courses
         const unitRequirement = await tx.programCourseUnitRequirement.findUnique({
             where: {
                 programId_levelId_semesterType: {
@@ -1273,25 +1178,11 @@ export const updateStudentRegistrationsForPeriodByStaff = async (targetStudentId
             addedCount: registrationsToCreate.length,
             removedCount: registrationsToDeleteIds.length
         };
-    });
+    }, { timeout: 30000 }); // Custom timeout
 };
 
 
-/**
- * NEW FUNCTION
- * Fetches a list of students registered for a specific course in a given semester and season.
- *
- * @param {object} filters - Contains the IDs for filtering.
- * @param {number} filters.courseId - The ID of the course.
- * @param {number} filters.semesterId - The ID of the semester.
- * @param {number} filters.seasonId - The ID of the season.
- * @param {object} query - Contains pagination and search parameters.
- * @param {number} [query.page=1] - The page number for pagination.
- * @param {number} [query.limit=20] - The number of records per page.
- * @param {string} [query.studentName] - A search term for the student's name.
- * @param {string} [query.studentRegNo] - A search term for the student's registration number.
- * @returns {Promise<object>} An object with the list of students and pagination details.
- */
+// --- Service Function: getRegisteredStudents ---
 export const getRegisteredStudents = async (filters, query) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -1314,14 +1205,12 @@ export const getRegisteredStudents = async (filters, query) => {
         const limitNum = parseInt(limit, 10);
         const skip = (pageNum - 1) * limitNum;
 
-        // Define the core query conditions for the registration
         const whereClause = {
             courseId: pCourseId,
             semesterId: pSemesterId,
             seasonId: pSeasonId,
         };
 
-        // Add search filters that target the related student model
         if (studentName) {
             whereClause.student = {
                 ...whereClause.student,
@@ -1335,11 +1224,9 @@ export const getRegisteredStudents = async (filters, query) => {
             };
         }
 
-        // Fetch the registrations, but select only the student details
         const registrations = await prisma.studentCourseRegistration.findMany({
             where: whereClause,
             select: {
-                // We primarily want the student record, not the registration record itself.
                 student: {
                     select: {
                         id: true,
@@ -1360,7 +1247,6 @@ export const getRegisteredStudents = async (filters, query) => {
             take: limitNum
         });
 
-        // The result is an array of { student: { ... } }. Let's flatten it.
         const students = registrations.map(reg => reg.student);
 
         const totalStudents = await prisma.studentCourseRegistration.count({ where: whereClause });

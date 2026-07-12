@@ -81,7 +81,7 @@ export const getAllStudents = async (req, res, next) => {
     }
 };
 
-// Modified getStudentById to allow HOD to view students in their department
+// Modified getStudentById to allow Admin, HOD, and ICT staff to view student profiles
 export const getStudentById = async (req, res, next) => {
     try {
         const studentId = parseInt(req.params.id, 10);
@@ -91,7 +91,9 @@ export const getStudentById = async (req, res, next) => {
 
         // Authorization checks
         const { user } = req; 
-        if (user.type === 'admin' || (user.type === 'student' && user.id === studentId)) {
+        
+        // ADDED: user.type === 'ictstaff' check here to grant permission
+        if (user.type === 'admin' || user.type === 'ictstaff' || (user.type === 'student' && user.id === studentId)) {
             // Allowed
         } else if (user.type === 'lecturer' && user.role === LecturerRole.HOD && student && user.departmentId === student.departmentId) {
             // HOD viewing student in their department
@@ -134,6 +136,8 @@ export const getMyCourseStudents = catchAsync(async (req, res, next) => {
     });
 });
 
+
+
 export const getMyRegistrableCourses = async (req, res, next) => {
     try {
         const { seasonId, semesterId } = req.query;
@@ -141,10 +145,12 @@ export const getMyRegistrableCourses = async (req, res, next) => {
             return next(new AppError('Target Season ID and Semester ID are required in query.', 400));
         }
 
+        // Added req.user as the fourth parameter to allow active-validation bypass
         const result = await StudentAcademicsService.getRegistrableCoursesForStudent(
             req.user.id,
             seasonId,
-            semesterId
+            semesterId,
+            req.user 
         );
         res.status(200).json({
             status: 'success',

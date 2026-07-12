@@ -21,7 +21,7 @@ const getPreferredSemesterTypeFromCourse = (course) => {
 };
 
 // --- Service Function: getRegistrableCoursesForStudent ---
-export const getRegistrableCoursesForStudent = async (studentId, targetSeasonId, targetSemesterId) => {
+export const getRegistrableCoursesForStudent = async (studentId, targetSeasonId, targetSemesterId, requestingUser = null) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
 
@@ -36,7 +36,7 @@ export const getRegistrableCoursesForStudent = async (studentId, targetSeasonId,
         const student = await prisma.student.findUnique({
             where: { id: pStudentId },
             include: {
-                currentLevel: true, // <-- FIXED: Changed from 'level' to 'currentLevel'
+                currentLevel: true, 
                 program: true,
                 currentSemester: true,
                 registrations: {
@@ -50,7 +50,7 @@ export const getRegistrableCoursesForStudent = async (studentId, targetSeasonId,
         });
 
         if (!student) throw new AppError('Student not found.', 404);
-        if (!student.currentLevel?.id || !student.programId || !student.departmentId) { // Accessing id from currentLevel
+        if (!student.currentLevel?.id || !student.programId || !student.departmentId) { 
             throw new AppError('Student academic profile (level, program, or department) is incomplete.', 400);
         }
         
@@ -63,7 +63,11 @@ export const getRegistrableCoursesForStudent = async (studentId, targetSeasonId,
         if (targetSemester.seasonId !== pTargetSeasonId) {
             throw new AppError('Target semester does not belong to the target season.', 400);
         }
-        if (!targetSemester.isActive) {
+
+        // --- BYPASS SEMESTER ACTIVE VALIDATION FOR ADMINS & ICT STAFF ---
+        const isAdministrativeUser = requestingUser && (requestingUser.type === 'admin' || requestingUser.type === 'ictstaff');
+        
+        if (!targetSemester.isActive && !isAdministrativeUser) {
             throw new AppError('Course registration is not open for the target semester (semester inactive).', 400);
         }
 
@@ -83,7 +87,7 @@ export const getRegistrableCoursesForStudent = async (studentId, targetSeasonId,
         const programCoursesForCurrentLevel = await prisma.programCourse.findMany({
             where: {
                 programId: student.programId,
-                levelId: student.currentLevel.id, // Accessing id from currentLevel
+                levelId: student.currentLevel.id, 
                 isActive: true,
                 course: {
                     isActive: true,
@@ -104,7 +108,7 @@ export const getRegistrableCoursesForStudent = async (studentId, targetSeasonId,
                 ...pc.course,
                 isElective: pc.isElective,
                 programCourseId: pc.id,
-                offeringReason: `Current Program Offering for ${student.currentLevel.name}` // Accessing name from currentLevel
+                offeringReason: `Current Program Offering for ${student.currentLevel.name}` 
             }));
 
         // --- 2. Get student's failed courses (carryovers) ---
@@ -164,7 +168,6 @@ export const getRegistrableCoursesForStudent = async (studentId, targetSeasonId,
         });
         const finalPotentialCourses = Array.from(uniqueCourseMap.values());
 
-
         // --- 4. Filter out courses student is ALREADY registered for in the target semester/season ---
         const currentRegistrationsInTarget = await prisma.studentCourseRegistration.findMany({
             where: {
@@ -180,7 +183,7 @@ export const getRegistrableCoursesForStudent = async (studentId, targetSeasonId,
             course => !currentlyRegisteredCourseIds.has(course.id)
         );
 
-        // --- 5. Prerequisite Checking (Simplified example) ---
+        // --- 5. Prerequisite Checking ---
         const coursesWithPrerequisiteStatus = [];
         for (const course of availableToRegister) {
             const prerequisites = await prisma.coursePrerequisite.findMany({
@@ -208,7 +211,7 @@ export const getRegistrableCoursesForStudent = async (studentId, targetSeasonId,
         availableToRegister = coursesWithPrerequisiteStatus;
 
         return {
-            student: { id: student.id, name: student.name, regNo: student.regNo, level: student.currentLevel.name, program: student.program.name }, // Accessing name from currentLevel
+            student: { id: student.id, name: student.name, regNo: student.regNo, level: student.currentLevel.name, program: student.program.name }, 
             targetSeason: { id: pTargetSeasonId, name: targetSemester.season.name },
             targetSemester: { id: pTargetSemesterId, name: targetSemester.name, type: targetSemester.type },
             availableCourses: availableToRegister,
@@ -339,6 +342,7 @@ export const getStudentCurriculumCoursesForPeriod = async (studentId, targetSeas
     }
 };
 
+// --- Service Function: getRegistrableCoursesForAdmin ---
 export const getRegistrableCoursesForAdmin = async (studentIdentifier, targetSeasonId, targetSemesterId, requestingUser, filters = {}) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -353,7 +357,7 @@ export const getRegistrableCoursesForAdmin = async (studentIdentifier, targetSea
             throw new AppError('You are not authorized to view registrable courses for other students.', 403);
         }
 
-        // --- 2. Validate & Find Student (with fix for numeric ID) ---
+        // --- 2. Validate & Find Student ---
         if (!studentIdentifier) {
             throw new AppError('Student identifier is required.', 400);
         }
@@ -416,6 +420,32 @@ export const getRegistrableCoursesForAdmin = async (studentIdentifier, targetSea
             throw new AppError('Target semester does not belong to the target season.', 400);
         }
 
+        // --- BYPASS SEMESTER ACTIVE VALIDATION FOR ADMINS & ICT STAFF ---
+        const isAdministrativeUser = requestingUser && (requestingUser.type === 'admin' || requestingUser.type === 'ictstaff');
+        
+        if (!targetSemester.isActive && !isAdministrativeUser) {
+            throw new AppError('Course registration is not open for the target semester (semester inactive).', 400);
+        }
+
+        // --- DYNAMICALLY ASSIGN TARGET LEVEL FROM INCOMING FILTERS ---
+        const filterLevelId = filters.levelId || filters.level || filters.currentLevelId;
+        let targetLevelId = student.currentLevel.id;
+        let targetLevelName = student.currentLevel.name;
+
+        if (filterLevelId) {
+            const pFilterLevelId = parseInt(String(filterLevelId), 10);
+            if (!isNaN(pFilterLevelId)) {
+                const customLevel = await prisma.level.findUnique({
+                    where: { id: pFilterLevelId },
+                    select: { id: true, name: true }
+                });
+                if (customLevel) {
+                    targetLevelId = customLevel.id;
+                    targetLevelName = customLevel.name;
+                }
+            }
+        }
+
         // --- 5. Core Logic to Determine All Possible Courses ---
         const passedCourseIds = new Set(
             student.registrations
@@ -426,7 +456,7 @@ export const getRegistrableCoursesForAdmin = async (studentIdentifier, targetSea
         const programCoursesForCurrentLevel = await prisma.programCourse.findMany({
             where: {
                 programId: student.programId,
-                levelId: student.currentLevel.id,
+                levelId: targetLevelId, // Maps custom selected level
                 isActive: true,
                 course: { isActive: true, OR: [{ preferredSemesterType: targetSemester.type }, { preferredSemesterType: null }] }
             },
@@ -439,7 +469,7 @@ export const getRegistrableCoursesForAdmin = async (studentIdentifier, targetSea
                 ...pc.course,
                 isElective: pc.isElective,
                 programCourseId: pc.id,
-                offeringReason: `Current Program Offering for ${student.currentLevel.name}`
+                offeringReason: `Current Program Offering for ${targetLevelName}` // Displays correctly
             }));
 
         const studentFailedRegistrations = await prisma.studentCourseRegistration.findMany({
@@ -468,15 +498,21 @@ export const getRegistrableCoursesForAdmin = async (studentIdentifier, targetSea
 
         potentialCourses.push(...failedCoursesToCarryOver);
 
+        // --- 6. Remove duplicates based on course ID, prioritizing current offerings ---
         const uniqueCourseMap = new Map();
         potentialCourses.forEach(course => {
-            if (!uniqueCourseMap.has(course.id)) uniqueCourseMap.set(course.id, course);
+            if (!uniqueCourseMap.has(course.id)) {
+                uniqueCourseMap.set(course.id, course);
+            } else {
+                const existing = uniqueCourseMap.get(course.id);
+                if (course.offeringReason.startsWith("Current Program Offering") && existing.offeringReason.startsWith("Carryover")) {
+                    uniqueCourseMap.set(course.id, course);
+                }
+            }
         });
         const finalPotentialCourses = Array.from(uniqueCourseMap.values());
-        
-        // --- THIS IS THE MAIN FIX ---
-        
-        // First, get the IDs of courses the student has already registered in this specific period.
+
+        // --- 7. Filter out courses student is ALREADY registered for in the target semester/season ---
         const currentRegistrationsInTarget = await prisma.studentCourseRegistration.findMany({
             where: {
                 studentId: student.id,
@@ -487,18 +523,13 @@ export const getRegistrableCoursesForAdmin = async (studentIdentifier, targetSea
         });
         const currentlyRegisteredCourseIds = new Set(currentRegistrationsInTarget.map(r => r.courseId));
 
-        // Second, instead of filtering, MAP over the full list of potential courses.
-        // For each course, add a new property `isRegistered`.
-        const allCoursesWithStatus = finalPotentialCourses.map(course => ({
-            ...course,
-            isRegistered: currentlyRegisteredCourseIds.has(course.id) // This will be true or false
-        }));
+        let availableToRegister = finalPotentialCourses.filter(
+            course => !currentlyRegisteredCourseIds.has(course.id)
+        );
 
-        // --- END OF THE MAIN FIX ---
-
-        // Now, continue with prerequisite checks on the FULL list of courses.
+        // --- 8. Prerequisite Checking ---
         const coursesWithPrerequisiteStatus = [];
-        for (const course of allCoursesWithStatus) { // Use the full list here
+        for (const course of availableToRegister) {
             const prerequisites = await prisma.coursePrerequisite.findMany({
                 where: { courseId: course.id, prerequisite: { isActive: true } },
                 include: { prerequisite: { select: { id: true, code: true, title: true } } }
@@ -515,38 +546,24 @@ export const getRegistrableCoursesForAdmin = async (studentIdentifier, targetSea
                 }
             }
             coursesWithPrerequisiteStatus.push({
-                ...course, // This already contains the `isRegistered` flag
+                ...course,
                 prerequisitesMet,
-                unmetPrerequisites,
+                unmetPrerequisites: prerequisitesMet ? [] : unmetPrerequisites,
                 prerequisiteList: prerequisites.map(p => ({ id: p.prerequisiteId, code: p.prerequisite.code, title: p.prerequisite.title }))
             });
         }
-        
-        // Finally, the list to be returned contains ALL courses, each correctly flagged.
-        const finalAvailableCourses = coursesWithPrerequisiteStatus;
+        availableToRegister = coursesWithPrerequisiteStatus;
 
         return {
-            student: {
-                id: student.id,
-                name: student.name,
-                regNo: student.regNo,
-                jambRegNo: student.jambRegNo,
-                email: student.email,
-                level: student.currentLevel.name,
-                program: student.program.name,
-                department: student.department.name,
-                departmentId: student.department.id,
-                programId: student.program.id,
-                levelId: student.currentLevel.id,
-            },
+            student: { id: student.id, name: student.name, regNo: student.regNo, level: targetLevelName, program: student.program.name }, 
             targetSeason: { id: pTargetSeasonId, name: targetSemester.season.name },
             targetSemester: { id: pTargetSemesterId, name: targetSemester.name, type: targetSemester.type },
-            availableCourses: finalAvailableCourses, // This now returns the complete list
+            availableCourses: availableToRegister,
         };
 
     } catch (error) {
         if (error instanceof AppError) throw error;
         console.error("[StudentAcademicsService] Error fetching registrable courses for admin:", error.message, error.stack);
-        throw new AppError('Could not retrieve registrable courses for student.', 500);
+        throw new AppError('Could not retrieve registrable courses for admin.', 500);
     }
 };
