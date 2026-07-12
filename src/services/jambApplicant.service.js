@@ -1,14 +1,17 @@
+// src/services/jambApplicant.service.js
+
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
 import { EntryMode, Gender } from '../generated/prisma/index.js';
 import { sendEmail } from '../utils/email.js';
+import config from '../config/index.js';
 
 const applicantSelection = {
     id: true,
     jambRegNo: true,
     name: true,
     email: true,
-    phoneNumber: true, // Added for consistency
+    phoneNumber: true, 
     programName: true,
     entryMode: true,
     gender: true,
@@ -53,12 +56,11 @@ export const createJambApplicant = async (data, uploaderUser) => {
         const seasonExists = await prisma.season.findUnique({ where: { id: pJambSeasonId } });
         if (!seasonExists) throw new AppError(`JAMB Season ID ${pJambSeasonId} not found.`, 404);
 
-        // Date of Birth validation and conversion using Date object
         let parsedDateOfBirth = null;
         if (dateOfBirth) {
             try {
                 const date = new Date(dateOfBirth);
-                if (!isNaN(date.getTime())) { // Check for valid date
+                if (!isNaN(date.getTime())) { 
                     parsedDateOfBirth = date;
                 } else {
                     console.warn(`Invalid dateOfBirth format: ${dateOfBirth}. Setting to NULL.`);
@@ -116,7 +118,6 @@ export const batchCreateJambApplicants = async (applicantsDataArray, uploaderUse
         const errors = [];
         const validApplicantsToCreate = [];
 
-        // Fetch existing data for pre-validation (efficiency)
         const existingApplicants = await prisma.jambApplicant.findMany({
             select: { jambRegNo: true, email: true, phoneNumber: true }
         });
@@ -131,7 +132,6 @@ export const batchCreateJambApplicants = async (applicantsDataArray, uploaderUse
                 jambYear, jambSeasonId
             } = data;
 
-            // --- Sanitization and Type Coercion ---
             const sJambRegNo = String(jambRegNo || '').trim();
             const sName = String(name || '').trim();
             const sProgramName = String(programName || '').trim();
@@ -144,7 +144,6 @@ export const batchCreateJambApplicants = async (applicantsDataArray, uploaderUse
             let pJambScore = (jambScore !== null && jambScore !== undefined) ? parseInt(jambScore, 10) : null;
             let pJambSeasonId = (jambSeasonId !== null && jambSeasonId !== undefined) ? parseInt(jambSeasonId, 10) : null;
 
-            // Date of Birth validation and conversion
             let pDateOfBirth = null;
             if (dateOfBirth) {
                 try {
@@ -152,10 +151,10 @@ export const batchCreateJambApplicants = async (applicantsDataArray, uploaderUse
                     if (!isNaN(date.getTime())) {
                         pDateOfBirth = date;
                     } else {
-                        console.warn(`Invalid dateOfBirth format for row ${index + 1} (JambRegNo: ${sJambRegNo || 'N/A'}).  Setting to NULL.`);
+                        console.warn(`Invalid dateOfBirth format for row ${index + 1} (JambRegNo: ${sJambRegNo || 'N/A'}). Setting to NULL.`);
                     }
                 } catch (error) {
-                    console.warn(`Error parsing dateOfBirth for row ${index + 1} (JambRegNo: ${sJambRegNo || 'N/A'}). Setting to NULL.  Error:`, error);
+                    console.warn(`Error parsing dateOfBirth for row ${index + 1} (JambRegNo: ${sJambRegNo || 'N/A'}). Setting to NULL. Error:`, error);
                 }
             }
 
@@ -204,7 +203,7 @@ export const batchCreateJambApplicants = async (applicantsDataArray, uploaderUse
                     programName: sProgramName,
                     entryMode: sEntryMode,
                     gender: gender,
-                    dateOfBirth: pDateOfBirth, // Use parsed or null value
+                    dateOfBirth: pDateOfBirth, 
                     jambScore: pJambScore,
                     deGrade: sDeGrade,
                     jambYear: sJambYear,
@@ -258,15 +257,14 @@ export const batchCreateJambApplicants = async (applicantsDataArray, uploaderUse
         throw new AppError('Could not process batch import due to an unexpected server error.', 500);
     }
 };
+
 export const getAllJambApplicants = async (query) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
         
-        // --- FIX: Renamed 'jambSeason' to 'jambSeasonName' to avoid conflict ---
         const { search, programName, entryMode, jambSeasonName, sortBy, page = 1, limit = 10 } = query;
         const where = {};
 
-        // --- FIX: Removed `mode: 'insensitive'` from all clauses ---
         if (search) {
           where.OR = [
             { name: { contains: search } },
@@ -280,7 +278,6 @@ export const getAllJambApplicants = async (query) => {
         if (entryMode && entryMode !== 'all-types' && Object.values(EntryMode).includes(entryMode)) {
             where.entryMode = entryMode;
         }
-        // --- FIX: Filter by the name on the related jambSeason model ---
         if (jambSeasonName) {
             where.jambSeason = {
                 name: { contains: jambSeasonName }
@@ -290,7 +287,7 @@ export const getAllJambApplicants = async (query) => {
         let orderBy = { uploadedAt: 'desc' };
         if (sortBy && sortBy !== 'default') {
           const [field, direction] = sortBy.split(':');
-          if (field && direction && ['jambScore'].includes(field)) { // Whitelist sortable fields
+          if (field && direction && ['jambScore'].includes(field)) { 
             orderBy = { [field]: direction };
           }
         }
@@ -444,14 +441,6 @@ export const deleteJambApplicant = async (id) => {
             throw new AppError('JAMB applicant not found for deletion.', 404);
         }
 
-        // IMPORTANT: The `OnlineScreeningList.jambApplicant` relation needs to be optional (`JambApplicant?`)
-        // and its `onDelete` action set to `SetNull` (as discussed in the previous turn)
-        // for this check to allow deletion if `onlineScreeningAccount` has `jambRegNo` as `null`.
-        // If it was `onDelete: Cascade` or `Restrict` and the field was not nullable, this check would be critical.
-        // With `onDelete: SetNull` on the relation, the linked account's jambRegNo would become null,
-        // allowing the JambApplicant to be deleted. However, this business rule still makes sense:
-        // if an applicant *has* started the online screening process (meaning an `OnlineScreeningList` exists),
-        // deleting their original JAMB record might be disruptive.
         if (existingApplicant.onlineScreeningAccount) {
             throw new AppError('Cannot delete. An online screening account already exists for this applicant. Delete the screening account first if necessary.', 400);
         }
@@ -471,17 +460,15 @@ export const batchDeleteJambApplicants = async (ids) => {
         throw new AppError('An array of applicant IDs is required for batch deletion.', 400);
     }
 
-    // Ensure all IDs are integers to prevent injection
     const applicantIds = ids.map(id => parseInt(id, 10));
     if (applicantIds.some(isNaN)) {
         throw new AppError('All provided IDs must be valid integers.', 400);
     }
     
-    // Optional but recommended: Check if any of these applicants have started the screening process
     const applicantsWithAccounts = await prisma.jambApplicant.count({
         where: {
             id: { in: applicantIds },
-            onlineScreeningAccount: { isNot: null } // Checks if a screening account exists
+            onlineScreeningAccount: { isNot: null } 
         }
     });
 
@@ -489,7 +476,6 @@ export const batchDeleteJambApplicants = async (ids) => {
         throw new AppError(`Cannot delete. ${applicantsWithAccounts} of the selected applicants have started the application process.`, 400);
     }
     
-    // Perform the batch deletion
     try {
         const deleteResult = await prisma.jambApplicant.deleteMany({
             where: {
@@ -521,7 +507,6 @@ export const batchUpdateJambApplicants = async (ids, updateData) => {
         throw new AppError('All provided IDs must be valid integers.', 400);
     }
     
-    // Create an empty object, then conditionally add properties to it.
     const dataToUpdate = {};
     if (jambYear) {
         dataToUpdate.jambYear = String(jambYear);
@@ -546,16 +531,49 @@ export const batchUpdateJambApplicants = async (ids, updateData) => {
     }
 };
 
+// --- HELPER SENDER WRAPPER ---
+// Wraps the dynamic applicant templates in the beautifully-branded university email container
+const wrapEmailInUniversityTemplate = (personalizedMessage, uniName, uniAcronym, uniLogo, uniAddress, uniPhone, uniEmail) => {
+    const headerLogoHtml = uniLogo 
+        ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${uniLogo}" alt="${uniAcronym}" style="max-height: 80px; object-fit: contain;" /></div>`
+        : '';
+
+    return `
+        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 25px; border-radius: 8px;">
+            ${headerLogoHtml}
+            <h2 style="color: #2c3e50; text-align: center; margin-top: 0;">${uniName}</h2>
+            <div style="color: #333; font-size: 1em; line-height: 1.6; margin-bottom: 25px;">
+                ${personalizedMessage.replace(/\n/g, '<br>')}
+            </div>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;" />
+            <div style="color: #95a5a6; font-size: 0.85em; text-align: center; line-height: 1.5;">
+                <strong>${uniName}</strong><br />
+                ${uniAddress ? `${uniAddress}<br />` : ''}
+                ${uniPhone ? `Tel: ${uniPhone} | ` : ''} Email: ${uniEmail}
+            </div>
+        </div>
+    `;
+};
+
 export const batchEmailJambApplicants = async (ids, subject, messageTemplate) => {
     if (!prisma) throw new AppError('Prisma client unavailable', 500);
     if (!Array.isArray(ids) || ids.length === 0) {
         throw new AppError('An array of applicant IDs is required.', 400);
     }
 
+    // --- FETCH DYNAMIC UNIVERSITY CONFIGS ---
+    const uniSettings = await prisma.universitySetting.findFirst();
+    const uniName = uniSettings?.name || 'Royalty College of Education, Health Sciences and Technology';
+    const uniAcronym = uniSettings?.acronym || 'RCOEHST';
+    const uniEmail = uniSettings?.email || 'info@royaltycollege.edu.ng';
+    const uniPhone = uniSettings?.phone || '';
+    const uniAddress = uniSettings?.address || '';
+    const uniLogo = uniSettings?.logoUrl || '';
+
     const applicants = await prisma.jambApplicant.findMany({
         where: { 
             id: { in: ids },
-            email: { not: null, contains: '@' } // Only get valid-looking emails
+            email: { not: null, contains: '@' } 
         },
         select: {
             name: true, email: true, jambRegNo: true, programName: true, jambYear: true,
@@ -581,10 +599,15 @@ export const batchEmailJambApplicants = async (ids, subject, messageTemplate) =>
                 .replace(/{jamb_season}/g, applicant.jambSeason?.name || 'the current')
                 .replace(/{screening_link}/g, screeningLink);
 
+            // Wrap personalized message inside the beautifully-styled university email container
+            const htmlMessage = wrapEmailInUniversityTemplate(message, uniName, uniAcronym, uniLogo, uniAddress, uniPhone, uniEmail);
+
             await sendEmail({
+                from: `${uniAcronym} Admissions <${config.email.from}>`,
                 to: applicant.email,
                 subject: subject,
-                html: message.replace(/\n/g, '<br>')
+                text: message,
+                html: htmlMessage
             });
             successfulEmails++;
         } catch (error) {
@@ -593,7 +616,6 @@ export const batchEmailJambApplicants = async (ids, subject, messageTemplate) =>
         }
     }
     
-    // Check if some emails failed but others succeeded
     if (errors.length > 0 && successfulEmails > 0) {
          return {
             message: `Process complete with some errors. Sent: ${successfulEmails}. Failed: ${errors.length}.`,
@@ -601,7 +623,6 @@ export const batchEmailJambApplicants = async (ids, subject, messageTemplate) =>
             errors
         };
     }
-    // All emails failed, likely a config issue
     if (errors.length > 0 && successfulEmails === 0) {
        throw new AppError('Failed to send all emails. Please check your SMTP credentials in the .env file.', 500);
     }

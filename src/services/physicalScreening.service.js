@@ -1,3 +1,5 @@
+// src/services/physicalScreening.service.js
+
 import prisma from '../config/prisma.js';
 import config from '../config/index.js';
 import AppError from '../utils/AppError.js';
@@ -21,7 +23,7 @@ const physicalScreeningSelection = {
             email: true,
             phone: true,
             targetProgramId: true, 
-            bioData: { // Fetch bioData for applicant name fallback
+            bioData: { 
                 select: {
                     firstName: true,
                     lastName: true,
@@ -30,13 +32,13 @@ const physicalScreeningSelection = {
                     nationality: true
                 }
             },
-            targetProgram: { // Ensure targetProgram includes department, faculty, and degreeType for filtering
+            targetProgram: { 
                 select: { 
                     id: true,
                     name: true,
                     programCode: true,
                     degree: true,
-                    degreeType: true, // IMPORTANT: Include degreeType
+                    degreeType: true, 
                     department: {
                         select: {
                             id: true,
@@ -53,7 +55,7 @@ const physicalScreeningSelection = {
             },
             onlineScreeningList: {
                 select: {
-                    jambApplicant: { // Correctly nested under 'select' for the relation
+                    jambApplicant: { 
                         select: { name: true, entryMode: true, jambSeason: { select: { name: true } } }
                     }
                 }
@@ -78,7 +80,7 @@ const physicalScreeningSelection = {
 export const createPhysicalScreeningRecord = async (screeningData, creatorUserIdOrName) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
-        // ... rest of the function ...
+        // ... rest of the function if needed ...
     } catch (error) {
         if (error instanceof AppError) throw error;
         console.error("[PHYSICAL_SCREENING_SERVICE] CreateRecord:", error);
@@ -95,9 +97,9 @@ export const getAllPhysicalScreeningRecords = async (query) => {
             status,
             programId,
             seasonId,
-            departmentId, // NEW: departmentId filter
-            facultyId,    // NEW: facultyId filter
-            degreeType,   // NEW: degreeType filter
+            departmentId, 
+            facultyId,    
+            degreeType,   
             page = "1",
             limit = "10"
         } = query;
@@ -108,10 +110,9 @@ export const getAllPhysicalScreeningRecords = async (query) => {
         if (search) {
             filters.push({
                 OR: [
-                    { jambRegNo: { contains: search } }, // Removed mode: 'insensitive' based on previous issue
-                    // Search bioData names too
-                    { applicationProfile: { bioData: { OR: [{ firstName: { contains: search } }, { lastName: { contains: search } }] } } }, // Removed mode: 'insensitive'
-                    { applicationProfile: { onlineScreeningList: { jambApplicant: { name: { contains: search } } } } } // Removed mode: 'insensitive'
+                    { jambRegNo: { contains: search } }, 
+                    { applicationProfile: { bioData: { OR: [{ firstName: { contains: search } }, { lastName: { contains: search } }] } } }, 
+                    { applicationProfile: { onlineScreeningList: { jambApplicant: { name: { contains: search } } } } } 
                 ]
             });
         }
@@ -121,7 +122,6 @@ export const getAllPhysicalScreeningRecords = async (query) => {
         }
         
         const applicationProfileWhere = {};
-        // Initialize targetProgram filter if it will be used
         let targetProgramFilter = {};
 
         if (programId && programId !== 'all') {
@@ -135,7 +135,6 @@ export const getAllPhysicalScreeningRecords = async (query) => {
             };
         }
 
-        // NEW Filters: Department, Faculty, DegreeType (all via applicationProfile.targetProgram)
         if (departmentId && departmentId !== 'all') {
             targetProgramFilter.departmentId = parseInt(departmentId, 10);
         }
@@ -147,14 +146,12 @@ export const getAllPhysicalScreeningRecords = async (query) => {
         }
 
         if (degreeType && degreeType !== 'all') {
-            // Validate degreeType against your Prisma enum if necessary (or rely on Prisma's own validation)
             if (!Object.values(DegreeType).includes(degreeType)) {
                 throw new AppError(`Invalid degree type: ${degreeType}.`, 400);
             }
             targetProgramFilter.degreeType = degreeType;
         }
 
-        // If any targetProgram filters were set, add them to applicationProfileWhere
         if (Object.keys(targetProgramFilter).length > 0) {
             applicationProfileWhere.targetProgram = targetProgramFilter;
         }
@@ -279,6 +276,7 @@ export const updatePhysicalScreeningRecord = async (id, updateData, updaterUserI
 
     return updatedRecord;
 };
+
 export const deletePhysicalScreeningRecord = async (id) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
@@ -419,11 +417,44 @@ export const batchUpdateScreeningRecords = async (payload) => {
     };
 };
 
+// --- HELPER SENDER WRAPPER ---
+// Wraps personalized messages in the beautiful, dynamically configured university email container.
+const wrapEmailInUniversityTemplate = (personalizedMessage, uniName, uniAcronym, uniLogo, uniAddress, uniPhone, uniEmail) => {
+    const headerLogoHtml = uniLogo 
+        ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${uniLogo}" alt="${uniAcronym}" style="max-height: 80px; object-fit: contain;" /></div>`
+        : '';
+
+    return `
+        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 25px; border-radius: 8px;">
+            ${headerLogoHtml}
+            <h2 style="color: #2c3e50; text-align: center; margin-top: 0;">${uniName}</h2>
+            <div style="color: #333; font-size: 1em; line-height: 1.6; margin-bottom: 25px;">
+                ${personalizedMessage.replace(/\n/g, '<br>')}
+            </div>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;" />
+            <div style="color: #95a5a6; font-size: 0.85em; text-align: center; line-height: 1.5;">
+                <strong>${uniName}</strong><br />
+                ${uniAddress ? `${uniAddress}<br />` : ''}
+                ${uniPhone ? `Tel: ${uniPhone} | ` : ''} Email: ${uniEmail}
+            </div>
+        </div>
+    `;
+};
+
 export const batchEmailScreeningRecords = async (payload) => {
     const { recordIds, subject, message } = payload;
     if (!recordIds || !Array.isArray(recordIds) || recordIds.length === 0) {
         throw new AppError('An array of screening record IDs is required.', 400);
     }
+
+    // --- FETCH DYNAMIC UNIVERSITY SETTINGS ---
+    const uniSettings = await prisma.universitySetting.findFirst();
+    const uniName = uniSettings?.name || 'Royalty College of Education, Health Sciences and Technology';
+    const uniAcronym = uniSettings?.acronym || 'RCOEHST';
+    const uniEmail = uniSettings?.email || 'info@royaltycollege.edu.ng';
+    const uniPhone = uniSettings?.phone || '';
+    const uniAddress = uniSettings?.address || '';
+    const uniLogo = uniSettings?.logoUrl || '';
 
     const records = await prisma.physicalScreeningList.findMany({
         where: { id: { in: recordIds } },
@@ -434,16 +465,15 @@ export const batchEmailScreeningRecords = async (payload) => {
             applicationProfile: {
                 select: {
                     email: true,
-                    // CRITICAL FIX: Ensure 'onlineScreeningList' is correctly selected
                     onlineScreeningList: {
-                        select: { // <--- Added 'select' here for the relation
+                        select: { 
                             jambApplicant: {
                                 select: { name: true, entryMode: true }
                             }
                         }
                     },
                     targetProgram: { select: { name: true } },
-                    bioData: { // NEW: Select bioData for robust name fallback
+                    bioData: { 
                         select: { firstName: true, lastName: true }
                     }
                 }
@@ -460,19 +490,18 @@ export const batchEmailScreeningRecords = async (payload) => {
         const applicantBioData = rec.applicationProfile.bioData;
         const applicantJambData = rec.applicationProfile.onlineScreeningList?.jambApplicant;
 
-        // MODIFIED: Robust applicant_name derivation
         const applicant_name = (applicantBioData?.firstName && applicantBioData?.lastName)
             ? `${applicantBioData.firstName} ${applicantBioData.lastName}`.trim()
-            : applicantJambData?.name || 'Applicant'; // Fallback to 'Applicant'
+            : applicantJambData?.name || 'Applicant'; 
 
         return {
             email: rec.applicationProfile.email,
-            applicant_name: applicant_name, // Use the robust name
+            applicant_name: applicant_name, 
             program_name: rec.applicationProfile.targetProgram?.name ?? 'your chosen course',
             screening_date: formatDate(rec.screeningDate),
             screening_start_time: formatTime(rec.screeningStartDate),
             screening_end_time: formatTime(rec.screeningEndDate),
-            entryMode: applicantJambData?.entryMode // Use applicantJambData
+            entryMode: applicantJambData?.entryMode 
         };
     }).filter(app => app !== null);
 
@@ -495,12 +524,16 @@ export const batchEmailScreeningRecords = async (payload) => {
             .replace(/{extra_credential_requirement}/g, extraCredentialText)
             .replace(/{screening_portal_link}/g, config.screeningPortalUrl);
 
+        // Wrap personalized message inside the beautifully-branded university email container
+        const htmlMessage = wrapEmailInUniversityTemplate(personalizedMessage, uniName, uniAcronym, uniLogo, uniAddress, uniPhone, uniEmail);
+
         try {
             await sendEmail({
+                from: `${uniAcronym} Admissions <${config.email.from}>`,
                 to: applicant.email,
                 subject: subject,
                 text: personalizedMessage,
-                html: `<div style="font-family: sans-serif; line-height: 1.6;">${personalizedMessage.replace(/\n/g, '<br>')}</div>`
+                html: htmlMessage
             });
         } catch (error) {
             console.error(`Failed to send email to ${applicant.email}:`, error);

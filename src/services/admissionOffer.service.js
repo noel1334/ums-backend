@@ -1,9 +1,10 @@
+// src/services/admissionOffer.service.js
+
 import prisma from '../config/prisma.js';
 import AppError from '../utils/AppError.js';
 import { ApplicationStatus, EntryMode, DocumentType, DegreeType } from '../generated/prisma/index.js';
 import { sendEmail } from '../utils/email.js';
 import config from '../config/index.js';
-
 
 const offerSelection = {
     id: true,
@@ -31,7 +32,7 @@ const offerSelection = {
             jambRegNo: true,
             email: true,
             phone: true,
-            bioData: { // Include bioData for applicant name
+            bioData: { 
                 select: {
                     firstName: true,
                     lastName: true,
@@ -67,17 +68,17 @@ const offerSelection = {
             name: true,
             programCode: true,
             degree: true,
-            degreeType: true, // Already here, good for filtering
+            degreeType: true, 
             duration: true,
             modeOfStudy: true,
             department: {
                 select: {
                     id: true,
-                    name: true, // IMPORTANT: Ensure name is selected for filtering/display
-                    faculty: { // IMPORTANT: Ensure faculty is selected for filtering/cascading
+                    name: true, 
+                    faculty: { 
                         select: {
                             id: true,
-                            name: true // IMPORTANT: Ensure name is selected for filtering/display
+                            name: true 
                         }
                     }
                 }
@@ -109,7 +110,7 @@ export const getProgramAdmissionStats = async (seasonId) => {
             applicationProfile: {
                 select: {
                     onlineScreeningList: {
-                        select: { // Correct nesting
+                        select: { 
                             jambApplicant: {
                                 select: { entryMode: true }
                             }
@@ -177,10 +178,8 @@ export const createAdmissionOffer = async (offerData) => {
         });
         if (!program) throw new AppError(`Offered Program ID ${pOfferedProgramId} not found.`, 404);
 
-        // Validate existence of related entities
         const [appProfile, level, season, semester] = await Promise.all([
             prisma.applicationProfile.findUnique({ where: { id: pAppProfileId } }),
-            // FIX: Query level using both ID and the program's degreeType
             prisma.level.findUnique({
                 where: {
                     id: pOfferedLevelId,
@@ -259,7 +258,6 @@ export const createBatchAdmissionOffers = async (applicationProfileIds, offerDet
         throw new AppError('Admission Season, Semester, and Acceptance Deadline are required.', 400);
     }
 
-    // 1. Fetch eligible candidates and their related physicalScreening record ID, and TARGET PROGRAM.
     const candidates = await prisma.applicationProfile.findMany({
         where: {
             id: { in: applicationProfileIds },
@@ -281,25 +279,21 @@ export const createBatchAdmissionOffers = async (applicationProfileIds, offerDet
         }
     });
 
-    // 2. Filter out candidates who are not eligible or already have an offer or no target program
     const eligibleCandidates = candidates.filter(c => !c.admissionOffer && c.targetProgramId && c.targetProgram);
     if (eligibleCandidates.length === 0) {
         throw new AppError('No eligible candidates found. They may already have an offer, did not pass screening, or lack a target program.', 400);
     }
 
-    // 3. Pre-fetch ALL relevant levels to avoid N+1 queries inside the loop.
     const allLevels = await prisma.level.findMany({
         select: { id: true, name: true, value: true, degreeType: true, order: true }
     });
 
-    // Create a more robust map for quick lookup: (identifier, degreeType) -> Level.id
     const levelMap = new Map();
     allLevels.forEach(level => {
         levelMap.set(`${level.name}-${level.degreeType}`, level.id);
         levelMap.set(`${level.order}-${level.degreeType}`, level.id);
     });
 
-    // 4. Prepare the data for creating multiple admission offers
     const offersToCreate = eligibleCandidates.map(candidate => {
         const programDegreeType = candidate.targetProgram.degreeType;
         const entryMode = candidate.onlineScreeningList.jambApplicant?.entryMode;
@@ -321,7 +315,7 @@ export const createBatchAdmissionOffers = async (applicationProfileIds, offerDet
             case DegreeType.PHD:
             case DegreeType.CERTIFICATE:
             case DegreeType.DIPLOMA:
-                offeredLevelIdentifier = 1; // Order of the level
+                offeredLevelIdentifier = 1; 
                 levelLookupKey = `${offeredLevelIdentifier}-${programDegreeType}`;
                 break;
             
@@ -350,7 +344,6 @@ export const createBatchAdmissionOffers = async (applicationProfileIds, offerDet
         };
     });
     
-    // 5. Use a transaction to create offers and update statuses atomically
     const result = await prisma.$transaction(async (tx) => {
         const createdOffers = await tx.admissionOffer.createMany({
             data: offersToCreate,
@@ -359,13 +352,11 @@ export const createBatchAdmissionOffers = async (applicationProfileIds, offerDet
         
         const updatedProfileIds = eligibleCandidates.map(c => c.id);
 
-        // Update ApplicationProfile status
         await tx.applicationProfile.updateMany({
             where: { id: { in: updatedProfileIds } },
             data: { applicationStatus: ApplicationStatus.ADMITTED }
         });
 
-        // Update PhysicalScreeningList status
         await tx.physicalScreeningList.updateMany({
             where: { applicationProfileId: { in: updatedProfileIds } },
             data: { status: ApplicationStatus.ADMITTED }
@@ -387,9 +378,9 @@ export const getAllAdmissionOffers = async (query) => {
             entryMode,
             isAccepted,
             search,
-            departmentId, // NEW: departmentId filter
-            facultyId,    // NEW: facultyId filter
-            degreeType,   // NEW: degreeType filter
+            departmentId, 
+            facultyId,    
+            degreeType,   
             page = "1",
             limit = "10"
         } = query;
@@ -400,10 +391,9 @@ export const getAllAdmissionOffers = async (query) => {
         if (search) {
             filters.push({
                 OR: [
-                    { applicationProfile: { jambRegNo: { contains: search } } }, // Removed mode: 'insensitive'
-                    // Also search by name if target program is set, or if biodata exists
-                    { applicationProfile: { bioData: { OR: [{ firstName: { contains: search } }, { lastName: { contains: search } }] } } }, // NEW: Search by bioData name
-                    { applicationProfile: { onlineScreeningList: { jambApplicant: { name: { contains: search } } } } } // Removed mode: 'insensitive'
+                    { applicationProfile: { jambRegNo: { contains: search } } }, 
+                    { applicationProfile: { bioData: { OR: [{ firstName: { contains: search } }, { lastName: { contains: search } }] } } }, 
+                    { applicationProfile: { onlineScreeningList: { jambApplicant: { name: { contains: search } } } } } 
                 ]
             });
         }
@@ -412,14 +402,12 @@ export const getAllAdmissionOffers = async (query) => {
             filters.push({ admissionSeasonId: parseInt(admissionSeasonId, 10) });
         }
 
-        // Initialize offeredProgram filter object
         let offeredProgramFilter = {};
 
         if (offeredProgramId && offeredProgramId !== 'all') {
             offeredProgramFilter.id = parseInt(offeredProgramId, 10);
         }
 
-        // NEW Filters: Department, Faculty, DegreeType (all via offeredProgram)
         if (departmentId && departmentId !== 'all') {
             offeredProgramFilter.departmentId = parseInt(departmentId, 10);
         }
@@ -437,7 +425,6 @@ export const getAllAdmissionOffers = async (query) => {
             offeredProgramFilter.degreeType = degreeType;
         }
 
-        // If any offeredProgram filters were set, add them to the main filters
         if (Object.keys(offeredProgramFilter).length > 0) {
             filters.push({ offeredProgram: offeredProgramFilter });
         }
@@ -447,7 +434,7 @@ export const getAllAdmissionOffers = async (query) => {
                 applicationProfile: {
                     onlineScreeningList: {
                         jambApplicant: {
-                            entryMode: entryMode // Now directly filter by EntryMode
+                            entryMode: entryMode 
                         }
                     }
                 }
@@ -624,11 +611,45 @@ export const respondToAdmissionOffer = async (applicationProfileId, acceptanceSt
     }
 };
 
+// --- HELPER TEMPLATE WRAPPER ---
+// Wraps personalized email messages in the beautiful, dynamically configured university template container.
+const wrapEmailInUniversityTemplate = (personalizedMessage, uniName, uniAcronym, uniLogo, uniAddress, uniPhone, uniEmail) => {
+    const headerLogoHtml = uniLogo 
+        ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${uniLogo}" alt="${uniAcronym}" style="max-height: 80px; object-fit: contain;" /></div>`
+        : '';
+
+    return `
+        <div style="font-family: sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 25px; border-radius: 8px;">
+            ${headerLogoHtml}
+            <h2 style="color: #2c3e50; text-align: center; margin-top: 0;">${uniName}</h2>
+            <div style="color: #333; font-size: 1em; line-height: 1.6; margin-bottom: 25px;">
+                ${personalizedMessage.replace(/\n/g, '<br>')}
+            </div>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;" />
+            <div style="color: #95a5a6; font-size: 0.85em; text-align: center; line-height: 1.5;">
+                <strong>${uniName}</strong><br />
+                ${uniAddress ? `${uniAddress}<br />` : ''}
+                ${uniPhone ? `Tel: ${uniPhone} | ` : ''} Email: ${uniEmail}
+            </div>
+        </div>
+    `;
+};
+
 export const batchEmailNotificationAdmission = async (payload) => {
     const { offerIds, subject, message } = payload;
     if (!offerIds || !Array.isArray(offerIds) || offerIds.length === 0) {
         throw new AppError('An array of Admission Offer IDs is required.', 400);
     }
+
+    // --- FETCH DYNAMIC UNIVERSITY SETTINGS ---
+    const uniSettings = await prisma.universitySetting.findFirst();
+    const uniName = uniSettings?.name || 'Royalty College of Education, Health Sciences and Technology';
+    const uniAcronym = uniSettings?.acronym || 'RCOEHST';
+    const uniEmail = uniSettings?.email || 'info@royaltycollege.edu.ng';
+    const uniPhone = uniSettings?.phone || '';
+    const uniAddress = uniSettings?.address || '';
+    const uniLogo = uniSettings?.logoUrl || '';
+
     const offers = await prisma.admissionOffer.findMany({
         where: {
             id: { in: offerIds },
@@ -646,13 +667,13 @@ export const batchEmailNotificationAdmission = async (payload) => {
             applicationProfile: {
                 select: {
                     email: true,
-                    bioData: { // NEW: Select bioData for robust name fallback
+                    bioData: { 
                         select: { firstName: true, lastName: true }
                     },
                     onlineScreeningList: {
-                        select: { // <--- CRITICAL FIX: Added 'select' here for the relation
+                        select: { 
                             jambApplicant: {
-                                select: { name: true } // Corrected nesting
+                                select: { name: true } 
                             }
                         }
                     }
@@ -669,16 +690,15 @@ export const batchEmailNotificationAdmission = async (payload) => {
         const season = offer.admissionSeason;
         const semester = offer.admissionSemester;
 
-        if (!offer.applicationProfile.email) return null; // Must have an email
+        if (!offer.applicationProfile.email) return null; 
 
-        // MODIFIED: Robust applicant_name derivation
         const applicant_name = (applicantBioData?.firstName && applicantBioData?.lastName)
             ? `${applicantBioData.firstName} ${applicantBioData.lastName}`.trim()
-            : applicantJambData?.name || 'Applicant'; // Fallback to 'Applicant'
+            : applicantJambData?.name || 'Applicant'; 
 
         return {
             to: offer.applicationProfile.email,
-            applicant_name: applicant_name, // Use the robust name
+            applicant_name: applicant_name, 
             program_name: program.name,
             degree_type: program.degreeType.replace(/_/g, ' '),
             program_duration: `${program.duration} years`,
@@ -690,7 +710,7 @@ export const batchEmailNotificationAdmission = async (payload) => {
     }).filter(e => e !== null);
 
     if (emailsToSend.length === 0) {
-        throw new AppError('No eligible candidates with valid emails found for the selected offers (candidates may have rejected their offers or missing data).', 404);
+        throw new AppError('No eligible candidates with valid emails found for the selected offers.', 404);
     }
 
     for (const emailData of emailsToSend) {
@@ -702,12 +722,15 @@ export const batchEmailNotificationAdmission = async (payload) => {
             }
         }
 
+        const htmlMessage = wrapEmailInUniversityTemplate(personalizedMessage, uniName, uniAcronym, uniLogo, uniAddress, uniPhone, uniEmail);
+
         try {
             await sendEmail({
+                from: `${uniAcronym} Admissions <${config.email.from}>`,
                 to: emailData.to,
                 subject: subject,
                 text: personalizedMessage,
-                html: `<div style="font-family: sans-serif; line-height: 1.6;">${personalizedMessage.replace(/\n/g, '<br>')}</div>`
+                html: htmlMessage
             });
         } catch (error) {
             console.error(`Failed to send admission notification email to ${emailData.to}:`, error);
@@ -783,8 +806,16 @@ export const batchEmailAdmissionNotifications = async (payload) => {
     if (!offerIds || !Array.isArray(offerIds) || offerIds.length === 0) {
         throw new AppError('An array of Admission Offer IDs is required.', 400);
     }
+
+    // --- FETCH DYNAMIC UNIVERSITY SETTINGS ---
+    const uniSettings = await prisma.universitySetting.findFirst();
+    const uniName = uniSettings?.name || 'Royalty College of Education, Health Sciences and Technology';
+    const uniAcronym = uniSettings?.acronym || 'RCOEHST';
+    const uniEmail = uniSettings?.email || 'info@royaltycollege.edu.ng';
+    const uniPhone = uniSettings?.phone || '';
+    const uniAddress = uniSettings?.address || '';
+    const uniLogo = uniSettings?.logoUrl || '';
     
-    // MODIFIED: Corrected select structure and added bioData
     const offers = await prisma.admissionOffer.findMany({
         where: {
             id: { in: offerIds },
@@ -802,11 +833,11 @@ export const batchEmailAdmissionNotifications = async (payload) => {
             applicationProfile: {
                 select: {
                     email: true,
-                    bioData: { select: { firstName: true, lastName: true } }, // NEW: Fetch bioData
+                    bioData: { select: { firstName: true, lastName: true } }, 
                     onlineScreeningList: {
-                        select: { // <--- CRITICAL FIX: Added 'select' here for the relation
+                        select: { 
                             jambApplicant: {
-                                select: { name: true } // Corrected nesting
+                                select: { name: true } 
                             }
                         }
                     }
@@ -825,14 +856,13 @@ export const batchEmailAdmissionNotifications = async (payload) => {
 
         if (!offer.applicationProfile.email) return null;
 
-        // MODIFIED: Robust applicant_name derivation
         const applicant_name = (applicantBioData?.firstName && applicantBioData?.lastName)
             ? `${applicantBioData.firstName} ${applicantBioData.lastName}`.trim()
-            : applicantJambData?.name || 'Applicant'; // Fallback to 'Applicant'
+            : applicantJambData?.name || 'Applicant'; 
 
         return {
             to: offer.applicationProfile.email,
-            applicant_name: applicant_name, // Use the robust name
+            applicant_name: applicant_name, 
             program_name: program.name,
             degree_type: program.degreeType.replace(/_/g, ' '),
             program_duration: `${program.duration} years`,
@@ -844,7 +874,7 @@ export const batchEmailAdmissionNotifications = async (payload) => {
     }).filter(e => e !== null);
 
     if (emailsToSend.length === 0) {
-        throw new AppError('No eligible candidates with valid emails found for the selected offers (candidates may have rejected their offers or missing data).', 404);
+        throw new AppError('No eligible candidates with valid emails found for the selected offers.', 404);
     }
 
     for (const emailData of emailsToSend) {
@@ -856,12 +886,15 @@ export const batchEmailAdmissionNotifications = async (payload) => {
             }
         }
 
+        const htmlMessage = wrapEmailInUniversityTemplate(personalizedMessage, uniName, uniAcronym, uniLogo, uniAddress, uniPhone, uniEmail);
+
         try {
             await sendEmail({
+                from: `${uniAcronym} Admissions <${config.email.from}>`,
                 to: emailData.to,
                 subject: subject,
                 text: personalizedMessage,
-                html: `<div style="font-family: sans-serif; line-height: 1.6;">${personalizedMessage.replace(/\n/g, '<br>')}</div>`
+                html: htmlMessage
             });
         } catch (error) {
             console.error(`Failed to send admission notification email to ${emailData.to}:`, error);
