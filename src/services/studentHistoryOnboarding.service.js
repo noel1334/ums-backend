@@ -29,7 +29,7 @@ const getDegreeTypeAbbreviation = (degreeType) => {
 };
 
 /**
- * Onboard a single legacy student along with their historical semesters, results, and scores.
+ * Onboard or update a legacy student along with their historical semesters, results, and scores.
  */
 export const onboardOldStudent = async (studentData) => {
     try {
@@ -74,28 +74,30 @@ export const onboardOldStudent = async (studentData) => {
         if (!admissionSeason) throw new AppError(`Admission Season ID ${pAdmissionSeasonId} not found.`, 404);
         if (!admissionSemester) throw new AppError(`Admission Semester ID ${pAdmissionSemesterId} not found.`, 404);
 
-        // Standardize legacy student uniqueness attributes
         const trimmedEmail = email.trim();
         const trimmedRegNo = regNo && String(regNo).trim() !== "" ? String(regNo).trim() : null;
         const trimmedJambRegNo = jambRegNo && String(jambRegNo).trim() !== "" ? String(jambRegNo).trim() : null;
         const trimmedPhone = phone && String(phone).trim() !== "" ? String(phone).trim() : null;
 
-        const checkPromises = [prisma.student.findUnique({ where: { email: trimmedEmail } })];
-        if (trimmedRegNo) checkPromises.push(prisma.student.findUnique({ where: { regNo: trimmedRegNo } }));
-        if (trimmedJambRegNo) checkPromises.push(prisma.student.findUnique({ where: { jambRegNo: trimmedJambRegNo } }));
-        if (trimmedPhone) checkPromises.push(prisma.studentDetails.findFirst({ where: { phone: trimmedPhone } }));
+        // Check if student already exists
+        const existingStudent = await prisma.student.findFirst({
+            where: {
+                OR: [
+                    { email: trimmedEmail },
+                    trimmedRegNo ? { regNo: trimmedRegNo } : undefined
+                ].filter(Boolean)
+            },
+            include: { studentDetails: true }
+        });
 
-        const checkResults = await Promise.all(checkPromises);
-        if (checkResults[0]) throw new AppError(`Student with email '${trimmedEmail}' already exists in the system.`, 409);
-        if (trimmedRegNo && checkResults[1]) throw new AppError(`Registration number '${trimmedRegNo}' is already assigned to a student.`, 409);
-        if (trimmedJambRegNo && checkResults[trimmedRegNo ? 2 : 1]) throw new AppError(`JAMB registration number '${trimmedJambRegNo}' already exists in the system.`, 409);
-        if (trimmedPhone && checkResults[checkResults.length - 1]) throw new AppError(`Phone number '${trimmedPhone}' is already in use.`, 409);
-
-        // Hash Legacy Password outside the database transaction block
-        let passwordToHash = providedPassword && String(providedPassword).trim() !== ''
-            ? String(providedPassword).trim()
-            : config.studentDefaultPassword || '123456';
-        const hashedPassword = await hashPassword(passwordToHash);
+        // Hash Legacy Password outside transaction if creating new student or updating password
+        let hashedPassword = null;
+        if (!existingStudent || (providedPassword && String(providedPassword).trim() !== '')) {
+            let passwordToHash = providedPassword && String(providedPassword).trim() !== ''
+                ? String(providedPassword).trim()
+                : config.studentDefaultPassword || '123456';
+            hashedPassword = await hashPassword(passwordToHash);
+        }
 
         // Retrieve school acronym for fallback regNo generation
         const setting = await prisma.universitySetting.findFirst({ select: { acronym: true } });
@@ -103,61 +105,113 @@ export const onboardOldStudent = async (studentData) => {
         const acronymPrefix = schoolAcronym ? `${schoolAcronym}/` : '';
 
         // --- 2. Write Database Transaction ---
-        const result = await prisma.$transaction(async (tx) => {
-            // Create Student Record (using existing regNo if provided)
-            const createdStudent = await tx.student.create({
-                data: {
-                    name: name.trim(),
-                    email: trimmedEmail,
-                    jambRegNo: trimmedJambRegNo,
-                    regNo: trimmedRegNo || null, // Write directly if already exists in your old system
-                    entryMode,
-                    yearOfAdmission: pYearOfAdmission,
-                    admissionSeasonId: pAdmissionSeasonId,
-                    admissionSemesterId: pAdmissionSemesterId,
-                    departmentId: pDepartmentId,
-                    programId: pProgramId,
-                    entryLevelId: pEntryLevelId,
-                    currentLevelId: pCurrentLevelId,
-                    currentSeasonId: currentSeasonId ? parseInt(String(currentSeasonId), 10) : pAdmissionSeasonId,
-                    currentSemesterId: currentSemesterId ? parseInt(String(currentSemesterId), 10) : pAdmissionSemesterId,
-                    password: hashedPassword,
-                    isActive: true,
-                    isGraduated: false
-                }
-            });
+        const finalStudentId = await prisma.$transaction(async (tx) => {
+            let studentId;
 
-            // Assign generated Registration Number ONLY if not provided from your old system
-            if (!trimmedRegNo) {
-                const yearAbbr = String(createdStudent.yearOfAdmission).slice(-2);
-                const entryModeAbbr = getEntryModeAbbreviation(createdStudent.entryMode);
-                const sequencePart = createdStudent.id.toString().padStart(5, '0');
-                const degreeTypeAbbr = getDegreeTypeAbbreviation(programRecord.degreeType);
-                
-                const generatedRegNo = degreeTypeAbbr
-                    ? `${acronymPrefix}${yearAbbr}/${sequencePart}${entryModeAbbr}/${pDepartmentId}/${degreeTypeAbbr}`
-                    : `${acronymPrefix}${yearAbbr}/${sequencePart}${entryModeAbbr}/${pDepartmentId}`;
+            if (existingStudent) {
+                studentId = existingStudent.id;
 
+                // Update Student Core Record
                 await tx.student.update({
-                    where: { id: createdStudent.id },
-                    data: { regNo: generatedRegNo }
+                    where: { id: studentId },
+                    data: {
+                        name: name.trim(),
+                        jambRegNo: trimmedJambRegNo,
+                        regNo: trimmedRegNo || existingStudent.regNo,
+                        entryMode,
+                        yearOfAdmission: pYearOfAdmission,
+                        admissionSeasonId: pAdmissionSeasonId,
+                        admissionSemesterId: pAdmissionSemesterId,
+                        departmentId: pDepartmentId,
+                        programId: pProgramId,
+                        entryLevelId: pEntryLevelId,
+                        currentLevelId: pCurrentLevelId,
+                        currentSeasonId: currentSeasonId ? parseInt(String(currentSeasonId), 10) : pAdmissionSeasonId,
+                        currentSemesterId: currentSemesterId ? parseInt(String(currentSemesterId), 10) : pAdmissionSemesterId,
+                        ...(hashedPassword && { password: hashedPassword })
+                    }
+                });
+
+                // Upsert Details
+                await tx.studentDetails.upsert({
+                    where: { studentId },
+                    create: {
+                        studentId,
+                        dob: dob ? new Date(dob) : null,
+                        gender: gender || Gender.MALE,
+                        address: address ? address.trim() : null,
+                        phone: trimmedPhone,
+                        guardianName: guardianName ? guardianName.trim() : null,
+                        guardianPhone: guardianPhone ? guardianPhone.trim() : null
+                    },
+                    update: {
+                        dob: dob ? new Date(dob) : null,
+                        gender: gender || Gender.MALE,
+                        address: address ? address.trim() : null,
+                        phone: trimmedPhone,
+                        guardianName: guardianName ? guardianName.trim() : null,
+                        guardianPhone: guardianPhone ? guardianPhone.trim() : null
+                    }
+                });
+
+            } else {
+                // Create brand new Student Record
+                const createdStudent = await tx.student.create({
+                    data: {
+                        name: name.trim(),
+                        email: trimmedEmail,
+                        jambRegNo: trimmedJambRegNo,
+                        regNo: trimmedRegNo || null,
+                        entryMode,
+                        yearOfAdmission: pYearOfAdmission,
+                        admissionSeasonId: pAdmissionSeasonId,
+                        admissionSemesterId: pAdmissionSemesterId,
+                        departmentId: pDepartmentId,
+                        programId: pProgramId,
+                        entryLevelId: pEntryLevelId,
+                        currentLevelId: pCurrentLevelId,
+                        currentSeasonId: currentSeasonId ? parseInt(String(currentSeasonId), 10) : pAdmissionSeasonId,
+                        currentSemesterId: currentSemesterId ? parseInt(String(currentSemesterId), 10) : pAdmissionSemesterId,
+                        password: hashedPassword,
+                        isActive: true,
+                        isGraduated: false
+                    }
+                });
+
+                studentId = createdStudent.id;
+
+                // Assign generated Registration Number ONLY if not provided from your old system
+                if (!trimmedRegNo) {
+                    const yearAbbr = String(createdStudent.yearOfAdmission).slice(-2);
+                    const entryModeAbbr = getEntryModeAbbreviation(createdStudent.entryMode);
+                    const sequencePart = createdStudent.id.toString().padStart(5, '0');
+                    const degreeTypeAbbr = getDegreeTypeAbbreviation(programRecord.degreeType);
+                    
+                    const generatedRegNo = degreeTypeAbbr
+                        ? `${acronymPrefix}${yearAbbr}/${sequencePart}${entryModeAbbr}/${pDepartmentId}/${degreeTypeAbbr}`
+                        : `${acronymPrefix}${yearAbbr}/${sequencePart}${entryModeAbbr}/${pDepartmentId}`;
+
+                    await tx.student.update({
+                        where: { id: studentId },
+                        data: { regNo: generatedRegNo }
+                    });
+                }
+
+                // Create Student Physical Details
+                await tx.studentDetails.create({
+                    data: {
+                        studentId,
+                        dob: dob ? new Date(dob) : null,
+                        gender: gender || Gender.MALE,
+                        address: address ? address.trim() : null,
+                        phone: trimmedPhone,
+                        guardianName: guardianName ? guardianName.trim() : null,
+                        guardianPhone: guardianPhone ? guardianPhone.trim() : null
+                    }
                 });
             }
 
-            // Create Student Physical Details
-            await tx.studentDetails.create({
-                data: {
-                    studentId: createdStudent.id,
-                    dob: dob ? new Date(dob) : null,
-                    gender: gender || Gender.MALE,
-                    address: address ? address.trim() : null,
-                    phone: trimmedPhone,
-                    guardianName: guardianName ? guardianName.trim() : null,
-                    guardianPhone: guardianPhone ? guardianPhone.trim() : null
-                }
-            });
-
-            // --- 3. Process Legacy Academic Records ---
+            // --- 3. Process/Upsert Legacy Academic Records ---
             if (Array.isArray(academicHistory) && academicHistory.length > 0) {
                 for (const semesterResult of academicHistory) {
                     const {
@@ -169,10 +223,17 @@ export const onboardOldStudent = async (studentData) => {
                     const pSemesterId = parseInt(String(semesterId), 10);
                     const pLevelId = parseInt(String(levelId), 10);
 
-                    // Create semester result summary
-                    const createdResultSummary = await tx.result.create({
-                        data: {
-                            studentId: createdStudent.id,
+                    // Upsert semester result summary
+                    const createdResultSummary = await tx.result.upsert({
+                        where: {
+                            unique_student_semester_season_result: {
+                                studentId,
+                                semesterId: pSemesterId,
+                                seasonId: pSeasonId
+                            }
+                        },
+                        create: {
+                            studentId,
                             semesterId: pSemesterId,
                             seasonId: pSeasonId,
                             departmentId: pDepartmentId,
@@ -186,23 +247,45 @@ export const onboardOldStudent = async (studentData) => {
                             remarks: remarks ? remarks : null,
                             isApprovedForStudentRelease: true,
                             studentReleaseApprovedAt: new Date()
+                        },
+                        update: {
+                            departmentId: pDepartmentId,
+                            programId: pProgramId,
+                            levelId: pLevelId,
+                            gpa: gpa ? parseFloat(String(gpa)) : null,
+                            cgpa: cgpa ? parseFloat(String(cgpa)) : null,
+                            cuAttempted: cuAttempted ? parseInt(String(cuAttempted), 10) : null,
+                            cuPassed: cuPassed ? parseInt(String(cuPassed), 10) : null,
+                            cuTotal: cuTotal ? parseInt(String(cuTotal), 10) : null,
+                            remarks: remarks ? remarks : null
                         }
                     });
 
-                    // Add registered courses & scores
+                    // Add/Upsert registered courses & scores
                     for (const courseHistory of courses) {
                         const { courseId, firstCA, secondCA, examScore, totalScore, grade, point } = courseHistory;
                         const pCourseId = parseInt(String(courseId), 10);
 
-                        // Save Course Registration Record
-                        const courseRegistration = await tx.studentCourseRegistration.create({
-                            data: {
-                                studentId: createdStudent.id,
+                        // Upsert Course Registration Record
+                        const courseRegistration = await tx.studentCourseRegistration.upsert({
+                            where: {
+                                unique_student_course_semester_season_registration: {
+                                    studentId,
+                                    courseId: pCourseId,
+                                    semesterId: pSemesterId,
+                                    seasonId: pSeasonId
+                                }
+                            },
+                            create: {
+                                studentId,
                                 courseId: pCourseId,
                                 semesterId: pSemesterId,
                                 levelId: pLevelId,
                                 seasonId: pSeasonId,
                                 isScoreRecorded: true
+                            },
+                            update: {
+                                levelId: pLevelId
                             }
                         });
 
@@ -213,9 +296,10 @@ export const onboardOldStudent = async (studentData) => {
                             cuGp = parseFloat(String(point)) * courseRecord.creditUnit;
                         }
 
-                        // Save Course Score Breakdown
-                        await tx.score.create({
-                            data: {
+                        // Upsert Course Score Breakdown
+                        await tx.score.upsert({
+                            where: { studentCourseRegistrationId: courseRegistration.id },
+                            create: {
                                 studentCourseRegistrationId: courseRegistration.id,
                                 firstCA: firstCA !== undefined ? parseFloat(String(firstCA)) : null,
                                 secondCA: secondCA !== undefined ? parseFloat(String(secondCA)) : null,
@@ -229,20 +313,30 @@ export const onboardOldStudent = async (studentData) => {
                                 examinerApprovedAt: new Date(),
                                 isAcceptedByHOD: true,
                                 hodAcceptedAt: new Date()
+                            },
+                            update: {
+                                firstCA: firstCA !== undefined ? parseFloat(String(firstCA)) : null,
+                                secondCA: secondCA !== undefined ? parseFloat(String(secondCA)) : null,
+                                examScore: examScore !== undefined ? parseFloat(String(examScore)) : null,
+                                totalScore: totalScore !== undefined ? parseFloat(String(totalScore)) : null,
+                                grade: grade ? grade : null,
+                                point: point !== undefined ? parseFloat(String(point)) : null,
+                                cuGp: cuGp,
+                                resultId: createdResultSummary.id
                             }
                         });
                     }
                 }
             }
 
-            return createdStudent.id;
+            return studentId;
         }, {
-            timeout: 25000 // Extended interactive execution window
+            timeout: 30000 // Extended interactive execution window
         });
 
         // Retrieve fully constructed legacy student profile
         return await prisma.student.findUnique({
-            where: { id: result },
+            where: { id: finalStudentId },
             include: {
                 studentDetails: true,
                 results: {
@@ -261,7 +355,6 @@ export const onboardOldStudent = async (studentData) => {
 
     } catch (error) {
         if (error instanceof AppError) throw error;
-        // Parse raw database constraint errors to provide clear spreadsheet feedback
         if (error.code === 'P2002' && error.meta?.target) {
             const target = error.meta.target;
             let fieldName = Array.isArray(target) ? target.join(', ') : String(target);
