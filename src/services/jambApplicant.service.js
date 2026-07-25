@@ -589,11 +589,6 @@ export const batchEmailJambApplicants = async (ids, subject, messageTemplate) =>
     let successfulEmails = 0;
     const errors = [];
 
-    // FIXED: Extract raw clean email address from config to prevent double-bracket malformed headers
-    const rawFromEmail = config.email.from.includes('<')
-        ? (config.email.from.match(/<([^>]+)>/)?.[1] || config.email.from).trim()
-        : config.email.from.trim();
-
     for (const applicant of applicants) {
         try {
             let message = messageTemplate
@@ -604,10 +599,11 @@ export const batchEmailJambApplicants = async (ids, subject, messageTemplate) =>
                 .replace(/{jamb_season}/g, applicant.jambSeason?.name || 'the current')
                 .replace(/{screening_link}/g, screeningLink);
 
+            // Wrap personalized message inside the beautifully-styled university email container
             const htmlMessage = wrapEmailInUniversityTemplate(message, uniName, uniAcronym, uniLogo, uniAddress, uniPhone, uniEmail);
 
             await sendEmail({
-                from: `"${uniAcronym} Admissions" <${rawFromEmail}>`, // Clean RFC 5322 header
+                from: `${uniAcronym} Admissions <${config.email.from}>`,
                 to: applicant.email,
                 subject: subject,
                 text: message,
@@ -628,7 +624,7 @@ export const batchEmailJambApplicants = async (ids, subject, messageTemplate) =>
         };
     }
     if (errors.length > 0 && successfulEmails === 0) {
-       throw new AppError(`Failed to send all emails. Details: ${errors[0]?.error || 'Check SMTP credentials.'}`, 500);
+       throw new AppError('Failed to send all emails. Please check your SMTP credentials in the .env file.', 500);
     }
     
     return {

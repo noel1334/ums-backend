@@ -4,29 +4,33 @@ import nodemailer from 'nodemailer';
 import AppError from './AppError.js';
 import config from '../config/index.js';
 
-// Default to port 465 if not set
-const smtpPort = parseInt(config.email.port, 10) || 465;
-
-// Configured with connection pooling for stable batch email dispatches on cloud hosts
 const transporter = nodemailer.createTransport({
-    host: config.email.host || 'smtp.gmail.com',       
-    port: smtpPort,       
-    secure: smtpPort === 465, // True for port 465 (SSL)
-    pool: true,              // Reuses the TCP connection across batch items
-    maxConnections: 5,
-    maxMessages: 100,
+    host: config.email.host,       
+    port: config.email.port,       
+    secure: config.email.port == 465,
     auth: {
         user: config.email.user,   
         pass: config.email.pass,   
     },
-    connectionTimeout: 20000,
-    greetingTimeout: 20000,
-    socketTimeout: 20000
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000
 });
+
+export const verifyEmailConnection = async () => {
+    // try {
+    //     await transporter.verify();
+    //     return true;
+    // } catch (error) {
+    //     console.error("Email transporter verification failed:", error);
+    //     return false;
+    // }
+};
 
 export const sendEmail = async (options) => {
     const mailOptions = {
-        from: options.from || `"${config.email.from}" <${config.email.user}>`, 
+        // ALLOW DYNAMIC SENDER OVERRIDE:
+        from: options.from || `UniCT Hub Admissions <${config.email.from}>`, 
         to: options.to,
         subject: options.subject,
         html: options.html,
@@ -36,7 +40,7 @@ export const sendEmail = async (options) => {
     try {
         await transporter.sendMail(mailOptions);
     } catch (error) {
-        console.error(`Nodemailer error sending to ${options.to}:`, error.message);
-        throw new AppError(`Email delivery failed: ${error.message}`, 502);
+        console.error(`Nodemailer error sending to ${options.to}:`, error);
+        throw new AppError('The email server failed to send the email. Check credentials and connection.', 502);
     }
 };
