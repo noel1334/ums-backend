@@ -4,20 +4,24 @@ import nodemailer from 'nodemailer';
 import AppError from './AppError.js';
 import config from '../config/index.js';
 
-// Safely parse port as an integer
-const smtpPort = parseInt(config.email.port, 10) || 587;
+// Default to port 465 if not set
+const smtpPort = parseInt(config.email.port, 10) || 465;
 
+// Configured with connection pooling for stable batch email dispatches on cloud hosts
 const transporter = nodemailer.createTransport({
-    host: config.email.host,       
+    host: config.email.host || 'smtp.gmail.com',       
     port: smtpPort,       
-    secure: smtpPort === 465, // True for port 465, false for port 587
+    secure: smtpPort === 465, // True for port 465 (SSL)
+    pool: true,              // Reuses the TCP connection across batch items
+    maxConnections: 5,
+    maxMessages: 100,
     auth: {
         user: config.email.user,   
         pass: config.email.pass,   
     },
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 15000
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 20000
 });
 
 export const sendEmail = async (options) => {
