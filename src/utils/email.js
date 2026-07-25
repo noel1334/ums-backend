@@ -4,17 +4,20 @@ import nodemailer from 'nodemailer';
 import AppError from './AppError.js';
 import config from '../config/index.js';
 
+// Safely parse port as an integer
+const smtpPort = parseInt(config.email.port, 10) || 587;
+
 const transporter = nodemailer.createTransport({
     host: config.email.host,       
-    port: config.email.port,       
-    secure: config.email.port == 465,
+    port: smtpPort,       
+    secure: smtpPort === 465, // True for port 465, false for port 587
     auth: {
         user: config.email.user,   
         pass: config.email.pass,   
     },
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000
 });
 
 export const verifyEmailConnection = async () => {

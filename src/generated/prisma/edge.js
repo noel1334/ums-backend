@@ -1241,7 +1241,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "C:\\projects\\ums\\ums-backend\\src\\generated\\prisma",
+      "value": "C:\\Users\\USER\\OneDrive\\Desktop\\ums\\ums-backend\\src\\generated\\prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -1255,7 +1255,7 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "C:\\projects\\ums\\ums-backend\\prisma\\schema.prisma",
+    "sourceFilePath": "C:\\Users\\USER\\OneDrive\\Desktop\\ums\\ums-backend\\prisma\\schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
@@ -1269,7 +1269,6 @@ const config = {
     "db"
   ],
   "activeProvider": "postgresql",
-  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {
