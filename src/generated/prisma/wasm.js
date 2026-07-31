@@ -939,6 +939,15 @@ exports.Prisma.MedicalFitnessScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.RefreshTokenScalarFieldEnum = {
+  id: 'id',
+  token: 'token',
+  userId: 'userId',
+  userType: 'userType',
+  expiresAt: 'expiresAt',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -1256,7 +1265,8 @@ exports.Prisma.ModelName = {
   AdmissionLetterSection: 'AdmissionLetterSection',
   RegistrationControl: 'RegistrationControl',
   UniversitySetting: 'UniversitySetting',
-  MedicalFitness: 'MedicalFitness'
+  MedicalFitness: 'MedicalFitness',
+  RefreshToken: 'RefreshToken'
 };
 
 /**

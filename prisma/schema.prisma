@@ -1498,3 +1498,15 @@ model MedicalFitness {
 
   @@index([studentId])
 }
+// Add to prisma/schema.prisma
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @db.VarChar(500)
+  userId    Int
+  userType  String   @db.VarChar(50) // "admin", "student", "lecturer", "ictstaff", "applicant"
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, userType])
+}

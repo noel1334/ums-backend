@@ -1,3 +1,4 @@
+// src/services/auth.service.js
 
 import prisma from '../config/prisma.js';
 import { hashPassword, comparePassword } from '../utils/password.utils.js';
@@ -8,6 +9,7 @@ import { ExamStatus } from '../generated/prisma/index.js';
 import { getMyApplicationProfile } from './applicationProfile.service.js';
 import { toZonedTime } from 'date-fns-tz';
 import { sendEmail } from '../utils/email.js';
+import { generateAuthTokens } from './token.service.js'; 
 
 export const createInitialAdmin = async () => {
     try {
@@ -17,9 +19,9 @@ export const createInitialAdmin = async () => {
         }
         if (
             !config.admin ||
-            !config.admin.email || // Email must exist and be non-empty
-            !config.admin.password || // Password must exist and be non-empty
-            !config.admin.name // Name must exist and be non-empty (as per your current config loading)
+            !config.admin.email || 
+            !config.admin.password || 
+            !config.admin.name 
         ) {
             console.error('Initial admin configuration (ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_NAME) is missing or empty in .env file or config/index.js.');
             return;
@@ -36,13 +38,11 @@ export const createInitialAdmin = async () => {
                 email: config.admin.email,
                 password: hashedPassword,
                 name: config.admin.name,
-                // Fields with schema defaults or loaded from config with defaults:
-                role: config.admin.role, // From config, which has a default if .env is missing
-                isPermittedToAddAdmin: config.admin.isPermittedToAddAdmin, // From config, handles string 'true'
-                // Optional fields, will be null if not in config
+                role: config.admin.role, 
+                isPermittedToAddAdmin: config.admin.isPermittedToAddAdmin, 
                 phone: config.admin.phone || null,
                 location: config.admin.location || null,
-                profileImg: config.admin.profileImg || null, // Assuming you might add ADMIN_PROFILE_IMG
+                profileImg: config.admin.profileImg || null, 
             };
 
             await prisma.admin.create({
@@ -56,11 +56,10 @@ export const createInitialAdmin = async () => {
         if (error.code === 'P2002' && error.meta?.target?.includes('phone')) {
             console.error('Error creating initial admin: The phone number from ADMIN_PHONE is already in use.', error);
         } else {
-            console.error('Error creating/checking initial admin:', error.message, error.stack); // Log full stack for other errors
+            console.error('Error creating/checking initial admin:', error.message, error.stack); 
         }
     }
 };
-
 
 export const loginAdmin = async (email, password) => {
     try {
@@ -76,73 +75,68 @@ export const loginAdmin = async (email, password) => {
             throw new AppError('Invalid email or password.', 401);
         }
 
-        const token = jwt.sign(
-            { userId: admin.id, type: 'admin' }, // Payload
-            config.jwtSecret,
-            { expiresIn: '1d' } // Token expiration
-        );
+        // Generate Access and Refresh Token pair
+        const tokens = await generateAuthTokens(admin.id, 'admin');
 
-        // Exclude password from the returned admin object
         const { password: _, ...adminData } = admin;
-        return { token, admin: adminData };
         
+        // BACKWARD COMPATIBLE RETURN: Includes 'token' alias for existing frontends
+        return { 
+            token: tokens.accessToken, 
+            tokens, 
+            admin: adminData 
+        };
 
     } catch (error) {
-        // Re-throw AppError instances, otherwise wrap in a generic error
         if (error instanceof AppError) throw error;
         console.error("Error in loginAdmin service:", error);
         throw new AppError('Login failed due to an internal error.', 500);
     }
 };
 
-// Add loginStudent, loginLecturer services here if needed, following similar pattern
 export const loginStudent = async (identifier, password) => {
-try {
-if (!prisma) throw new AppError('Prisma client is not available.', 500);
-if (!identifier || !password) {
-throw new AppError('Identifier (RegNo/JambRegNo) and password are required.', 400);
-}
+    try {
+        if (!prisma) throw new AppError('Prisma client is not available.', 500);
+        if (!identifier || !password) {
+            throw new AppError('Identifier (RegNo/JambRegNo) and password are required.', 400);
+        }
 
-let student;
-    // Try finding by regNo first, then by jambRegNo
-    student = await prisma.student.findUnique({
-        where: { regNo: identifier },
-    });
-
-    if (!student && identifier) { // Assuming jambRegNo is a string and unique
+        let student;
         student = await prisma.student.findUnique({
-            where: { jambRegNo: identifier },
+            where: { regNo: identifier },
         });
+
+        if (!student && identifier) { 
+            student = await prisma.student.findUnique({
+                where: { jambRegNo: identifier },
+            });
+        }
+
+        if (!student || !student.isActive) {
+            throw new AppError('Invalid credentials or account inactive.', 401);
+        }
+
+        const isMatch = await comparePassword(password, student.password);
+        if (!isMatch) {
+            throw new AppError('Invalid credentials.', 401);
+        }
+
+        const tokens = await generateAuthTokens(student.id, 'student');
+
+        const { password: _, ...studentData } = student;
+        return { 
+            token: tokens.accessToken, 
+            tokens, 
+            student: studentData 
+        };
+
+    } catch (error) {
+        if (error instanceof AppError) throw error;
+        console.error("Error in loginStudent service:", error);
+        throw new AppError('Student login failed.', 500);
     }
-
-    if (!student || !student.isActive) {
-        throw new AppError('Invalid credentials or account inactive.', 401);
-    }
-
-    const isMatch = await comparePassword(password, student.password);
-    if (!isMatch) {
-        throw new AppError('Invalid credentials.', 401);
-    }
-
-    const payload = {
-        userId: student.id,
-        type: 'student',
-        // Add any other student-specific info needed in JWT, but keep it minimal
-    };
-
-    const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
-    const { password: _, ...studentData } = student;
-    return { token, student: studentData };
-
-} catch (error) {
-    if (error instanceof AppError) throw error;
-    console.error("Error in loginStudent service:", error);
-    throw new AppError('Student login failed.', 500);
-}
-
 };
 
-// --- Lecturer Login ---
 export const loginLecturer = async (identifier, password) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -151,16 +145,15 @@ export const loginLecturer = async (identifier, password) => {
         }
 
         let lecturer;
-        // Check if identifier looks like an email
         if (identifier.includes('@')) {
             lecturer = await prisma.lecturer.findUnique({
                 where: { email: identifier },
-                include: { department: true } // Include department for HOD context
+                include: { department: true } 
             });
         } else {
             lecturer = await prisma.lecturer.findUnique({
                 where: { staffId: identifier },
-                include: { department: true } // Include department for HOD context
+                include: { department: true } 
             });
         }
 
@@ -173,15 +166,14 @@ export const loginLecturer = async (identifier, password) => {
             throw new AppError('Invalid credentials.', 401);
         }
 
-        const payload = {
-            userId: lecturer.id,
-            type: 'lecturer', // Should be 'lecturer'
-            role: lecturer.role,
-        };
+        const tokens = await generateAuthTokens(lecturer.id, 'lecturer');
 
-        const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
         const { password: _, ...lecturerData } = lecturer;
-        return { token, lecturer: lecturerData };
+        return { 
+            token: tokens.accessToken, 
+            tokens, 
+            lecturer: lecturerData 
+        };
 
     } catch (error) {
         if (error instanceof AppError) throw error;
@@ -190,7 +182,6 @@ export const loginLecturer = async (identifier, password) => {
     }
 };
 
-// --- ICTStaff Login ---
 export const loginICTStaff = async (identifier, password) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -218,14 +209,14 @@ export const loginICTStaff = async (identifier, password) => {
             throw new AppError('Invalid credentials.', 401);
         }
 
-        const payload = {
-            userId: staff.id,
-            type: 'ictstaff',
-        };
+        const tokens = await generateAuthTokens(staff.id, 'ictstaff');
 
-        const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '1d' });
         const { password: _, ...staffData } = staff;
-        return { token, staff: staffData };
+        return { 
+            token: tokens.accessToken, 
+            tokens, 
+            staff: staffData 
+        };
 
     } catch (error) {
         if (error instanceof AppError) throw error;
@@ -235,9 +226,6 @@ export const loginICTStaff = async (identifier, password) => {
 };
 
 export const authenticateForExamSessionAccess = async (regNo, examSessionId, providedAccessPassword) => {
-    // ... (this function remains exactly as the one where password is on ExamSession,
-    //          and it returns an examAccessToken specific to that session and exam) ...
-    // ... (see previous correct version of this function)
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
         if (!regNo || !examSessionId || !providedAccessPassword) {
@@ -292,9 +280,6 @@ export const authenticateForExamSessionAccess = async (regNo, examSessionId, pro
     }
 };
 
-
-// --- NEW: Login to View Accessible Exams (using RegNo + a generic ExamSession.accessPassword) ---
-
 export const loginToViewAccessibleExams = async (regNo, providedAccessPassword) => {
     try {
         if (!prisma) throw new AppError('Prisma client unavailable', 500);
@@ -311,14 +296,9 @@ export const loginToViewAccessibleExams = async (regNo, providedAccessPassword) 
             throw new AppError('Invalid registration number or student account inactive.', 401);
         }
 
-        // --- 2. USE YOUR PROVEN TIMEZONE LOGIC ---
-        // I have set the timezone to 'Africa/Lagos' as in your example.
-        // This is the most crucial part of the fix.
         const timeZone = 'Africa/Lagos';
         const now = toZonedTime(new Date(), timeZone);
 
-        // This Prisma query will now work correctly because `now` accurately represents
-        // the current time in the target timezone for comparison.
         const assignedAndActiveSessions = await prisma.studentExamSessionAssignment.findMany({
             where: {
                 studentId: student.id,
@@ -382,10 +362,9 @@ export const loginToViewAccessibleExams = async (regNo, providedAccessPassword) 
             throw new AppError('Invalid access password or no exam sessions match this password for your current assignments.', 401);
         }
 
-       // Change the token payload to use `userId` and a standard `type`.
         const examViewerTokenPayload = {
-            userId: student.id,    // Use 'userId' instead of 'studentId'
-            type: 'student',       // Use the standard 'student' type
+            userId: student.id,    
+            type: 'student',       
         };
         const examViewerToken = jwt.sign(
             examViewerTokenPayload,
@@ -417,13 +396,11 @@ export const loginApplicantScreening = async (identifier, password) => {
         }
 
         let screeningAccount;
-        // Attempt to find by jambRegNo first
         screeningAccount = await prisma.onlineScreeningList.findUnique({
             where: { jambRegNo: trimmedIdentifier },
             select: { id: true, password: true, isActive: true, applicationProfile: { select: { id: true, jambRegNo: true } } }
         });
 
-        // If not found by jambRegNo, try by email
         if (!screeningAccount) {
             screeningAccount = await prisma.onlineScreeningList.findUnique({
                 where: { email: trimmedIdentifier },
@@ -453,16 +430,11 @@ export const loginApplicantScreening = async (identifier, password) => {
 
         const fullApplicationProfile = await getMyApplicationProfile(screeningAccount.applicationProfile.id);
 
-        const applicantTokenPayload = {
-            userId: fullApplicationProfile.id,
-            type: 'applicant',
-            jambRegNo: fullApplicationProfile.jambRegNo || null 
-        };
-
-        const token = jwt.sign(applicantTokenPayload, config.jwtSecret, { expiresIn: '8h' });
+        const tokens = await generateAuthTokens(fullApplicationProfile.id, 'applicant');
 
         return {
-            token,
+            token: tokens.accessToken,
+            tokens,
             applicantProfile: fullApplicationProfile
         };
     } catch (error) {
@@ -473,17 +445,11 @@ export const loginApplicantScreening = async (identifier, password) => {
 };
 
 export const logout = async (token) => {
-    // For stateless JWT auth, logout is typically handled client-side by deleting the token.
-    // If you need to invalidate tokens server-side, consider a token blacklist or similar mechanism.
     return { message: 'Logged out successfully.' };
 };
 
 // --- PASSWORD RESET SERVICE FUNCTIONS ---
 
-/**
- * Scan all models for a registered identifier, generate a secure token, and email a reset link.
- * Uses dynamic university configurations for branding and dynamic redirection.
- */
 export const requestPasswordReset = async (identifier) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);
@@ -495,7 +461,7 @@ export const requestPasswordReset = async (identifier) => {
         let userType = null;
         let emailAddress = null;
 
-        // 1. Scan Admin (by Email)
+        // 1. Scan Admin
         if (trimmed.includes('@')) {
             user = await prisma.admin.findUnique({ where: { email: trimmed } });
             if (user) {
@@ -504,7 +470,7 @@ export const requestPasswordReset = async (identifier) => {
             }
         }
 
-        // 2. Scan Student (by Email, RegNo, or JAMB RegNo)
+        // 2. Scan Student
         if (!user) {
             user = await prisma.student.findFirst({
                 where: {
@@ -521,7 +487,7 @@ export const requestPasswordReset = async (identifier) => {
             }
         }
 
-        // 3. Scan Lecturer (by Email or StaffID)
+        // 3. Scan Lecturer
         if (!user) {
             user = await prisma.lecturer.findFirst({
                 where: {
@@ -537,7 +503,7 @@ export const requestPasswordReset = async (identifier) => {
             }
         }
 
-        // 4. Scan ICTStaff (by Email or StaffID)
+        // 4. Scan ICTStaff
         if (!user) {
             user = await prisma.iCTStaff.findFirst({
                 where: {
@@ -553,7 +519,7 @@ export const requestPasswordReset = async (identifier) => {
             }
         }
 
-        // 5. Scan OnlineScreeningList - Applicants (by Email or JAMB RegNo)
+        // 5. Scan OnlineScreeningList
         if (!user) {
             user = await prisma.onlineScreeningList.findFirst({
                 where: {
@@ -576,7 +542,6 @@ export const requestPasswordReset = async (identifier) => {
             throw new AppError('This account does not have a registered email address. Please contact support.', 400);
         }
 
-        // --- FETCH DYNAMIC UNIVERSITY SETTINGS ---
         const uniSettings = await prisma.universitySetting.findFirst();
         const uniName = uniSettings?.name || 'Royalty College of Education, Health Sciences and Technology';
         const uniAcronym = uniSettings?.acronym || 'RCOEHST';
@@ -585,7 +550,6 @@ export const requestPasswordReset = async (identifier) => {
         const uniAddress = uniSettings?.address || '';
         const uniLogo = uniSettings?.logoUrl || '';
 
-        // Create a stateless reset token using the current password hash as part of the secret.
         const tokenSecret = config.jwtSecret + user.password;
         const payload = {
             userId: user.id,
@@ -595,28 +559,30 @@ export const requestPasswordReset = async (identifier) => {
 
         const token = jwt.sign(payload, tokenSecret, { expiresIn: '15m' });
 
-        // Build target portal redirect paths
+        const cleanPortalUrl = (baseUrl, defaultFallback) => {
+            const raw = baseUrl || defaultFallback;
+            return raw.replace(/\/student-login|\/screening-login|\/$/, '').replace(/\/$/, '');
+        };
+
         let portalUrl = '';
         if (userType === 'student') {
-            portalUrl = config.studentPortalUrl.replace('/student-login', '') + '/reset-password';
+            portalUrl = cleanPortalUrl(config.studentPortalUrl, 'http://localhost:8080') + '/reset-password';
         } else if (userType === 'applicant') {
-            portalUrl = config.screeningPortalUrl.replace('/screening-login', '') + '/reset-password';
+            portalUrl = cleanPortalUrl(config.screeningPortalUrl, 'http://localhost:8084') + '/reset-password';
         } else if (userType === 'lecturer') {
-            portalUrl = (process.env.LECTURER_URL || 'http://localhost:8081') + '/reset-password';
+            portalUrl = cleanPortalUrl(process.env.LECTURER_URL, 'http://localhost:8081') + '/reset-password';
         } else if (userType === 'ictstaff') {
-            portalUrl = (process.env.ICT_URL || 'http://localhost:8082') + '/reset-password';
+            portalUrl = cleanPortalUrl(process.env.ICT_URL, 'http://localhost:8082') + '/reset-password';
         } else {
-            portalUrl = (process.env.ADMIN_URL || 'http://localhost:8083') + '/reset-password';
+            portalUrl = cleanPortalUrl(process.env.ADMIN_URL, 'http://localhost:8083') + '/reset-password';
         }
 
         const resetLink = `${portalUrl}?token=${token}`;
 
-        // Build dynamic header logo if available
         const headerLogoHtml = uniLogo 
             ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${uniLogo}" alt="${uniAcronym}" style="max-height: 80px; object-fit: contain;" /></div>`
             : '';
 
-        // Construct HTML email notification
         const subject = `${uniAcronym} Portal - Password Reset Request`;
         const text = `Hello ${user.name || 'User'},\n\nYou requested to reset your password for your account at ${uniName}. Click the link below to set a new password:\n\n${resetLink}\n\nThis link is valid for 15 minutes. If you did not request this, please ignore this email.`;
         
@@ -639,8 +605,12 @@ export const requestPasswordReset = async (identifier) => {
             </div>
         `;
 
+        const rawFromEmail = config.email.from.includes('<')
+            ? (config.email.from.match(/<([^>]+)>/)?.[1] || config.email.from).trim()
+            : config.email.from.trim();
+
         await sendEmail({
-            from: `${uniAcronym} Support <${config.email.from}>`, // Custom dynamic sender display name
+            from: `"${uniAcronym} Support" <${rawFromEmail}>`, 
             to: emailAddress,
             subject,
             text,
@@ -656,9 +626,6 @@ export const requestPasswordReset = async (identifier) => {
     }
 };
 
-/**
- * Verify token authenticity, decode type, and securely hash/update the target password.
- */
 export const resetPassword = async (token, newPassword) => {
     try {
         if (!prisma) throw new AppError('Prisma client is not available.', 500);

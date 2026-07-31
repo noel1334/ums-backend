@@ -1,6 +1,7 @@
 import * as AuthService from '../services/auth.service.js';
+import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/AppError.js';
-
+import * as TokenService from '../services/token.service.js';
 export const adminLogin = async (req, res, next) => {
     try {
         const { email, password } = req.body;
@@ -110,72 +111,97 @@ export const resetPassword = async (req, res, next) => {
     }
 };
 
-export const logoutUser = async (req, res, next) => {
-    try {
-        res.clearCookie('jwt', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' });
-        res.status(200).json({
-            status: 'success',
-            message: 'You have been successfully logged out.',
-        });
-    } catch (error) {
-        console.error("Error during logout:", error);
-        next(new AppError('Logout failed unexpectedly.', 500));
-    }
-};
 
-export const authenticateForExamSessionAccess = async (req, res, next) => {
-    try {
-        const { regNo, examSessionId, accessPassword } = req.body;
-        if (!regNo || !examSessionId || !accessPassword) {
-            return next(new AppError('Registration number, Exam Session ID, and Access Password are required.', 400));
+
+export const loginToViewAccessibleExams = catchAsync(async (req, res, next) => {
+    const { regNo, accessPassword, providedAccessPassword, password } = req.body;
+    
+    // Gracefully resolve target access password regardless of key name used by frontend
+    const targetPassword = accessPassword || providedAccessPassword || password;
+
+    if (!regNo || !targetPassword) {
+        return next(new AppError('Registration number and Access Password are required.', 400));
+    }
+
+    const result = await AuthService.loginToViewAccessibleExams(regNo, targetPassword);
+    res.status(200).json({
+        status: 'success',
+        message: result.message,
+        data: {
+            examViewerToken: result.examViewerToken,
+            student: result.student,
+            accessibleExamSessions: result.accessibleExamSessions
         }
-        const result = await AuthService.authenticateForExamSessionAccess(regNo, examSessionId, accessPassword);
-        res.status(200).json({
-            status: 'success',
-            message: result.message,
-            data: {
-                examAccessToken: result.examAccessToken,
-                student: result.student,
-                exam: result.exam,
-                examSession: result.examSession
-            }
-        });
-    } catch (error) {
-        next(error);
-    }
-};
+    });
+});
 
-export const loginToViewAccessibleExams = async (req, res, next) => {
-    try {
-        const { regNo, accessPassword } = req.body;
-        if (!regNo || !accessPassword) {
-            return next(new AppError('Registration number and Access Password are required.', 400));
+export const authenticateForExamSessionAccess = catchAsync(async (req, res, next) => {
+    const { regNo, examSessionId, accessPassword, providedAccessPassword, password } = req.body;
+    
+    const targetPassword = accessPassword || providedAccessPassword || password;
+
+    if (!regNo || !examSessionId || !targetPassword) {
+        return next(new AppError('Registration number, Exam Session ID, and Access Password are required.', 400));
+    }
+
+    const result = await AuthService.authenticateForExamSessionAccess(regNo, examSessionId, targetPassword);
+    res.status(200).json({
+        status: 'success',
+        message: result.message,
+        data: {
+            examAccessToken: result.examAccessToken,
+            student: result.student,
+            exam: result.exam,
+            examSession: result.examSession
         }
-        const result = await AuthService.loginToViewAccessibleExams(regNo, accessPassword);
-        res.status(200).json({
-            status: 'success',
-            message: result.message,
-            data: {
-                examViewerToken: result.examViewerToken,
-                student: result.student,
-                accessibleExamSessions: result.accessibleExamSessions
-            }
-        });
-    } catch (error) {
-        next(error);
-    }
-};
+    });
+});
 
-export const loginApplicantScreening = async (req, res, next) => {
-    try {
-        const { jambRegNo, password } = req.body;
-        const result = await AuthService.loginApplicantScreening(jambRegNo, password);
-        res.status(200).json({
-            status: 'success',
-            message: 'Applicant logged into screening portal successfully.',
-            data: result
-        });
-    } catch (error) {
-        next(error);
+export const loginApplicantScreening = catchAsync(async (req, res, next) => {
+    const { jambRegNo, identifier, password } = req.body;
+    const targetIdentifier = jambRegNo || identifier;
+
+    if (!targetIdentifier || !password) {
+        return next(new AppError('Please provide your JAMB Reg No or email and password.', 400));
     }
-};
+
+    const result = await AuthService.loginApplicantScreening(targetIdentifier, password);
+    res.status(200).json({
+        status: 'success',
+        message: 'Applicant logged into screening portal successfully.',
+        data: result
+    });
+});
+
+
+/**
+ * Endpoint to issue a new Access Token using a valid Refresh Token
+ */
+export const refreshTokens = catchAsync(async (req, res, next) => {
+    const { refreshToken } = req.body;
+    
+    // Verifies refresh token, rotates DB record, and returns a new token pair
+    const tokens = await TokenService.refreshAuthTokens(refreshToken);
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Tokens refreshed successfully.',
+        data: { tokens }
+    });
+});
+
+/**
+ * Logout user and revoke their refresh token in the DB
+ */
+export const logoutUser = catchAsync(async (req, res, next) => {
+    const { refreshToken } = req.body;
+    
+    if (refreshToken) {
+        await TokenService.revokeRefreshToken(refreshToken);
+    }
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Logged out successfully.'
+    });
+});
