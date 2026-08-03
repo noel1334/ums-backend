@@ -444,8 +444,27 @@ export const loginApplicantScreening = async (identifier, password) => {
     }
 };
 
-export const logout = async (token) => {
-    return { message: 'Logged out successfully.' };
+
+/**
+ * Logout helper used by controllers/services.
+ * Accepts either:
+ *  - { refreshToken: '<token>' } to delete a single token, or
+ *  - { userId: '<id>' } to delete all tokens for that user (logout all sessions).
+ */
+export const logout = async ({ refreshToken, userId } = {}) => {
+    try {
+        if (refreshToken) {
+            // Revoke the exact refresh token provided
+            await TokenService.revokeRefreshToken(refreshToken);
+        } else if (userId) {
+            // Revoke all tokens for the user
+            await TokenService.revokeRefreshToken(null, { userId });
+        }
+        return { message: 'Logged out successfully.' };
+    } catch (error) {
+        console.error('[AUTH_LOGOUT_ERROR]', error);
+        throw new AppError('Could not logout at this time.', 500);
+    }
 };
 
 // --- PASSWORD RESET SERVICE FUNCTIONS ---
