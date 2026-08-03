@@ -8,7 +8,7 @@ import AppError from '../utils/AppError.js';
 /**
  * Helper to delete all expired refresh tokens from the database.
  */
-const cleanupExpiredTokens = async () => {
+export const cleanupExpiredTokens = async () => {
     try {
         await prisma.refreshToken.deleteMany({
             where: { expiresAt: { lt: new Date() } }
@@ -71,10 +71,14 @@ export const refreshAuthTokens = async (providedRefreshToken) => {
     try {
         decoded = jwt.verify(providedRefreshToken, refreshTokenSecret);
     } catch (error) {
-        // Automatically delete the expired token from DB if present
-        await prisma.refreshToken.deleteMany({
-            where: { token: providedRefreshToken }
-        });
+        // Automatically delete the expired or invalid token from DB if present
+        try {
+            await prisma.refreshToken.deleteMany({
+                where: { token: providedRefreshToken }
+            });
+        } catch (err) {
+            // ignore deletion errors
+        }
         throw new AppError('Invalid or expired refresh token. Please log in again.', 401);
     }
 
@@ -106,12 +110,31 @@ export const refreshAuthTokens = async (providedRefreshToken) => {
 
 /**
  * Revoke a refresh token on user logout.
+ * Accepts either a providedRefreshToken string (preferred) or an options object with userId to delete all tokens for a user.
  */
-export const revokeRefreshToken = async (providedRefreshToken) => {
-    if (!providedRefreshToken) return;
+export const revokeRefreshToken = async (providedRefreshToken, options = {}) => {
+    const { userId } = options;
+
+    if (!providedRefreshToken && !userId) return;
+
     try {
-        await prisma.refreshToken.delete({ where: { token: providedRefreshToken } });
+        if (providedRefreshToken) {
+            // Use deleteMany to be resilient even if `token` is not a unique field in the schema
+            await prisma.refreshToken.deleteMany({ where: { token: providedRefreshToken } });
+        } else if (userId) {
+            // Delete all refresh tokens for the user (useful for admin revocation / logout-all-sessions)
+            await prisma.refreshToken.deleteMany({ where: { userId } });
+        }
     } catch (error) {
-        // Token might already be deleted or expired
+        console.error('[REVOKE_TOKEN_ERROR] Failed to revoke refresh token:', error.message);
     }
 };
+
+// Periodic cleanup: ensure expired tokens are removed automatically.
+// Runs once every 24 hours. This runs on module import; feel free to adjust schedule or replace with a cron job.
+if (process.env.NODE_ENV !== 'test') {
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+    setInterval(() => {
+        cleanupExpiredTokens().catch(err => console.error('[TOKEN_CLEANUP_ERROR] scheduled run failed:', err.message));
+    }, ONE_DAY);
+}
