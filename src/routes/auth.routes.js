@@ -33,7 +33,15 @@ router.post('/exam-session/access', validate(examSessionAccessSchema), AuthContr
 router.post('/forgot-password', validate(forgotPasswordSchema), AuthController.forgotPassword);
 router.post('/reset-password', validate(resetPasswordSchema), AuthController.resetPassword);
 
+// --- TOKEN REFRESH ---
+/**
+ * Public endpoint to rotate refresh token / obtain a new access token.
+ * Body: { refreshToken: '<refresh-token>' }
+ */
+router.post('/refresh', AuthController.refreshTokens);
+
 // --- LOGOUT ---
+// Requires authentication so we can optionally revoke all tokens for the authenticated user
 router.post('/logout', authenticateToken, AuthController.logoutUser);
 
 export default router;
