@@ -2,6 +2,7 @@ import * as AuthService from '../services/auth.service.js';
 import catchAsync from '../utils/catchAsync.js';
 import AppError from '../utils/AppError.js';
 import * as TokenService from '../services/token.service.js';
+
 export const adminLogin = async (req, res, next) => {
     try {
         const { email, password } = req.body;
@@ -194,10 +195,21 @@ export const refreshTokens = catchAsync(async (req, res, next) => {
  * Logout user and revoke their refresh token in the DB
  */
 export const logoutUser = catchAsync(async (req, res, next) => {
-    const { refreshToken } = req.body;
-    
+    // Support refresh token in body or cookie
+    const refreshToken = req.body?.refreshToken || req.cookies?.refreshToken;
+
     if (refreshToken) {
         await TokenService.revokeRefreshToken(refreshToken);
+    } else if (req.user && req.user.userId) {
+        // No refresh token provided but user is authenticated: revoke all tokens for the user
+        await TokenService.revokeRefreshToken(null, { userId: req.user.userId });
+    }
+
+    // Clear cookie if present
+    try {
+        res.clearCookie('refreshToken');
+    } catch (err) {
+        // ignore
     }
 
     res.status(200).json({
