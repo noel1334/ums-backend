@@ -17,7 +17,7 @@ const transporter = nodemailer.createTransport({
     socketTimeout: 10000
 });
 
-export const verifyEmailConnection = async () => {
+//export const verifyEmailConnection = async () => {
     // try {
     //     await transporter.verify();
     //     return true;
@@ -25,6 +25,16 @@ export const verifyEmailConnection = async () => {
     //     console.error("Email transporter verification failed:", error);
     //     return false;
     // }
+//};
+export const verifyEmailConnection = async () => {
+    try {
+        await transporter.verify();
+        console.log("✅ Email connection verified");
+        return true;
+    } catch (error) {
+        console.error("❌ Email transporter verification failed:", error);
+        return false;
+    }
 };
 
 export const sendEmail = async (options) => {
